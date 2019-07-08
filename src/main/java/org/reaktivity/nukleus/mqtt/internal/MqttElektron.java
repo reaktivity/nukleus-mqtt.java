@@ -16,8 +16,8 @@
 
 package org.reaktivity.nukleus.mqtt.internal;
 
-import static org.reaktivity.nukleus.route.RouteKind.CLIENT;
-import static org.reaktivity.nukleus.route.RouteKind.SERVER;
+//import static org.reaktivity.nukleus.route.RouteKind.CLIENT;
+//import static org.reaktivity.nukleus.route.RouteKind.SERVER;
 
 import java.util.EnumMap;
 import java.util.Map;

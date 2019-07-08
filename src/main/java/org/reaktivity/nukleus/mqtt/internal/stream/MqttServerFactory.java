@@ -16,5 +16,6 @@
 
 package org.reaktivity.nukleus.mqtt.internal.stream;
 
-public class MqttServerFactory {
+public class MqttServerFactory
+{
 }
