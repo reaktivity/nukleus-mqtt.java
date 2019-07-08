@@ -16,6 +16,54 @@
 
 package org.reaktivity.nukleus.mqtt.internal.streams.control;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.rules.RuleChain.outerRule;
+import static org.reaktivity.nukleus.route.RouteKind.SERVER;
+
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.DisableOnDebug;
+import org.junit.rules.TestRule;
+import org.junit.rules.Timeout;
+import org.kaazing.k3po.junit.annotation.Specification;
+import org.kaazing.k3po.junit.rules.K3poRule;
+import org.reaktivity.nukleus.mqtt.internal.MqttController;
+import org.reaktivity.reaktor.test.ReaktorRule;
+
+import com.google.gson.Gson;
+
 public class ControllerIT
 {
+    private final K3poRule k3po = new K3poRule()
+            .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
+            .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/mqtt/control/unroute");
+
+    private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
+
+    private final ReaktorRule reaktor = new ReaktorRule()
+            .directory("target/nukleus-itests")
+            .commandBufferCapacity(1024)
+            .responseBufferCapacity(1024)
+            .counterValuesBufferCapacity(4096)
+            .controller("mqtt"::equals);
+
+    @Rule
+    public final TestRule chain = outerRule(k3po).around(timeout).around(reaktor);
+
+    private final Gson gson = new Gson();
+
+    @Test
+    @Specification({
+            "${route}/server/nukleus"
+    })
+    public void shouldRouteServer() throws Exception
+    {
+        k3po.start();
+
+        reaktor.controller(MqttController.class)
+                .route(SERVER, "mqtt#0", "target#0")
+                .get();
+
+        k3po.finish();
+    }
 }
