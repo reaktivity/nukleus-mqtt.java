@@ -111,7 +111,7 @@ public final class MqttController implements Controller
             if (element.isJsonObject())
             {
                 final JsonObject object = (JsonObject) element;
-                final String topic = gson.fromJson(object.get("sensor/one"), String.class);
+                final String topic = gson.fromJson(object.get("topic"), String.class);
 
                 routeEx = routeExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
                         .topic(topic)

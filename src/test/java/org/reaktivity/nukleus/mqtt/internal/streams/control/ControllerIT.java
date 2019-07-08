@@ -19,6 +19,7 @@ package org.reaktivity.nukleus.mqtt.internal.streams.control;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
 import static org.reaktivity.nukleus.route.RouteKind.SERVER;
+import static org.reaktivity.nukleus.route.RouteKind.CLIENT;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -31,11 +32,13 @@ import org.reaktivity.nukleus.mqtt.internal.MqttController;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 public class ControllerIT
 {
     private final K3poRule k3po = new K3poRule()
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
+            .addScriptRoot("routeExt", "org/reaktivity/specification/nukleus/mqtt/control/route.ext")
             .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/mqtt/control/unroute");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
@@ -62,6 +65,151 @@ public class ControllerIT
 
         reaktor.controller(MqttController.class)
                 .route(SERVER, "mqtt#0", "target#0")
+                .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${routeExt}/server/nukleus"
+    })
+    public void shouldRouteServerWithExt() throws Exception
+    {
+        k3po.start();
+
+        final JsonObject extension = new JsonObject();
+        extension.addProperty("topic", "sensor/one");
+
+        reaktor.controller(MqttController.class)
+                .route(SERVER, "mqtt#0", "target#0", gson.toJson(extension))
+                .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${route}/server/nukleus",
+            "${unroute}/server/nukleus"
+    })
+    public void shouldUnrouteServer() throws Exception
+    {
+        k3po.start();
+
+        long routeId = reaktor.controller(MqttController.class)
+                .route(SERVER, "mqtt#0", "target#0")
+                .get();
+
+        k3po.notifyBarrier("ROUTED_SERVER");
+
+        reaktor.controller(MqttController.class)
+                .unroute(routeId)
+                .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${routeExt}/server/nukleus",
+            "${unroute}/server/nukleus"
+    })
+    public void shouldUnrouteServerWithExt() throws Exception
+    {
+        k3po.start();
+
+        final JsonObject extension = new JsonObject();
+        extension.addProperty("topic", "sensor/one");
+
+        long routeId = reaktor.controller(MqttController.class)
+                .route(SERVER, "mqtt#0", "target#0", gson.toJson(extension))
+                .get();
+
+        k3po.notifyBarrier("ROUTED_SERVER");
+
+        reaktor.controller(MqttController.class)
+                .unroute(routeId)
+                .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${route}/client/nukleus"
+    })
+    public void shouldRouteClient() throws Exception
+    {
+        k3po.start();
+
+        reaktor.controller(MqttController.class)
+                .route(CLIENT, "mqtt#0", "target#0")
+                .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${routeExt}/client/nukleus"
+    })
+    public void shouldRouteClientExt() throws Exception
+    {
+        k3po.start();
+
+        final JsonObject extension = new JsonObject();
+        extension.addProperty("topic", "sensor/one");
+
+        reaktor.controller(MqttController.class)
+                .route(CLIENT, "mqtt#0", "target#0", gson.toJson(extension))
+                .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${route}/client/nukleus",
+            "${unroute}/client/nukleus"
+    })
+    public void shouldUnrouteClient() throws Exception
+    {
+        k3po.start();
+
+        long routeId = reaktor.controller(MqttController.class)
+                .route(CLIENT, "mqtt#0", "target#0")
+                .get();
+
+        k3po.notifyBarrier("ROUTED_CLIENT");
+
+        reaktor.controller(MqttController.class)
+                .unroute(routeId)
+                .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${routeExt}/client/nukleus",
+            "${unroute}/client/nukleus"
+    })
+    public void shouldUnrouteClientWithExt() throws Exception
+    {
+        k3po.start();
+
+        final JsonObject extension = new JsonObject();
+        extension.addProperty("topic", "sensor/one");
+
+        long routeId = reaktor.controller(MqttController.class)
+                .route(CLIENT, "mqtt#0", "target#0", gson.toJson(extension))
+                .get();
+
+        k3po.notifyBarrier("ROUTED_CLIENT");
+
+        reaktor.controller(MqttController.class)
+                .unroute(routeId)
                 .get();
 
         k3po.finish();

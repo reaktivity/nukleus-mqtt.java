@@ -32,6 +32,7 @@ public class ControlIT
 {
     private final K3poRule k3po = new K3poRule()
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
+            .addScriptRoot("routeExt", "org/reaktivity/specification/nukleus/mqtt/control/route.ext")
             .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/mqtt/control/unroute");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
@@ -51,6 +52,53 @@ public class ControlIT
             "${route}/server/controller"
     })
     public void shouldRouteServer() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${routeExt}/server/controller"
+    })
+    public void shouldRouteServerWithExt() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${route}/server/controller",
+            "${unroute}/server/controller"
+    })
+    public void shouldUnrouteServer() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${route}/client/controller"
+    })
+    public void shouldRouteClient() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${routeExt}/client/controller"
+    })
+    public void shouldRouteClientWithExt() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${route}/client/controller",
+            "${unroute}/client/controller"
+    })
+    public void shouldUnrouteClient() throws Exception
     {
         k3po.finish();
     }
