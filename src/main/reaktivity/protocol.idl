@@ -18,6 +18,27 @@
  {
     scope codec
     {
+        struct FixedHeader
+        {
+            int8 packetType;
+            int8 remainingLength;
+        }
 
+        struct ConnectPacket
+        {
+            protocol::codec::FixedHeader fixedHeader;
+            string protocolName;
+            int8 protocolVersion;
+            int8 flags;
+            int16 keepAlive;
+            int8 propertyLength;
+        }
+
+        struct ConnackPacket
+        {
+            protocol::codec::FixedHeader fixedHeader;
+            int16 variableHeader;
+            int8 propertyLength;
+        }
     }
  }
