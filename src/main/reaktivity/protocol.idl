@@ -18,20 +18,50 @@
  {
     scope codec
     {
+        struct Binary
+        {
+            uint16 length;
+            octets[length] bytes;
+        }
+
         struct FixedHeader
         {
             int8 packetType;
             int8 remainingLength;
         }
 
+        struct ProtocolName
+        {
+            int16 length;
+            string name;
+        }
+
         struct ConnectPacket
         {
             protocol::codec::FixedHeader fixedHeader;
-            string protocolName;
-            int8 protocolVersion;
-            int8 flags;
-            int16 keepAlive;
-            int8 propertyLength;
+            protocol::codec::ProtocolName protocolName;
+            uint8 protocolVersion;
+            uint8 flags;
+            uint16 keepAlive;
+            uint16 propertyLength;
+            octet[propertyLength] properties = null;
+            uint16 clientIdLength;
+            string clientId;
+            uint16 willPropertiesLength;
+            uint32 willDelayInterval;
+            uint8 willPayloadFormatIndicator;
+            uint32 willMessageExpiryInterval;
+            string willContentType;
+            string willResponseTopic;
+            protocol::codec::Binary correlationInfo;
+            /* TODO: user property utf-8 string pair */
+            string willTopic = null;
+            uint16 willPayloadLength;
+            protocol::codec::Binary willPayload;
+            unit16 usernameLength;
+            string username;
+            uint16 passwordLength;
+            protocol::codec::Binary password;
         }
 
         struct ConnackPacket
