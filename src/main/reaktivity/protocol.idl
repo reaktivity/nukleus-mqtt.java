@@ -43,24 +43,26 @@
             uint8 protocolVersion;
             uint8 flags;
             uint16 keepAlive;
-            uint16 propertyLength;
-            octet[propertyLength] properties = null;
+            uint16 propertiesLength;
+            octets[propertiesLength] properties;
             uint16 clientIdLength;
             string clientId;
-            uint16 willPropertiesLength;
+            int16 willPropertiesLength;
             uint32 willDelayInterval;
             uint8 willPayloadFormatIndicator;
             uint32 willMessageExpiryInterval;
             string willContentType;
             string willResponseTopic;
             protocol::codec::Binary correlationInfo;
-            /* TODO: user property utf-8 string pair */
-            string willTopic = null;
-            uint16 willPayloadLength;
+            /*
+                TODO user property utf-8 string pair
+            */
+            string willTopic;
+            int16 willPayloadLength;
             protocol::codec::Binary willPayload;
-            unit16 usernameLength;
+            int16 usernameLength;
             string username;
-            uint16 passwordLength;
+            int16 passwordLength;
             protocol::codec::Binary password;
         }
 
@@ -68,7 +70,7 @@
         {
             protocol::codec::FixedHeader fixedHeader;
             int16 variableHeader;
-            int8 propertyLength;
+            int16 propertyLength;
         }
     }
  }
