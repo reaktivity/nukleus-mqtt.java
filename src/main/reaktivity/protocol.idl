@@ -73,7 +73,7 @@
             uint8 packetType;
             uint8 remainingLength;
             uint8 flags;
-            uint16 reasonCode;
+            uint8 reasonCode;
         }
     }
  }
