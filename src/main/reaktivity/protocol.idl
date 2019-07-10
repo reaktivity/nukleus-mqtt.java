@@ -54,7 +54,7 @@
             uint8 protocolVersion;
             uint8 flags;
             uint16 keepAlive;
-            uint16 propertiesLength;
+            uint8 propertiesLength;
             uint16 clientIdLength;
             string clientId;
             /*
