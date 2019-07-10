@@ -633,19 +633,11 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttConnect(
                 MqttConnectFW packet)
         {
-            if (packet != null && isValidProtocolVersion(packet))
+            if (packet != null)
             {
                 doMqttConnack(packet.buffer(), packet.offset(), packet.limit());
                 decodeState = this::decodePacketType;
             }
-        }
-
-        private boolean isValidProtocolVersion(
-                MqttConnectFW packet
-        )
-        {
-           return packet.packetType() == 0x10
-                   && packet.protocolName().asString().equals("MQTT");
         }
 
         private int decodeConnectPacket(

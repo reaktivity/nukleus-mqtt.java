@@ -52,7 +52,7 @@ public class ConnectExchangeIT
     @Test
     @Specification({
             "${route}/server/controller",
-            "${client}/connection/client" })
+            "${client}/connection/client"})
     public void shouldExchangeConnectAndConnackPackets() throws Exception
     {
         k3po.finish();

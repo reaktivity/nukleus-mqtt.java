@@ -45,35 +45,27 @@
             octets[remainingLength] packet;
         }
 
+        /*union MqttProperty switch (uint8)
+        {
+            case 0x11: uint32 sessionExpiry;
+            case 0x21: uint16 receiveMaximum;
+            case 0x27: uint32 maximumPacketSize;
+            case 0x22: uint16 topicAliasMaximum;
+            case 0x19: uint8 requestResponseInformation;
+            case 0x17: uint8 requestProblemInformation;
+        }*/
+
         struct MqttConnect
         {
             uint8 packetType;
             uint8 remainingLength;
-            uint16 protocolNameLength;
-            string protocolName;
+            string16 protocolName;
             uint8 protocolVersion;
             uint8 flags;
             uint16 keepAlive;
-            uint8 propertiesLength;
-            uint16 clientIdLength;
-            string clientId;
-            /*
-            int16 willPropertiesLength;
-            uint32 willDelayInterval;
-            uint8 willPayloadFormatIndicator;
-            uint32 willMessageExpiryInterval;
-            string willContentType;
-            string willResponseTopic;
-            protocol::codec::Binary correlationInfo;
-            TODO user property utf-8 string pair
-            string willTopic;
-            int16 willPayloadLength;
-            protocol::codec::Binary willPayload;
-            int16 usernameLength;
-            string username;
-            int16 passwordLength;
-            protocol::codec::Binary password;
-            */
+            varint64 propertiesLength;
+            string16 clientId;
+            /*protocol::codec::MqttProperty[propertiesLength] properties;*/
         }
 
         struct MqttConnack
