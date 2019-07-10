@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package org.reaktivity.nukleus.mqtt.internal.streams.control;
+package org.reaktivity.nukleus.mqtt.internal.control;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;

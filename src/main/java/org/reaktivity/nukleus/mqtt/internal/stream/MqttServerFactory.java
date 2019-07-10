@@ -16,6 +16,597 @@
 
 package org.reaktivity.nukleus.mqtt.internal.stream;
 
-public class MqttServerFactory
+import static java.util.Objects.requireNonNull;
+
+import org.reaktivity.nukleus.mqtt.internal.types.stream.*;
+import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
+
+import java.util.function.LongSupplier;
+import java.util.function.LongUnaryOperator;
+import java.util.function.ToIntFunction;
+
+import org.agrona.DirectBuffer;
+import org.agrona.MutableDirectBuffer;
+import org.agrona.collections.Long2ObjectHashMap;
+import org.agrona.concurrent.UnsafeBuffer;
+import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.function.MessageConsumer;
+import org.reaktivity.nukleus.function.MessageFunction;
+import org.reaktivity.nukleus.function.MessagePredicate;
+import org.reaktivity.nukleus.route.RouteManager;
+import org.reaktivity.nukleus.stream.StreamFactory;
+import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
+import org.reaktivity.nukleus.mqtt.internal.MqttNukleus;
+import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
+import org.reaktivity.nukleus.mqtt.internal.types.stream.AbortFW;
+import org.reaktivity.nukleus.mqtt.internal.types.stream.BeginFW;
+import org.reaktivity.nukleus.mqtt.internal.types.stream.DataFW;
+import org.reaktivity.nukleus.mqtt.internal.types.stream.EndFW;
+import org.reaktivity.nukleus.mqtt.internal.types.stream.ResetFW;
+import org.reaktivity.nukleus.mqtt.internal.types.stream.WindowFW;
+
+import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttBeginExFW;
+import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttDataExFW;
+import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttEndExFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPacketFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
+
+public final class MqttServerFactory implements StreamFactory
 {
+    private static final int MAXIMUM_HEADER_SIZE = 16;
+
+    private final RouteFW routeRO = new RouteFW();
+
+    private final BeginFW beginRO = new BeginFW();
+    private final DataFW dataRO = new DataFW();
+    private final EndFW endRO = new EndFW();
+    private final AbortFW abortRO = new AbortFW();
+
+    private final BeginFW.Builder beginRW = new BeginFW.Builder();
+    private final DataFW.Builder dataRW = new DataFW.Builder();
+    private final EndFW.Builder endRW = new EndFW.Builder();
+    private final AbortFW.Builder abortRW = new AbortFW.Builder();
+
+    private final WindowFW windowRO = new WindowFW();
+    private final ResetFW resetRO = new ResetFW();
+    private final SignalFW signalRO = new SignalFW();
+
+    private final MqttBeginExFW.Builder mqttBeginExRW = new MqttBeginExFW.Builder();
+    private final MqttDataExFW.Builder mqttDataExRW = new MqttDataExFW.Builder();
+    private final MqttEndExFW.Builder mqttEndExRW = new MqttEndExFW.Builder();
+
+    private final WindowFW.Builder windowRW = new WindowFW.Builder();
+    private final ResetFW.Builder resetRW = new ResetFW.Builder();
+
+    private final OctetsFW payloadRO = new OctetsFW();
+
+    private final MqttDataExFW mqttDataExRO = new MqttDataExFW();
+
+    private final MqttPacketFW mqttPacketRO = new MqttPacketFW();
+    private final MqttPacketFW.Builder mqttPacketRW = new MqttPacketFW.Builder();
+    private final MqttConnectFW mqttConnectRO = new MqttConnectFW();
+    private final MqttConnectFW.Builder mqttConnectRW = new MqttConnectFW.Builder();
+    private final MqttConnackFW mqttConnackRO = new MqttConnackFW();
+    private final MqttConnackFW.Builder mqttConnackRW = new MqttConnackFW.Builder();
+
+    private final RouteManager router;
+    private final MutableDirectBuffer writeBuffer;
+    private final LongUnaryOperator supplyInitialId;
+    private final LongUnaryOperator supplyReplyId;
+    private final LongSupplier supplyTraceId;
+
+    private final Long2ObjectHashMap<MqttServerConnect> correlations;
+    private final MessageFunction<RouteFW> wrapRoute;
+    private final int mqttTypeId;
+
+    private final BufferPool bufferPool;
+
+    public MqttServerFactory(
+            MqttConfiguration config,
+            RouteManager router,
+            MutableDirectBuffer writeBuffer,
+            BufferPool bufferPool,
+            LongUnaryOperator supplyInitialId,
+            LongUnaryOperator supplyReplyId,
+            LongSupplier supplyTraceId,
+            ToIntFunction<String> supplyTypeId)
+    {
+        this.router = requireNonNull(router);
+        this.writeBuffer = requireNonNull(writeBuffer);
+        this.bufferPool = bufferPool;
+        this.supplyInitialId = requireNonNull(supplyInitialId);
+        this.supplyReplyId = requireNonNull(supplyReplyId);
+        this.supplyTraceId = requireNonNull(supplyTraceId);
+        this.correlations = new Long2ObjectHashMap<>();
+        this.wrapRoute = this::wrapRoute;
+        this.mqttTypeId = supplyTypeId.applyAsInt(MqttNukleus.NAME);
+    }
+
+    @Override
+    public MessageConsumer newStream(
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length,
+            MessageConsumer throttle)
+    {
+        final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+        final long streamId = begin.streamId();
+
+        MessageConsumer newStream = null;
+
+        if ((streamId & 0x0000_0000_0000_0001L) != 0L)
+        {
+            newStream = newInitialStream(begin, throttle);
+        }
+        else
+        {
+            newStream = newReplyStream(begin, throttle);
+        }
+        return newStream;
+    }
+
+    private MessageConsumer newInitialStream(
+            final BeginFW begin,
+            final MessageConsumer sender)
+    {
+        final long routeId = begin.routeId();
+        final long initialId = begin.streamId();
+        final long replyId = supplyReplyId.applyAsLong(initialId);
+
+        final MessagePredicate filter = (t, b, o, l) -> true;
+        final RouteFW route = router.resolve(routeId, begin.authorization(), filter, this::wrapRoute);
+        MessageConsumer newStream = null;
+
+        if (route != null)
+        {
+            final MqttServerConnect connection = new MqttServerConnect(sender, routeId, initialId, replyId);
+            correlations.put(replyId, connection);
+            newStream = connection::onNetwork;
+        }
+        return newStream;
+    }
+
+    private MessageConsumer newReplyStream(
+            final BeginFW begin,
+            final MessageConsumer sender)
+    {
+        final long replyId = begin.streamId();
+        final MqttServerConnect connect = correlations.remove(replyId);
+
+        MessageConsumer newStream = null;
+        if (connect != null)
+        {
+            newStream = connect::onNetwork;
+        }
+        return newStream;
+    }
+
+    private RouteFW wrapRoute(
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length)
+    {
+        return routeRO.wrap(buffer, index, index + length);
+    }
+
+    private final class MqttServerAccept
+    {
+        private final MessageConsumer receiver;
+        private final long routeId;
+        private final long initialId;
+        private final long replyId;
+        private final String key;
+        private final String protocol;
+        private final String scheme;
+        private final String authority;
+        private final String path;
+
+        private MqttServerConnect connect;
+
+        private long decodeTraceId;
+
+        private MutableDirectBuffer header;
+        private int headerLength;
+
+        private MutableDirectBuffer status;
+        private int statusLength;
+
+        private int payloadProgress;
+        private int payloadLength;
+        private int maskingKey;
+
+        private int initialBudget;
+        private int initialPadding;
+        private int replyBudget;
+        private int replyPadding;
+
+        private DecoderState decodeState;
+
+        private MqttServerAccept(
+                MessageConsumer receiver,
+                long routeId,
+                long initialId,
+                String key,
+                String protocol,
+                String scheme,
+                String authority,
+                String path)
+        {
+            this.receiver = receiver;
+            this.routeId = routeId;
+            this.initialId = initialId;
+            this.replyId = supplyReplyId.applyAsLong(initialId);
+            this.key = key;
+            this.protocol = protocol;
+            this.scheme = scheme;
+            this.authority = authority;
+            this.path = path;
+
+            this.header = new UnsafeBuffer(new byte[MAXIMUM_HEADER_SIZE]);
+            this.status = new UnsafeBuffer(new byte[2]);
+        }
+
+        private void doBegin(
+                long traceId)
+        {
+
+        }
+
+        private void doData(
+                long traceId,
+                OctetsFW payload,
+                int flags)
+        {
+
+        }
+
+        private void doEnd(
+                long traceId)
+        {
+            final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(replyId)
+                    .trace(traceId)
+                    .build();
+
+            receiver.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
+        }
+
+        private void doAbort(
+                long traceId)
+        {
+            final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(replyId)
+                    .trace(traceId)
+                    .build();
+
+            receiver.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
+        }
+
+        private void doReset(
+                long traceId)
+        {
+
+        }
+
+        private void doWindow(
+                long traceId,
+                int maxBudget,
+                int minPadding)
+        {
+
+        }
+
+        private void onNetwork(
+                int msgTypeId,
+                DirectBuffer buffer,
+                int index,
+                int length)
+        {
+            switch (msgTypeId)
+            {
+                case BeginFW.TYPE_ID:
+                    final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+                    onBegin(begin);
+                    break;
+                case DataFW.TYPE_ID:
+                    final DataFW data = dataRO.wrap(buffer, index, index + length);
+                    onData(data);
+                    break;
+                case EndFW.TYPE_ID:
+                    final EndFW end = endRO.wrap(buffer, index, index + length);
+                    onEnd(end);
+                    break;
+                case AbortFW.TYPE_ID:
+                    final AbortFW abort = abortRO.wrap(buffer, index, index + length);
+                    onAbort(abort);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private void onBegin(
+                BeginFW begin)
+        {
+            final long traceId = begin.trace();
+            connect.doBegin(traceId);
+        }
+
+        private void onData(
+                DataFW data)
+        {
+            initialBudget -= data.length() + data.padding();
+
+            if (initialBudget < 0)
+            {
+                doReset(supplyTraceId.getAsLong());
+            }
+            else
+            {
+                decodeTraceId = data.trace();
+
+                final OctetsFW payload = data.payload();
+                final DirectBuffer buffer = payload.buffer();
+
+                int offset = payload.offset();
+                int length = payload.sizeof();
+                while (length > 0)
+                {
+                    int consumed = decodeState.decode(buffer, offset, length);
+                    offset += consumed;
+                    length -= consumed;
+                }
+
+                if (payloadLength == 0)
+                {
+                    decodeState.decode(buffer, 0, 0);
+                }
+            }
+        }
+
+        private void onEnd(
+                EndFW end)
+        {
+            final long traceId = end.trace();
+        }
+
+        private void onAbort(
+                AbortFW abort)
+        {
+            final long traceId = abort.trace();
+        }
+
+        private void onWindow(
+                WindowFW window)
+        {
+            replyBudget += window.credit();
+            replyPadding = window.padding();
+
+            final long traceId = window.trace();
+            connect.doWindow(traceId, replyBudget);
+        }
+
+        private void onReset(
+                ResetFW reset)
+        {
+            final long traceId = reset.trace();
+        }
+    }
+
+    private final class MqttServerConnect
+    {
+        private final MessageConsumer receiver;
+        private final long routeId;
+        private final long initialId;
+        private final long replyId;
+
+        private int initialBudget;
+        private int initialPadding;
+        private int replyBudget;
+        private int replyPadding;
+
+        private long decodeTraceId;
+        private DecoderState decodeState;
+        private int bufferSlot = BufferPool.NO_SLOT;
+        private int bufferSlotOffset;
+
+        private MqttServerConnect(
+                MessageConsumer receiver,
+                long routeId,
+                long initialId,
+                long replyId)
+        {
+            this.receiver = receiver;
+            this.routeId = routeId;
+            this.initialId = initialId;
+            this.replyId = replyId;
+            this.decodeState = this::decodePacketType;
+        }
+
+        private void doBegin(
+                long traceId)
+        {
+            final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(replyId)
+                    .trace(traceId)
+                    .build();
+            receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+            router.setThrottle(replyId, this::onNetwork);
+        }
+
+        private void doWindow(
+                long traceId,
+                int initialCredit)
+        {
+            if (initialCredit > 0)
+            {
+                initialBudget += initialCredit;
+
+                final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                        .routeId(routeId)
+                        .streamId(initialId)
+                        .trace(traceId)
+                        .credit(initialCredit)
+                        .padding(initialPadding)
+                        .groupId(0)
+                        .build();
+
+                receiver.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+            }
+        }
+
+        private void doMqttConnack(
+                DirectBuffer packet,
+                int offset,
+                int length)
+        {
+            decodeState.decode(packet, offset, length);
+
+            final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(replyId)
+                    .trace(supplyTraceId.getAsLong())
+                    .groupId(0)
+                    .padding(replyPadding)
+                    .payload(packet, offset, length)
+                    .build();
+
+            receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+        }
+
+        private void onNetwork(
+                int msgTypeId,
+                DirectBuffer buffer,
+                int index,
+                int length)
+        {
+            switch (msgTypeId)
+            {
+                case BeginFW.TYPE_ID:
+                    final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+                    onBegin(begin);
+                    break;
+                case DataFW.TYPE_ID:
+                    final DataFW data = dataRO.wrap(buffer, index, index + length);
+                    onData(data);
+                    break;
+                case EndFW.TYPE_ID:
+                    final EndFW end = endRO.wrap(buffer, index, index + length);
+                    onEnd(end);
+                    break;
+                case AbortFW.TYPE_ID:
+                    final AbortFW abort = abortRO.wrap(buffer, index, index + length);
+                    onAbort(abort);
+                    break;
+                case WindowFW.TYPE_ID:
+                    final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                    onWindow(window);
+                    break;
+                case ResetFW.TYPE_ID:
+                    final ResetFW reset = resetRO.wrap(buffer, index, index + length);
+                    onReset(reset);
+                    break;
+                case SignalFW.TYPE_ID:
+                    final SignalFW signal = signalRO.wrap(buffer, index, index + length);
+                    onSignal(signal);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private void onBegin(
+                BeginFW begin)
+        {
+            doBegin(supplyTraceId.getAsLong());
+        }
+
+        private void onData(
+                DataFW data)
+        {
+
+        }
+
+        private void onEnd(
+                EndFW end)
+        {
+
+        }
+
+        private void onAbort(
+                AbortFW abort)
+        {
+
+        }
+
+        private void onWindow(
+                WindowFW window)
+        {
+            final int replyCredit = window.credit();
+
+            replyBudget += replyCredit;
+            replyPadding += window.padding();
+
+            final int initialCredit = bufferPool.slotCapacity() - initialBudget;
+            doWindow(supplyTraceId.getAsLong(), initialCredit);
+        }
+
+        private void onReset(
+                ResetFW reset)
+        {
+
+        }
+
+        private void onSignal(
+                SignalFW signal)
+        {
+
+        }
+
+        private void onMqttConnect(
+                MqttPacketFW packet)
+        {
+            doMqttConnack(packet.buffer(), packet.offset(), packet.limit());
+            decodeState = this::decodeConnectPacket;
+        }
+
+        private int decodeConnectPacket(
+                final DirectBuffer buffer,
+                final int offset,
+                final int length)
+        {
+            return 0;
+        }
+
+        private int decodePacketType(
+                final DirectBuffer buffer,
+                final int offset,
+                final int length)
+        {
+            int consumed = 0;
+
+            final MqttPacketFW mqttPacket= mqttPacketRO.wrap(buffer, offset, offset + length);
+
+            switch (mqttPacket.packetType())
+            {
+                case 0x10:
+                    onMqttConnect(mqttPacket);
+                    break;
+            }
+
+            return consumed;
+        }
+    }
+
+    @FunctionalInterface
+    private interface DecoderState
+    {
+        int decode(DirectBuffer buffer, int offset, int length);
+    }
 }

@@ -18,16 +18,31 @@
  {
     scope codec
     {
+        enum MqttPackets
+        {
+            CONNECT,
+            CONNACK,
+            SUBSCRIBE,
+            SUBACK,
+            UNSUBSCRIBE,
+            UNSUBACK,
+            PUBLISH,
+            PINGREQ,
+            PINGRESP,
+            DISCONNECT
+        }
+
         struct Binary
         {
             uint16 length;
             octets[length] bytes;
         }
 
-        struct FixedHeader
+        struct MqttPacket
         {
-            int8 packetType;
-            int8 remainingLength;
+            uint8 packetType;
+            uint8 remainingLength;
+            octets[remainingLength] packet;
         }
 
         struct ProtocolName
@@ -36,9 +51,8 @@
             string name;
         }
 
-        struct ConnectPacket
+        struct MqttConnect
         {
-            protocol::codec::FixedHeader fixedHeader;
             protocol::codec::ProtocolName protocolName;
             uint8 protocolVersion;
             uint8 flags;
@@ -47,6 +61,7 @@
             octets[propertiesLength] properties;
             uint16 clientIdLength;
             string clientId;
+            /*
             int16 willPropertiesLength;
             uint32 willDelayInterval;
             uint8 willPayloadFormatIndicator;
@@ -54,9 +69,7 @@
             string willContentType;
             string willResponseTopic;
             protocol::codec::Binary correlationInfo;
-            /*
-                TODO user property utf-8 string pair
-            */
+            TODO user property utf-8 string pair
             string willTopic;
             int16 willPayloadLength;
             protocol::codec::Binary willPayload;
@@ -64,11 +77,11 @@
             string username;
             int16 passwordLength;
             protocol::codec::Binary password;
+            */
         }
 
-        struct ConnackPacket
+        struct MqttConnack
         {
-            protocol::codec::FixedHeader fixedHeader;
             int16 variableHeader;
             int16 propertyLength;
         }
