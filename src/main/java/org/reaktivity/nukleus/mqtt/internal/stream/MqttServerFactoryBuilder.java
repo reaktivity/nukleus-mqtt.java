@@ -16,6 +16,121 @@
 
 package org.reaktivity.nukleus.mqtt.internal.stream;
 
-public class MqttServerFactoryBuilder
+import java.util.function.IntUnaryOperator;
+import java.util.function.LongFunction;
+import java.util.function.LongSupplier;
+import java.util.function.LongUnaryOperator;
+import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
+
+import org.agrona.MutableDirectBuffer;
+import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.route.RouteManager;
+import org.reaktivity.nukleus.stream.StreamFactory;
+import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
+import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
+
+public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
 {
+    private final MqttConfiguration config;
+
+    private RouteManager router;
+    private MutableDirectBuffer writeBuffer;
+    private LongUnaryOperator supplyInitialId;
+    private LongUnaryOperator supplyReplyId;
+    private LongSupplier supplyTraceId;
+    private Supplier<BufferPool> supplyBufferPool;
+    private ToIntFunction<String> supplyTypeId;
+
+    public MqttServerFactoryBuilder(
+            MqttConfiguration config)
+    {
+        this.config = config;
+    }
+
+    @Override
+    public MqttServerFactoryBuilder setRouteManager(
+            RouteManager router)
+    {
+        this.router = router;
+        return this;
+    }
+
+    @Override
+    public MqttServerFactoryBuilder setWriteBuffer(
+            MutableDirectBuffer writeBuffer)
+    {
+        this.writeBuffer = writeBuffer;
+        return this;
+    }
+
+    @Override
+    public MqttServerFactoryBuilder setInitialIdSupplier(
+            LongUnaryOperator supplyInitialId)
+    {
+        this.supplyInitialId = supplyInitialId;
+        return this;
+    }
+
+    @Override
+    public StreamFactoryBuilder setReplyIdSupplier(
+            LongUnaryOperator supplyReplyId)
+    {
+        this.supplyReplyId = supplyReplyId;
+        return this;
+    }
+
+    @Override
+    public MqttServerFactoryBuilder setGroupBudgetClaimer(
+            LongFunction<IntUnaryOperator> groupBudgetClaimer)
+    {
+        return this;
+    }
+
+    @Override
+    public MqttServerFactoryBuilder setGroupBudgetReleaser(
+            LongFunction<IntUnaryOperator> groupBudgetReleaser)
+    {
+        return this;
+    }
+
+    @Override
+    public StreamFactoryBuilder setBufferPoolSupplier(
+            Supplier<BufferPool> supplyBufferPool)
+    {
+        this.supplyBufferPool = supplyBufferPool;
+        return this;
+    }
+
+    @Override
+    public StreamFactoryBuilder setTraceSupplier(
+            LongSupplier supplyTraceId)
+    {
+        this.supplyTraceId = supplyTraceId;
+        return this;
+    }
+
+    @Override
+    public StreamFactoryBuilder setTypeIdSupplier(
+            ToIntFunction<String> supplyTypeId)
+    {
+        this.supplyTypeId = supplyTypeId;
+        return this;
+    }
+
+    @Override
+    public StreamFactory build()
+    {
+        final BufferPool bufferPool = supplyBufferPool.get();
+
+        return new MqttServerFactory(
+                config,
+                router,
+                writeBuffer,
+                bufferPool,
+                supplyInitialId,
+                supplyReplyId,
+                supplyTraceId,
+                supplyTypeId);
+    }
 }
