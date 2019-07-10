@@ -45,20 +45,16 @@
             octets[remainingLength] packet;
         }
 
-        struct ProtocolName
-        {
-            int16 length;
-            string name;
-        }
-
         struct MqttConnect
         {
-            protocol::codec::ProtocolName protocolName;
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 protocolNameLength;
+            string protocolName;
             uint8 protocolVersion;
             uint8 flags;
             uint16 keepAlive;
             uint16 propertiesLength;
-            octets[propertiesLength] properties;
             uint16 clientIdLength;
             string clientId;
             /*
@@ -82,8 +78,10 @@
 
         struct MqttConnack
         {
-            int16 variableHeader;
-            int16 propertyLength;
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 variableHeader;
+            uint16 propertyLength;
         }
     }
  }

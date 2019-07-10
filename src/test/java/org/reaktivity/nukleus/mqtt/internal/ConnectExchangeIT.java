@@ -57,5 +57,4 @@ public class ConnectExchangeIT
     {
         k3po.finish();
     }
-
 }

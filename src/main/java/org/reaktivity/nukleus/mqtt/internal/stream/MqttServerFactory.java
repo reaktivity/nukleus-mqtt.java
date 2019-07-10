@@ -425,7 +425,7 @@ public final class MqttServerFactory implements StreamFactory
             this.routeId = routeId;
             this.initialId = initialId;
             this.replyId = replyId;
-            this.decodeState = this::decodePacketType;
+            this.decodeState = this::decodeConnectPacket;
         }
 
         private void doBegin(
@@ -461,12 +461,52 @@ public final class MqttServerFactory implements StreamFactory
             }
         }
 
+        private void doEnd(
+                long traceId)
+        {
+            final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(replyId)
+                    .trace(traceId)
+                    .build();
+
+            receiver.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
+        }
+
+        private void doAbort(
+                long traceId)
+        {
+            final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(replyId)
+                    .trace(traceId)
+                    .build();
+
+            receiver.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
+        }
+
+        private void doReset(
+                long traceId)
+        {
+            final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity()).routeId(routeId)
+                    .streamId(initialId)
+                    .trace(traceId)
+                    .build();
+
+            receiver.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        }
+
         private void doMqttConnack(
                 DirectBuffer packet,
                 int offset,
                 int length)
         {
-            decodeState.decode(packet, offset, length);
+            final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .packetType(0x20)
+                    .remainingLength(0x02)
+                    .propertyLength(0x00)
+                    .variableHeader(0x00)
+                    .build();
 
             final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                     .routeId(routeId)
@@ -474,7 +514,7 @@ public final class MqttServerFactory implements StreamFactory
                     .trace(supplyTraceId.getAsLong())
                     .groupId(0)
                     .padding(replyPadding)
-                    .payload(packet, offset, length)
+                    .payload(connack.buffer(), offset, length)
                     .build();
 
             receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
@@ -530,7 +570,28 @@ public final class MqttServerFactory implements StreamFactory
         private void onData(
                 DataFW data)
         {
+            final OctetsFW payload = data.payload();
+            initialBudget -= data.length() + data.padding();
 
+            if (initialBudget < 0)
+            {
+                doReset(supplyTraceId.getAsLong());
+            }
+            if (payload != null)
+            {
+                decodeTraceId = data.trace();
+
+                final DirectBuffer buffer = payload.buffer();
+
+                int offset = payload.offset();
+                int length = payload.sizeof();
+                while (length > 0)
+                {
+                    int consumed = decodeState.decode(buffer, offset, length);
+                    offset += consumed;
+                    length -= consumed;
+                }
+            }
         }
 
         private void onEnd(
@@ -570,10 +631,15 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void onMqttConnect(
-                MqttPacketFW packet)
+                MqttConnectFW packet)
         {
+            if (packet == null)
+            {
+                // raise error
+                return;
+            }
             doMqttConnack(packet.buffer(), packet.offset(), packet.limit());
-            decodeState = this::decodeConnectPacket;
+            decodeState = this::decodePacketType;
         }
 
         private int decodeConnectPacket(
@@ -581,7 +647,9 @@ public final class MqttServerFactory implements StreamFactory
                 final int offset,
                 final int length)
         {
-            return 0;
+            final MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
+            onMqttConnect(mqttConnect);
+            return mqttConnect == null ? 0: mqttConnect.sizeof();
         }
 
         private int decodePacketType(
@@ -591,13 +659,11 @@ public final class MqttServerFactory implements StreamFactory
         {
             int consumed = 0;
 
-            final MqttPacketFW mqttPacket= mqttPacketRO.wrap(buffer, offset, offset + length);
+            final MqttPacketFW mqttPacket= mqttPacketRO.tryWrap(buffer, offset, offset + length);
 
             switch (mqttPacket.packetType())
             {
-                case 0x10:
-                    onMqttConnect(mqttPacket);
-                    break;
+
             }
 
             return consumed;
