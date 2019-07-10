@@ -28,7 +28,7 @@ import java.util.function.ToIntFunction;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
-import org.agrona.concurrent.UnsafeBuffer;
+//import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
@@ -192,212 +192,6 @@ public final class MqttServerFactory implements StreamFactory
         return routeRO.wrap(buffer, index, index + length);
     }
 
-    private final class MqttServerAccept
-    {
-        private final MessageConsumer receiver;
-        private final long routeId;
-        private final long initialId;
-        private final long replyId;
-        private final String key;
-        private final String protocol;
-        private final String scheme;
-        private final String authority;
-        private final String path;
-
-        private MqttServerConnect connect;
-
-        private long decodeTraceId;
-
-        private MutableDirectBuffer header;
-        private int headerLength;
-
-        private MutableDirectBuffer status;
-        private int statusLength;
-
-        private int payloadProgress;
-        private int payloadLength;
-        private int maskingKey;
-
-        private int initialBudget;
-        private int initialPadding;
-        private int replyBudget;
-        private int replyPadding;
-
-        private DecoderState decodeState;
-
-        private MqttServerAccept(
-                MessageConsumer receiver,
-                long routeId,
-                long initialId,
-                String key,
-                String protocol,
-                String scheme,
-                String authority,
-                String path)
-        {
-            this.receiver = receiver;
-            this.routeId = routeId;
-            this.initialId = initialId;
-            this.replyId = supplyReplyId.applyAsLong(initialId);
-            this.key = key;
-            this.protocol = protocol;
-            this.scheme = scheme;
-            this.authority = authority;
-            this.path = path;
-
-            this.header = new UnsafeBuffer(new byte[MAXIMUM_HEADER_SIZE]);
-            this.status = new UnsafeBuffer(new byte[2]);
-        }
-
-        private void doBegin(
-                long traceId)
-        {
-
-        }
-
-        private void doData(
-                long traceId,
-                OctetsFW payload,
-                int flags)
-        {
-
-        }
-
-        private void doEnd(
-                long traceId)
-        {
-            final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                    .routeId(routeId)
-                    .streamId(replyId)
-                    .trace(traceId)
-                    .build();
-
-            receiver.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
-        }
-
-        private void doAbort(
-                long traceId)
-        {
-            final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                    .routeId(routeId)
-                    .streamId(replyId)
-                    .trace(traceId)
-                    .build();
-
-            receiver.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
-        }
-
-        private void doReset(
-                long traceId)
-        {
-
-        }
-
-        private void doWindow(
-                long traceId,
-                int maxBudget,
-                int minPadding)
-        {
-
-        }
-
-        private void onNetwork(
-                int msgTypeId,
-                DirectBuffer buffer,
-                int index,
-                int length)
-        {
-            switch (msgTypeId)
-            {
-                case BeginFW.TYPE_ID:
-                    final BeginFW begin = beginRO.wrap(buffer, index, index + length);
-                    onBegin(begin);
-                    break;
-                case DataFW.TYPE_ID:
-                    final DataFW data = dataRO.wrap(buffer, index, index + length);
-                    onData(data);
-                    break;
-                case EndFW.TYPE_ID:
-                    final EndFW end = endRO.wrap(buffer, index, index + length);
-                    onEnd(end);
-                    break;
-                case AbortFW.TYPE_ID:
-                    final AbortFW abort = abortRO.wrap(buffer, index, index + length);
-                    onAbort(abort);
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        private void onBegin(
-                BeginFW begin)
-        {
-            final long traceId = begin.trace();
-            connect.doBegin(traceId);
-        }
-
-        private void onData(
-                DataFW data)
-        {
-            initialBudget -= data.length() + data.padding();
-
-            if (initialBudget < 0)
-            {
-                doReset(supplyTraceId.getAsLong());
-            }
-            else
-            {
-                decodeTraceId = data.trace();
-
-                final OctetsFW payload = data.payload();
-                final DirectBuffer buffer = payload.buffer();
-
-                int offset = payload.offset();
-                int length = payload.sizeof();
-                while (length > 0)
-                {
-                    int consumed = decodeState.decode(buffer, offset, length);
-                    offset += consumed;
-                    length -= consumed;
-                }
-
-                if (payloadLength == 0)
-                {
-                    decodeState.decode(buffer, 0, 0);
-                }
-            }
-        }
-
-        private void onEnd(
-                EndFW end)
-        {
-            final long traceId = end.trace();
-        }
-
-        private void onAbort(
-                AbortFW abort)
-        {
-            final long traceId = abort.trace();
-        }
-
-        private void onWindow(
-                WindowFW window)
-        {
-            replyBudget += window.credit();
-            replyPadding = window.padding();
-
-            final long traceId = window.trace();
-            connect.doWindow(traceId, replyBudget);
-        }
-
-        private void onReset(
-                ResetFW reset)
-        {
-            final long traceId = reset.trace();
-        }
-    }
-
     private final class MqttServerConnect
     {
         private final MessageConsumer receiver;
@@ -504,8 +298,8 @@ public final class MqttServerFactory implements StreamFactory
             final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                     .packetType(0x20)
                     .remainingLength(0x02)
-                    .propertyLength(0x00)
-                    .variableHeader(0x00)
+                    .flags(0x00)
+                    .reasonCode(0x00)
                     .build();
 
             final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
@@ -514,7 +308,7 @@ public final class MqttServerFactory implements StreamFactory
                     .trace(supplyTraceId.getAsLong())
                     .groupId(0)
                     .padding(replyPadding)
-                    .payload(connack.buffer(), offset, length)
+                    .payload(connack.buffer(), connack.offset(), connack.limit())
                     .build();
 
             receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());

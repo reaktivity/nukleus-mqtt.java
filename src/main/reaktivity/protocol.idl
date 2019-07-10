@@ -72,8 +72,8 @@
         {
             uint8 packetType;
             uint8 remainingLength;
-            uint16 variableHeader;
-            uint16 propertyLength;
+            uint8 flags;
+            uint16 reasonCode;
         }
     }
  }
