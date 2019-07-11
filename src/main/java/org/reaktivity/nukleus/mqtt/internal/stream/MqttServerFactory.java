@@ -154,13 +154,30 @@ public final class MqttServerFactory implements StreamFactory
         final long initialId = begin.streamId();
         final long replyId = supplyReplyId.applyAsLong(initialId);
 
-        final MessagePredicate filter = (t, b, o, l) -> true;
+        final MessagePredicate filter = (t, b, o, l) ->
+        {
+            /*
+            final RouteFW route = routeRO.wrap(b, o, o + l);
+            final OctetsFW routeEx = route.extension();
+
+
+            if (routeEx.sizeof() != 0)
+            {
+                TODO
+            }
+            */
+            return true;
+        };
+
         final RouteFW route = router.resolve(routeId, begin.authorization(), filter, this::wrapRoute);
         MessageConsumer newStream = null;
 
+
         if (route != null)
         {
-            final MqttServerConnect connection = new MqttServerConnect(sender, routeId, initialId, replyId);
+            final long mqttRouteId = route.correlationId();
+
+            final MqttServerConnect connection = new MqttServerConnect(sender, mqttRouteId, initialId, replyId);
             correlations.put(replyId, connection);
             newStream = connection::onNetwork;
         }
