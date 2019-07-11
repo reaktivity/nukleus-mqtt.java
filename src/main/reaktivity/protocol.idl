@@ -45,15 +45,32 @@
             octets[remainingLength] packet;
         }
 
-        /*union MqttProperty switch (uint8)
+        struct MqttByte
+        {
+            uint8 value;
+        }
+
+        union MqttProperty switch (uint8)
         {
             case 0x11: uint32 sessionExpiry;
             case 0x21: uint16 receiveMaximum;
             case 0x27: uint32 maximumPacketSize;
             case 0x22: uint16 topicAliasMaximum;
-            case 0x19: uint8 requestResponseInformation;
-            case 0x17: uint8 requestProblemInformation;
-        }*/
+            case 0x19: protocol::codec::MqttByte requestResponseInformation;
+            case 0x17: protocol::codec::MqttByte requestProblemInformation;
+            case 0x24: protocol::codec::MqttByte maximumQoS;
+            case 0x25: protocol::codec::MqttByte retainAvailable;
+            case 0x12: string assignedClientId;
+            case 0x1F: string reasonString;
+            case 0x28: protocol::codec::MqttByte wildcardSubscriptionAvailable;
+            case 0x29: protocol::codec::MqttByte subscriptionIdsAvailable;
+            case 0x2A: protocol::codec::MqttByte sharedSubscriptionAvailable;
+            case 0x13: uint16 serverKeepAlive;
+            case 0x1A: string responseInformation;
+            case 0x1C: string serverReference;
+            case 0x15: string authenticationMethod;
+            case 0x16: protocol::codec::Binary authenticationData;
+        }
 
         struct MqttConnect
         {
@@ -63,9 +80,9 @@
             uint8 protocolVersion;
             uint8 flags;
             uint16 keepAlive;
-            varint64 propertiesLength;
+            varint32 propertiesLength;
             string16 clientId;
-            /*protocol::codec::MqttProperty[propertiesLength] properties;*/
+            octets[propertiesLength] properties;
         }
 
         struct MqttConnack
@@ -74,6 +91,8 @@
             uint8 remainingLength;
             uint8 flags;
             uint8 reasonCode;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
         }
     }
  }

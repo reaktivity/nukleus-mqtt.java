@@ -54,7 +54,6 @@ import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 
 public final class MqttServerFactory implements StreamFactory
 {
-    private static final int MAXIMUM_HEADER_SIZE = 16;
 
     private final RouteFW routeRO = new RouteFW();
 
