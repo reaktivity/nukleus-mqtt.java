@@ -175,9 +175,7 @@ public final class MqttServerFactory implements StreamFactory
 
         if (route != null)
         {
-            final long mqttRouteId = route.correlationId();
-
-            final MqttServerConnect connection = new MqttServerConnect(sender, mqttRouteId, initialId, replyId);
+            final MqttServerConnect connection = new MqttServerConnect(sender, routeId, initialId, replyId);
             correlations.put(replyId, connection);
             newStream = connection::onNetwork;
         }
