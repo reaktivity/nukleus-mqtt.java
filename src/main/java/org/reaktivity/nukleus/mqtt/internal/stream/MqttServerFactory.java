@@ -28,7 +28,6 @@ import java.util.function.ToIntFunction;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
-//import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
@@ -77,6 +76,7 @@ public final class MqttServerFactory implements StreamFactory
 
     private final WindowFW.Builder windowRW = new WindowFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
+    private final SignalFW.Builder signalRW = new SignalFW.Builder();
 
     private final OctetsFW payloadRO = new OctetsFW();
 
@@ -306,6 +306,17 @@ public final class MqttServerFactory implements StreamFactory
             receiver.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
         }
 
+        private void doSignal(
+                long traceId)
+        {
+            final SignalFW signal = signalRW.wrap(writeBuffer, 0, writeBuffer.capacity()).routeId(routeId)
+                    .streamId(initialId)
+                    .trace(traceId)
+                    .build();
+
+            receiver.accept(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
+        }
+
         private void doMqttConnack(
                 DirectBuffer packet,
                 int offset,
@@ -440,7 +451,8 @@ public final class MqttServerFactory implements StreamFactory
         private void onSignal(
                 SignalFW signal)
         {
-
+            final long traceId = signal.trace();
+            doSignal(traceId);
         }
 
         private void onMqttConnect(
