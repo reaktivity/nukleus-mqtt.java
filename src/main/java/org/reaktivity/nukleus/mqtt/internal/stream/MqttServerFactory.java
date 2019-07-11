@@ -390,13 +390,15 @@ public final class MqttServerFactory implements StreamFactory
         private void onEnd(
                 EndFW end)
         {
-
+            final long traceId = end.trace();
+            doEnd(traceId);
         }
 
         private void onAbort(
                 AbortFW abort)
         {
-
+            final long traceId = abort.trace();
+            doAbort(traceId);
         }
 
         private void onWindow(
