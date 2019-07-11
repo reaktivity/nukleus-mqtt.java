@@ -414,7 +414,8 @@ public final class MqttServerFactory implements StreamFactory
         private void onReset(
                 ResetFW reset)
         {
-
+            final long traceId = reset.trace();
+            doReset(traceId);
         }
 
         private void onSignal(
