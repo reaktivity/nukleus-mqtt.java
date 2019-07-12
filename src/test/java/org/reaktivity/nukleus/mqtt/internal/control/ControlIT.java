@@ -49,7 +49,7 @@ public class ControlIT
 
     @Test
     @Specification({
-            "${route}/server/controller"
+        "${route}/server/controller"
     })
     public void shouldRouteServer() throws Exception
     {
@@ -58,7 +58,7 @@ public class ControlIT
 
     @Test
     @Specification({
-            "${routeExt}/server/controller"
+        "${routeExt}/server/controller"
     })
     public void shouldRouteServerWithExt() throws Exception
     {
@@ -67,8 +67,8 @@ public class ControlIT
 
     @Test
     @Specification({
-            "${route}/server/controller",
-            "${unroute}/server/controller"
+        "${route}/server/controller",
+        "${unroute}/server/controller"
     })
     public void shouldUnrouteServer() throws Exception
     {
@@ -77,7 +77,7 @@ public class ControlIT
 
     @Test
     @Specification({
-            "${route}/client/controller"
+        "${route}/client/controller"
     })
     public void shouldRouteClient() throws Exception
     {
@@ -86,7 +86,7 @@ public class ControlIT
 
     @Test
     @Specification({
-            "${routeExt}/client/controller"
+        "${routeExt}/client/controller"
     })
     public void shouldRouteClientWithExt() throws Exception
     {
@@ -95,8 +95,8 @@ public class ControlIT
 
     @Test
     @Specification({
-            "${route}/client/controller",
-            "${unroute}/client/controller"
+        "${route}/client/controller",
+        "${unroute}/client/controller"
     })
     public void shouldUnrouteClient() throws Exception
     {
