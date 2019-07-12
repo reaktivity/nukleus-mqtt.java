@@ -95,7 +95,7 @@ public final class MqttServerFactory implements StreamFactory
     private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyTraceId;
 
-    private final Long2ObjectHashMap<MqttServerConnect> correlations;
+    private final Long2ObjectHashMap<MqttServer> correlations;
     private final MessageFunction<RouteFW> wrapRoute;
     private final int mqttTypeId;
 
@@ -175,7 +175,7 @@ public final class MqttServerFactory implements StreamFactory
 
         if (route != null)
         {
-            final MqttServerConnect connection = new MqttServerConnect(sender, routeId, initialId, replyId);
+            final MqttServer connection = new MqttServer(sender, routeId, initialId, replyId);
             correlations.put(replyId, connection);
             newStream = connection::onNetwork;
         }
@@ -187,7 +187,7 @@ public final class MqttServerFactory implements StreamFactory
         final MessageConsumer sender)
     {
         final long replyId = begin.streamId();
-        final MqttServerConnect connect = correlations.remove(replyId);
+        final MqttServer connect = correlations.remove(replyId);
 
         MessageConsumer newStream = null;
         if (connect != null)
@@ -206,7 +206,7 @@ public final class MqttServerFactory implements StreamFactory
         return routeRO.wrap(buffer, index, index + length);
     }
 
-    private final class MqttServerConnect
+    private final class MqttServer
     {
         private final MessageConsumer receiver;
         private final long routeId;
@@ -223,7 +223,7 @@ public final class MqttServerFactory implements StreamFactory
         private int bufferSlot = BufferPool.NO_SLOT;
         private int bufferSlotOffset;
 
-        private MqttServerConnect(
+        private MqttServer(
             MessageConsumer receiver,
             long routeId,
             long initialId,
