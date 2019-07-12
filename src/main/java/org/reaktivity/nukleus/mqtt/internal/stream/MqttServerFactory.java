@@ -236,106 +236,6 @@ public final class MqttServerFactory implements StreamFactory
             this.decodeState = this::decodeConnectPacket;
         }
 
-        private void doBegin(
-            long traceId)
-        {
-            final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                    .routeId(routeId)
-                    .streamId(replyId)
-                    .trace(traceId)
-                    .build();
-            receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
-            router.setThrottle(replyId, this::onNetwork);
-        }
-
-        private void doWindow(
-            long traceId,
-            int initialCredit)
-        {
-            if (initialCredit > 0)
-            {
-                initialBudget += initialCredit;
-
-                final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                        .routeId(routeId)
-                        .streamId(initialId)
-                        .trace(traceId)
-                        .credit(initialCredit)
-                        .padding(initialPadding)
-                        .groupId(0)
-                        .build();
-
-                receiver.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
-            }
-        }
-
-        private void doEnd(
-            long traceId)
-        {
-            final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                    .routeId(routeId)
-                    .streamId(replyId)
-                    .trace(traceId)
-                    .build();
-
-            receiver.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
-        }
-
-        private void doAbort(
-            long traceId)
-        {
-            final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                    .routeId(routeId)
-                    .streamId(replyId)
-                    .trace(traceId)
-                    .build();
-
-            receiver.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
-        }
-
-        private void doReset(
-            long traceId)
-        {
-            final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity()).routeId(routeId)
-                    .streamId(initialId)
-                    .trace(traceId)
-                    .build();
-
-            receiver.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
-        }
-
-        private void doSignal(
-            long traceId)
-        {
-            final SignalFW signal = signalRW.wrap(writeBuffer, 0, writeBuffer.capacity()).routeId(routeId)
-                    .streamId(initialId)
-                    .trace(traceId)
-                    .build();
-
-            receiver.accept(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
-        }
-
-        private void doMqttConnack()
-        {
-            final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                    .packetType(0x20)
-                    .remainingLength(0x02)
-                    .flags(0x00)
-                    .reasonCode(0x00)
-                    .build();
-
-            final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                    .routeId(routeId)
-                    .streamId(replyId)
-                    .trace(supplyTraceId.getAsLong())
-                    .groupId(0)
-                    .padding(replyPadding)
-                    .payload(connack.buffer(), connack.offset(), connack.limit())
-                    .build();
-
-            receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
-        }
-
         private void onNetwork(
             int msgTypeId,
             DirectBuffer buffer,
@@ -450,6 +350,108 @@ public final class MqttServerFactory implements StreamFactory
         {
             doMqttConnack();
         }
+
+        private void doBegin(
+            long traceId)
+        {
+            final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(replyId)
+                .trace(traceId)
+                .build();
+            receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+            router.setThrottle(replyId, this::onNetwork);
+        }
+
+        private void doEnd(
+            long traceId)
+        {
+            final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(replyId)
+                .trace(traceId)
+                .build();
+
+            receiver.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
+        }
+
+        private void doAbort(
+            long traceId)
+        {
+            final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(replyId)
+                .trace(traceId)
+                .build();
+
+            receiver.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
+        }
+
+        private void doWindow(
+            long traceId,
+            int initialCredit)
+        {
+            if (initialCredit > 0)
+            {
+                initialBudget += initialCredit;
+
+                final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(initialId)
+                    .trace(traceId)
+                    .credit(initialCredit)
+                    .padding(initialPadding)
+                    .groupId(0)
+                    .build();
+
+                receiver.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+            }
+        }
+
+        private void doReset(
+            long traceId)
+        {
+            final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity()).routeId(routeId)
+                .streamId(initialId)
+                .trace(traceId)
+                .build();
+
+            receiver.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        }
+
+        private void doSignal(
+            long traceId)
+        {
+            final SignalFW signal = signalRW.wrap(writeBuffer, 0, writeBuffer.capacity()).routeId(routeId)
+                .streamId(initialId)
+                .trace(traceId)
+                .build();
+
+            receiver.accept(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
+        }
+
+        private void doMqttConnack()
+        {
+            final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .packetType(0x20)
+                .remainingLength(0x02)
+                .flags(0x00)
+                .reasonCode(0x00)
+                .build();
+
+            final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(replyId)
+                .trace(supplyTraceId.getAsLong())
+                .groupId(0)
+                .padding(replyPadding)
+                .payload(connack.buffer(), connack.offset(), connack.limit())
+                .build();
+
+            receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+        }
+
+        /* decoding methods */
 
         private int decodeConnectPacket(
             final DirectBuffer buffer,
