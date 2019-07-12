@@ -432,12 +432,17 @@ public final class MqttServerFactory implements StreamFactory
 
         private void doMqttConnack()
         {
+            OctetsFW properties = new OctetsFW.Builder()
+                .wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .build();
+
             final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                 .packetType(0x20)
                 .remainingLength(0x02)
                 .flags(0x00)
                 .reasonCode(0x00)
                 .propertiesLength(0x00)
+                .properties(properties)
                 .build();
 
             final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
