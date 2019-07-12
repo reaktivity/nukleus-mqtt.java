@@ -25,7 +25,7 @@ public final class MqttNukleus implements Nukleus
     private final MqttConfiguration config;
 
     MqttNukleus(
-            MqttConfiguration config)
+        MqttConfiguration config)
     {
         this.config = config;
     }

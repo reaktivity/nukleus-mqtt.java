@@ -40,6 +40,6 @@ public final class MqttControllerFactorySpi implements ControllerFactorySpi<Mqtt
         ControllerBuilder<MqttController> builder)
     {
         return builder.setFactory(MqttController::new)
-                .build();
+                      .build();
     }
 }

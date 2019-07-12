@@ -53,40 +53,34 @@ import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 
 public final class MqttServerFactory implements StreamFactory
 {
-
     private final RouteFW routeRO = new RouteFW();
 
     private final BeginFW beginRO = new BeginFW();
     private final DataFW dataRO = new DataFW();
     private final EndFW endRO = new EndFW();
     private final AbortFW abortRO = new AbortFW();
+    private final WindowFW windowRO = new WindowFW();
+    private final ResetFW resetRO = new ResetFW();
+    private final SignalFW signalRO = new SignalFW();
 
     private final BeginFW.Builder beginRW = new BeginFW.Builder();
     private final DataFW.Builder dataRW = new DataFW.Builder();
     private final EndFW.Builder endRW = new EndFW.Builder();
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
-
-    private final WindowFW windowRO = new WindowFW();
-    private final ResetFW resetRO = new ResetFW();
-    private final SignalFW signalRO = new SignalFW();
+    private final WindowFW.Builder windowRW = new WindowFW.Builder();
+    private final ResetFW.Builder resetRW = new ResetFW.Builder();
+    private final SignalFW.Builder signalRW = new SignalFW.Builder();
 
     private final MqttBeginExFW.Builder mqttBeginExRW = new MqttBeginExFW.Builder();
     private final MqttDataExFW.Builder mqttDataExRW = new MqttDataExFW.Builder();
     private final MqttEndExFW.Builder mqttEndExRW = new MqttEndExFW.Builder();
 
-    private final WindowFW.Builder windowRW = new WindowFW.Builder();
-    private final ResetFW.Builder resetRW = new ResetFW.Builder();
-    private final SignalFW.Builder signalRW = new SignalFW.Builder();
-
-    private final OctetsFW payloadRO = new OctetsFW();
-
-    private final MqttDataExFW mqttDataExRO = new MqttDataExFW();
-
     private final MqttPacketFW mqttPacketRO = new MqttPacketFW();
-    private final MqttPacketFW.Builder mqttPacketRW = new MqttPacketFW.Builder();
     private final MqttConnectFW mqttConnectRO = new MqttConnectFW();
-    private final MqttConnectFW.Builder mqttConnectRW = new MqttConnectFW.Builder();
     private final MqttConnackFW mqttConnackRO = new MqttConnackFW();
+
+    private final MqttPacketFW.Builder mqttPacketRW = new MqttPacketFW.Builder();
+    private final MqttConnectFW.Builder mqttConnectRW = new MqttConnectFW.Builder();
     private final MqttConnackFW.Builder mqttConnackRW = new MqttConnackFW.Builder();
 
     private final RouteManager router;
@@ -433,7 +427,7 @@ public final class MqttServerFactory implements StreamFactory
         private void doMqttConnack()
         {
             OctetsFW properties = new OctetsFW.Builder()
-                .wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .wrap(writeBuffer, 0, writeBuffer.capacity())
                 .build();
 
             final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
@@ -474,7 +468,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             int consumed = 0;
 
-            final MqttPacketFW mqttPacket= mqttPacketRO.tryWrap(buffer, offset, offset + length);
+            final MqttPacketFW mqttPacket = mqttPacketRO.tryWrap(buffer, offset, offset + length);
 
             switch (mqttPacket.packetType())
             {
