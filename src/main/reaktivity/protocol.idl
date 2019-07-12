@@ -92,7 +92,7 @@
             uint8 flags;
             uint8 reasonCode;
             varint32 propertiesLength;
-            octets[propertiesLength] properties;
+            /*octets[propertiesLength] properties = null;*/
         }
     }
  }
