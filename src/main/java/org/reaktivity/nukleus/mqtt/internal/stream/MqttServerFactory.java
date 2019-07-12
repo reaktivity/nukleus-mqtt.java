@@ -457,8 +457,6 @@ public final class MqttServerFactory implements StreamFactory
             receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
         }
 
-        /* decoding methods */
-
         private int decodeConnectPacket(
             final DirectBuffer buffer,
             final int offset,
