@@ -57,7 +57,7 @@ public class ControllerIT
 
     @Test
     @Specification({
-            "${route}/server/nukleus"
+        "${route}/server/nukleus"
     })
     public void shouldRouteServer() throws Exception
     {
@@ -72,7 +72,7 @@ public class ControllerIT
 
     @Test
     @Specification({
-            "${routeExt}/server/nukleus"
+        "${routeExt}/server/nukleus"
     })
     public void shouldRouteServerWithExt() throws Exception
     {
@@ -90,8 +90,8 @@ public class ControllerIT
 
     @Test
     @Specification({
-            "${route}/server/nukleus",
-            "${unroute}/server/nukleus"
+        "${route}/server/nukleus",
+        "${unroute}/server/nukleus"
     })
     public void shouldUnrouteServer() throws Exception
     {
@@ -112,8 +112,8 @@ public class ControllerIT
 
     @Test
     @Specification({
-            "${routeExt}/server/nukleus",
-            "${unroute}/server/nukleus"
+        "${routeExt}/server/nukleus",
+        "${unroute}/server/nukleus"
     })
     public void shouldUnrouteServerWithExt() throws Exception
     {
@@ -137,7 +137,7 @@ public class ControllerIT
 
     @Test
     @Specification({
-            "${route}/client/nukleus"
+        "${route}/client/nukleus"
     })
     public void shouldRouteClient() throws Exception
     {
@@ -152,7 +152,7 @@ public class ControllerIT
 
     @Test
     @Specification({
-            "${routeExt}/client/nukleus"
+        "${routeExt}/client/nukleus"
     })
     public void shouldRouteClientExt() throws Exception
     {
@@ -170,8 +170,8 @@ public class ControllerIT
 
     @Test
     @Specification({
-            "${route}/client/nukleus",
-            "${unroute}/client/nukleus"
+        "${route}/client/nukleus",
+        "${unroute}/client/nukleus"
     })
     public void shouldUnrouteClient() throws Exception
     {
@@ -192,8 +192,8 @@ public class ControllerIT
 
     @Test
     @Specification({
-            "${routeExt}/client/nukleus",
-            "${unroute}/client/nukleus"
+        "${routeExt}/client/nukleus",
+        "${unroute}/client/nukleus"
     })
     public void shouldUnrouteClientWithExt() throws Exception
     {
