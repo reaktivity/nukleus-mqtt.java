@@ -315,12 +315,9 @@ public final class MqttServerFactory implements StreamFactory
             receiver.accept(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
         }
 
-        private void doMqttConnack(
-                DirectBuffer packet,
-                int offset,
-                int length)
+        private void doMqttConnack()
         {
-            final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+            final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                     .packetType(0x20)
                     .remainingLength(0x02)
                     .flags(0x00)
@@ -396,20 +393,15 @@ public final class MqttServerFactory implements StreamFactory
             {
                 doReset(supplyTraceId.getAsLong());
             }
-            if (payload != null)
+            else if (payload != null)
             {
                 decodeTraceId = data.trace();
-
-                final DirectBuffer buffer = payload.buffer();
+                DirectBuffer buffer = payload.buffer();
 
                 int offset = payload.offset();
                 int length = payload.sizeof();
-                while (length > 0)
-                {
-                    int consumed = decodeState.decode(buffer, offset, length);
-                    offset += consumed;
-                    length -= consumed;
-                }
+
+                decodeState.decode(buffer, offset, length);
             }
         }
 
@@ -456,11 +448,7 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttConnect(
                 MqttConnectFW packet)
         {
-            if (packet != null)
-            {
-                doMqttConnack(packet.buffer(), packet.offset(), packet.limit());
-                decodeState = this::decodePacketType;
-            }
+            doMqttConnack();
         }
 
         private int decodeConnectPacket(
@@ -470,7 +458,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             final MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
             onMqttConnect(mqttConnect);
-            return mqttConnect == null ? 0: mqttConnect.sizeof();
+            return mqttConnect == null ? 0 : mqttConnect.sizeof();
         }
 
         private int decodePacketType(
