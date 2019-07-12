@@ -31,18 +31,18 @@ import org.reaktivity.reaktor.test.ReaktorRule;
 public class ControlIT
 {
     private final K3poRule k3po = new K3poRule()
-            .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
-            .addScriptRoot("routeExt", "org/reaktivity/specification/nukleus/mqtt/control/route.ext")
-            .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/mqtt/control/unroute");
+        .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
+        .addScriptRoot("routeExt", "org/reaktivity/specification/nukleus/mqtt/control/route.ext")
+        .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/mqtt/control/unroute");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
 
     private final ReaktorRule reaktor = new ReaktorRule()
-            .directory("target/nukleus-itests")
-            .commandBufferCapacity(1024)
-            .responseBufferCapacity(1024)
-            .counterValuesBufferCapacity(4096)
-            .nukleus("mqtt"::equals);
+        .directory("target/nukleus-itests")
+        .commandBufferCapacity(1024)
+        .responseBufferCapacity(1024)
+        .counterValuesBufferCapacity(4096)
+        .nukleus("mqtt"::equals);
 
     @Rule
     public final TestRule chain = outerRule(k3po).around(timeout).around(reaktor);
