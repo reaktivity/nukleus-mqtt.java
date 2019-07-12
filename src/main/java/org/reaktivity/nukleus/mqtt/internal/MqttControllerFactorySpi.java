@@ -36,8 +36,8 @@ public final class MqttControllerFactorySpi implements ControllerFactorySpi<Mqtt
 
     @Override
     public MqttController create(
-            Configuration config,
-            ControllerBuilder<MqttController> builder)
+        Configuration config,
+        ControllerBuilder<MqttController> builder)
     {
         return builder.setFactory(MqttController::new)
                 .build();

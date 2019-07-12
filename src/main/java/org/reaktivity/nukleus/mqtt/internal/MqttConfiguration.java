@@ -29,7 +29,7 @@ public class MqttConfiguration extends Configuration
     }
 
     public MqttConfiguration(
-            Configuration config)
+        Configuration config)
     {
         super(MQTT_CONFIG, config);
     }

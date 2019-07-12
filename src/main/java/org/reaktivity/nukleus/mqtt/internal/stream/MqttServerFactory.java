@@ -102,14 +102,14 @@ public final class MqttServerFactory implements StreamFactory
     private final BufferPool bufferPool;
 
     public MqttServerFactory(
-            MqttConfiguration config,
-            RouteManager router,
-            MutableDirectBuffer writeBuffer,
-            BufferPool bufferPool,
-            LongUnaryOperator supplyInitialId,
-            LongUnaryOperator supplyReplyId,
-            LongSupplier supplyTraceId,
-            ToIntFunction<String> supplyTypeId)
+        MqttConfiguration config,
+        RouteManager router,
+        MutableDirectBuffer writeBuffer,
+        BufferPool bufferPool,
+        LongUnaryOperator supplyInitialId,
+        LongUnaryOperator supplyReplyId,
+        LongSupplier supplyTraceId,
+        ToIntFunction<String> supplyTypeId)
     {
         this.router = requireNonNull(router);
         this.writeBuffer = requireNonNull(writeBuffer);
@@ -124,11 +124,11 @@ public final class MqttServerFactory implements StreamFactory
 
     @Override
     public MessageConsumer newStream(
-            int msgTypeId,
-            DirectBuffer buffer,
-            int index,
-            int length,
-            MessageConsumer throttle)
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length,
+        MessageConsumer throttle)
     {
         final BeginFW begin = beginRO.wrap(buffer, index, index + length);
         final long streamId = begin.streamId();
@@ -147,8 +147,8 @@ public final class MqttServerFactory implements StreamFactory
     }
 
     private MessageConsumer newInitialStream(
-            final BeginFW begin,
-            final MessageConsumer sender)
+        final BeginFW begin,
+        final MessageConsumer sender)
     {
         final long routeId = begin.routeId();
         final long initialId = begin.streamId();
@@ -183,8 +183,8 @@ public final class MqttServerFactory implements StreamFactory
     }
 
     private MessageConsumer newReplyStream(
-            final BeginFW begin,
-            final MessageConsumer sender)
+        final BeginFW begin,
+        final MessageConsumer sender)
     {
         final long replyId = begin.streamId();
         final MqttServerConnect connect = correlations.remove(replyId);
@@ -198,10 +198,10 @@ public final class MqttServerFactory implements StreamFactory
     }
 
     private RouteFW wrapRoute(
-            int msgTypeId,
-            DirectBuffer buffer,
-            int index,
-            int length)
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
     {
         return routeRO.wrap(buffer, index, index + length);
     }
@@ -224,10 +224,10 @@ public final class MqttServerFactory implements StreamFactory
         private int bufferSlotOffset;
 
         private MqttServerConnect(
-                MessageConsumer receiver,
-                long routeId,
-                long initialId,
-                long replyId)
+            MessageConsumer receiver,
+            long routeId,
+            long initialId,
+            long replyId)
         {
             this.receiver = receiver;
             this.routeId = routeId;
@@ -237,7 +237,7 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doBegin(
-                long traceId)
+            long traceId)
         {
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                     .routeId(routeId)
@@ -249,8 +249,8 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doWindow(
-                long traceId,
-                int initialCredit)
+            long traceId,
+            int initialCredit)
         {
             if (initialCredit > 0)
             {
@@ -270,7 +270,7 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doEnd(
-                long traceId)
+            long traceId)
         {
             final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                     .routeId(routeId)
@@ -282,7 +282,7 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doAbort(
-                long traceId)
+            long traceId)
         {
             final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                     .routeId(routeId)
@@ -294,7 +294,7 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doReset(
-                long traceId)
+            long traceId)
         {
             final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity()).routeId(routeId)
                     .streamId(initialId)
@@ -305,7 +305,7 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doSignal(
-                long traceId)
+            long traceId)
         {
             final SignalFW signal = signalRW.wrap(writeBuffer, 0, writeBuffer.capacity()).routeId(routeId)
                     .streamId(initialId)
@@ -337,10 +337,10 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void onNetwork(
-                int msgTypeId,
-                DirectBuffer buffer,
-                int index,
-                int length)
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length)
         {
             switch (msgTypeId)
             {
@@ -378,13 +378,13 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void onBegin(
-                BeginFW begin)
+            BeginFW begin)
         {
             doBegin(supplyTraceId.getAsLong());
         }
 
         private void onData(
-                DataFW data)
+            DataFW data)
         {
             final OctetsFW payload = data.payload();
             initialBudget -= data.length() + data.padding();
@@ -406,21 +406,21 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void onEnd(
-                EndFW end)
+            EndFW end)
         {
             final long traceId = end.trace();
             doEnd(traceId);
         }
 
         private void onAbort(
-                AbortFW abort)
+            AbortFW abort)
         {
             final long traceId = abort.trace();
             doAbort(traceId);
         }
 
         private void onWindow(
-                WindowFW window)
+            WindowFW window)
         {
             final int replyCredit = window.credit();
 
@@ -432,29 +432,29 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void onReset(
-                ResetFW reset)
+            ResetFW reset)
         {
             final long traceId = reset.trace();
             doReset(traceId);
         }
 
         private void onSignal(
-                SignalFW signal)
+            SignalFW signal)
         {
             final long traceId = signal.trace();
             doSignal(traceId);
         }
 
         private void onMqttConnect(
-                MqttConnectFW packet)
+            MqttConnectFW packet)
         {
             doMqttConnack();
         }
 
         private int decodeConnectPacket(
-                final DirectBuffer buffer,
-                final int offset,
-                final int length)
+            final DirectBuffer buffer,
+            final int offset,
+            final int length)
         {
             final MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
             onMqttConnect(mqttConnect);
@@ -462,9 +462,9 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private int decodePacketType(
-                final DirectBuffer buffer,
-                final int offset,
-                final int length)
+            final DirectBuffer buffer,
+            final int offset,
+            final int length)
         {
             int consumed = 0;
 

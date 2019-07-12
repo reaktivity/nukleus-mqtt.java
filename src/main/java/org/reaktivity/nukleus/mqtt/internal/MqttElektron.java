@@ -33,7 +33,7 @@ final class MqttElektron implements Elektron
     private final Map<RouteKind, StreamFactoryBuilder> buildersByKind;
 
     MqttElektron(
-            MqttConfiguration config)
+        MqttConfiguration config)
     {
         final EnumMap<RouteKind, StreamFactoryBuilder> buildersByKind = new EnumMap<>(RouteKind.class);
         buildersByKind.put(SERVER, new MqttServerFactoryBuilder(config));
@@ -43,7 +43,7 @@ final class MqttElektron implements Elektron
 
     @Override
     public StreamFactoryBuilder streamFactoryBuilder(
-            RouteKind kind)
+        RouteKind kind)
     {
         return buildersByKind.get(kind);
     }

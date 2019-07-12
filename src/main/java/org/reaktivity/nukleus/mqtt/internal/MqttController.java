@@ -56,7 +56,7 @@ public final class MqttController implements Controller
     private final Gson gson;
 
     public MqttController(
-            ControllerSpi controllerSpi)
+        ControllerSpi controllerSpi)
     {
         this.controllerSpi = controllerSpi;
         this.commandBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
@@ -89,18 +89,18 @@ public final class MqttController implements Controller
     }
 
     public CompletableFuture<Long> route(
-            RouteKind kind,
-            String localAddress,
-            String remoteAddress)
+        RouteKind kind,
+        String localAddress,
+        String remoteAddress)
     {
         return route(kind, localAddress, remoteAddress, null);
     }
 
     public CompletableFuture<Long> route(
-            RouteKind kind,
-            String localAddress,
-            String remoteAddress,
-            String extension)
+        RouteKind kind,
+        String localAddress,
+        String remoteAddress,
+        String extension)
     {
         Flyweight routeEx = extensionRO;
 
@@ -123,7 +123,7 @@ public final class MqttController implements Controller
     }
 
     public CompletableFuture<Void> unroute(
-            long routeId)
+        long routeId)
     {
         final long correlationId = controllerSpi.nextCorrelationId();
 
@@ -137,10 +137,10 @@ public final class MqttController implements Controller
     }
 
     private CompletableFuture<Long> doRoute(
-            RouteKind kind,
-            String localAddress,
-            String remoteAddress,
-            Flyweight extension)
+        RouteKind kind,
+        String localAddress,
+        String remoteAddress,
+        Flyweight extension)
     {
         final long correlationId = controllerSpi.nextCorrelationId();
         final Role role = Role.valueOf(kind.ordinal());

@@ -18,7 +18,7 @@
  {
     scope codec
     {
-        enum MqttPackets
+        enum MqttPacketType
         {
             CONNECT,
             CONNACK,
@@ -91,6 +91,8 @@
             uint8 remainingLength;
             uint8 flags;
             uint8 reasonCode;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
         }
     }
  }

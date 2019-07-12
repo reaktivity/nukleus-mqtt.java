@@ -29,7 +29,7 @@ public final class MqttNukleusFactorySpi implements NukleusFactorySpi
 
     @Override
     public MqttNukleus create(
-            Configuration config)
+        Configuration config)
     {
         return new MqttNukleus(new MqttConfiguration(config));
     }

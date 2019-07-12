@@ -43,14 +43,14 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
     private ToIntFunction<String> supplyTypeId;
 
     public MqttServerFactoryBuilder(
-            MqttConfiguration config)
+        MqttConfiguration config)
     {
         this.config = config;
     }
 
     @Override
     public MqttServerFactoryBuilder setRouteManager(
-            RouteManager router)
+        RouteManager router)
     {
         this.router = router;
         return this;
@@ -58,7 +58,7 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
 
     @Override
     public MqttServerFactoryBuilder setWriteBuffer(
-            MutableDirectBuffer writeBuffer)
+        MutableDirectBuffer writeBuffer)
     {
         this.writeBuffer = writeBuffer;
         return this;
@@ -66,7 +66,7 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
 
     @Override
     public MqttServerFactoryBuilder setInitialIdSupplier(
-            LongUnaryOperator supplyInitialId)
+        LongUnaryOperator supplyInitialId)
     {
         this.supplyInitialId = supplyInitialId;
         return this;
@@ -74,7 +74,7 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
 
     @Override
     public StreamFactoryBuilder setReplyIdSupplier(
-            LongUnaryOperator supplyReplyId)
+        LongUnaryOperator supplyReplyId)
     {
         this.supplyReplyId = supplyReplyId;
         return this;
@@ -82,21 +82,21 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
 
     @Override
     public MqttServerFactoryBuilder setGroupBudgetClaimer(
-            LongFunction<IntUnaryOperator> groupBudgetClaimer)
+        LongFunction<IntUnaryOperator> groupBudgetClaimer)
     {
         return this;
     }
 
     @Override
     public MqttServerFactoryBuilder setGroupBudgetReleaser(
-            LongFunction<IntUnaryOperator> groupBudgetReleaser)
+        LongFunction<IntUnaryOperator> groupBudgetReleaser)
     {
         return this;
     }
 
     @Override
     public StreamFactoryBuilder setBufferPoolSupplier(
-            Supplier<BufferPool> supplyBufferPool)
+        Supplier<BufferPool> supplyBufferPool)
     {
         this.supplyBufferPool = supplyBufferPool;
         return this;
@@ -104,7 +104,7 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
 
     @Override
     public StreamFactoryBuilder setTraceSupplier(
-            LongSupplier supplyTraceId)
+        LongSupplier supplyTraceId)
     {
         this.supplyTraceId = supplyTraceId;
         return this;
@@ -112,7 +112,7 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
 
     @Override
     public StreamFactoryBuilder setTypeIdSupplier(
-            ToIntFunction<String> supplyTypeId)
+        ToIntFunction<String> supplyTypeId)
     {
         this.supplyTypeId = supplyTypeId;
         return this;
