@@ -50,6 +50,12 @@
             uint8 value;
         }
 
+        struct MqttTopic
+        {
+            string topic;
+            uint8 options;
+        }
+
         union MqttProperty switch (uint8)
         {
             case 0x11: uint32 sessionExpiry;
@@ -98,13 +104,49 @@
         struct MqttPingReq
         {
             uint8 packetType;
-            uint8 remainingLength = 0x00;
+            uint8 remainingLength;
         }
 
         struct MqttPingResp
         {
             uint8 packetType;
             uint8 remainingLength;
+        }
+
+        struct MqttSubscribe
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 packetId;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+            list<protocol::codec::MqttTopic> topics;
+        }
+
+        struct MqttSuback
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 packetId;
+            /*list<uint8> reasonCodes;*/
+        }
+
+        struct MqttUnsubscribe
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 packetId;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+            list<string> topics;
+        }
+
+        struct MqttUnsuback
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 packetId;
+            /*list<uint8> reasonCodes;*/
         }
     }
  }

@@ -465,7 +465,7 @@ public final class MqttServerFactory implements StreamFactory
 
         private void doMqttPingResp()
         {
-            final MqttPingRespFW ping = mqttPingRespRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+            final MqttPingRespFW ping = mqttPingRespRW.wrap(writeBuffer,  DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                 .packetType(0xC0)
                 .remainingLength(0x00)
                 .build();
@@ -480,6 +480,16 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+        }
+
+        private void doMqttSuback()
+        {
+            /* TODO */
+        }
+
+        private void doMqttUnsuback()
+        {
+            /* TODO */
         }
 
         private int decodeConnectPacket(
@@ -505,11 +515,16 @@ public final class MqttServerFactory implements StreamFactory
 
             switch (packetType)
             {
-                case 0xB0:
+                case 0xb0:
                     final MqttPingReqFW ping = mqttPingReqRO.wrap(buffer, offset, offset + length);
                     onMqttPingReq(ping);
                     break;
-
+                case 0x82:
+                    /* onSubscribe */
+                    break;
+                case 0xa2:
+                    /* onUnsubscribe */
+                    break;
                 default:
                     doAbort(decodeTraceId);
                     break;
