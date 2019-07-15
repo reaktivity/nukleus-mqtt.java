@@ -149,11 +149,15 @@
             /*list<uint8> reasonCodes;*/
         }
 
+        struct MqttPublish
+        {
+        }
+
         struct MqttDisconnect
         {
             uint8 packetType;
             uint8 remainingLength;
-            unit8 reasonCode;
+            uint8 reasonCode;
             varint32 propertiesLength;
             octets[propertiesLength] properties;
         }

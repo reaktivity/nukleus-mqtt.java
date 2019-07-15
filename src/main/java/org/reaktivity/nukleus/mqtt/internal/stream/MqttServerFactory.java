@@ -357,6 +357,22 @@ public final class MqttServerFactory implements StreamFactory
             doMqttPingResp();
         }
 
+        private void onMqttSubscribe()
+        {
+        }
+
+        private void onMqttUnsubscribe()
+        {
+        }
+
+        private void onMqttPublish()
+        {
+        }
+
+        private void onMqttDisconnect()
+        {
+        }
+
         private void doBegin(
             long traceId)
         {
@@ -484,12 +500,14 @@ public final class MqttServerFactory implements StreamFactory
 
         private void doMqttSuback()
         {
-            /* TODO */
         }
 
         private void doMqttUnsuback()
         {
-            /* TODO */
+        }
+
+        private void doMqttDisconnect()
+        {
         }
 
         private int decodeConnectPacket(
