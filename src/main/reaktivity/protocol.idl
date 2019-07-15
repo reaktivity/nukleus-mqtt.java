@@ -129,7 +129,7 @@
             uint8 packetType;
             uint8 remainingLength;
             uint16 packetId;
-            /*list<uint8> reasonCodes;*/
+            octets reasonCodes;
         }
 
         struct MqttUnsubscribe
@@ -147,7 +147,7 @@
             uint8 packetType;
             uint8 remainingLength;
             uint16 packetId;
-            /*list<uint8> reasonCodes;*/
+            octets reasonCodes;
         }
 
         struct MqttPublish
