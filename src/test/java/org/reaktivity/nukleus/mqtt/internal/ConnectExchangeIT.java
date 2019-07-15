@@ -57,4 +57,13 @@ public class ConnectExchangeIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/ping.exchange/client"})
+    public void shouldExchangeConnectionPacketsThenPingPackets() throws Exception
+    {
+        k3po.finish();
+    }
 }

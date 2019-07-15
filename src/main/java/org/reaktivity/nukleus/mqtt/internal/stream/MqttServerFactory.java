@@ -50,6 +50,8 @@ import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttEndExFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPacketFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingReqFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingRespFW;
 
 public final class MqttServerFactory implements StreamFactory
 {
@@ -78,10 +80,14 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttPacketFW mqttPacketRO = new MqttPacketFW();
     private final MqttConnectFW mqttConnectRO = new MqttConnectFW();
     private final MqttConnackFW mqttConnackRO = new MqttConnackFW();
+    private final MqttPingReqFW mqttPingReqRO = new MqttPingReqFW();
+    private final MqttPingRespFW mqttPingRespRO = new MqttPingRespFW();
 
     private final MqttPacketFW.Builder mqttPacketRW = new MqttPacketFW.Builder();
     private final MqttConnectFW.Builder mqttConnectRW = new MqttConnectFW.Builder();
     private final MqttConnackFW.Builder mqttConnackRW = new MqttConnackFW.Builder();
+    private final MqttPingReqFW.Builder mqttPingReqRW = new MqttPingReqFW.Builder();
+    private final MqttPingRespFW.Builder mqttPingRespRW = new MqttPingRespFW.Builder();
 
     private final RouteManager router;
     private final MutableDirectBuffer writeBuffer;
@@ -345,6 +351,12 @@ public final class MqttServerFactory implements StreamFactory
             doMqttConnack();
         }
 
+        private void onMqttPingReq(
+            MqttPingReqFW packet)
+        {
+            doMqttPingResp();
+        }
+
         private void doBegin(
             long traceId)
         {
@@ -451,6 +463,25 @@ public final class MqttServerFactory implements StreamFactory
             receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
         }
 
+        private void doMqttPingResp()
+        {
+            final MqttPingRespFW ping = mqttPingRespRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .packetType(0xC0)
+                .remainingLength(0x00)
+                .build();
+
+            final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(replyId)
+                .trace(supplyTraceId.getAsLong())
+                .groupId(0)
+                .padding(replyPadding)
+                .payload(ping.buffer(), ping.offset(), ping.limit())
+                .build();
+
+            receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+        }
+
         private int decodeConnectPacket(
             final DirectBuffer buffer,
             final int offset,
@@ -458,6 +489,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             final MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
             onMqttConnect(mqttConnect);
+            this.decodeState = this::decodePacketType;
             return mqttConnect == null ? 0 : mqttConnect.sizeof();
         }
 
@@ -468,11 +500,19 @@ public final class MqttServerFactory implements StreamFactory
         {
             int consumed = 0;
 
-            final MqttPacketFW mqttPacket = mqttPacketRO.tryWrap(buffer, offset, offset + length);
+            final MqttPacketFW mqttPacket = mqttPacketRO.wrap(buffer, offset, offset + length);
+            final int packetType = mqttPacket.packetType();
 
-            switch (mqttPacket.packetType())
+            switch (packetType)
             {
+                case 0xB0:
+                    final MqttPingReqFW ping = mqttPingReqRO.wrap(buffer, offset, offset + length);
+                    onMqttPingReq(ping);
+                    break;
 
+                default:
+                    doAbort(decodeTraceId);
+                    break;
             }
 
             return consumed;

@@ -94,5 +94,17 @@
             varint32 propertiesLength;
             octets[propertiesLength] properties;
         }
+
+        struct MqttPingReq
+        {
+            uint8 packetType;
+            uint8 remainingLength = 0x00;
+        }
+
+        struct MqttPingResp
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+        }
     }
  }
