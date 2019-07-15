@@ -522,10 +522,10 @@ public final class MqttServerFactory implements StreamFactory
             final int offset,
             final int length)
         {
-            final MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
+            final MqttConnectFW mqttConnect = mqttConnectRO.wrap(buffer, offset, buffer.capacity());
             onMqttConnect(mqttConnect);
             this.decodeState = this::decodePacketType;
-            return mqttConnect == null ? 0 : mqttConnect.sizeof();
+            return mqttConnect.sizeof();
         }
 
         private int decodePacketType(
@@ -535,13 +535,13 @@ public final class MqttServerFactory implements StreamFactory
         {
             int consumed = 0;
 
-            final MqttPacketFW mqttPacket = mqttPacketRO.wrap(buffer, offset, offset + length);
+            final MqttPacketFW mqttPacket = mqttPacketRO.wrap(buffer, offset, buffer.capacity());
             final int packetType = mqttPacket.packetType();
 
             switch (packetType)
             {
                 case 0xb0:
-                    final MqttPingReqFW ping = mqttPingReqRO.wrap(buffer, offset, offset + length);
+                    final MqttPingReqFW ping = mqttPingReqRO.wrap(buffer, offset, buffer.capacity());
                     onMqttPingReq(ping);
                     break;
                 case 0x82:
