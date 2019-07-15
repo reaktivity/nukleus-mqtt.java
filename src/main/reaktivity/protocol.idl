@@ -76,6 +76,7 @@
             case 0x1C: string serverReference;
             case 0x15: string authenticationMethod;
             case 0x16: protocol::codec::Binary authenticationData;
+            case 0x01: uint8 payloadFormatIndicator;
         }
 
         struct MqttConnect
@@ -151,6 +152,12 @@
 
         struct MqttPublish
         {
+            uint8 packetType;
+            uint8 remainingLength;
+            string topic;
+            uint16 packetId;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
         }
 
         struct MqttDisconnect
