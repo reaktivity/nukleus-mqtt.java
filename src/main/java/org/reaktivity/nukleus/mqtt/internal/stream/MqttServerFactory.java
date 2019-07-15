@@ -543,6 +543,9 @@ public final class MqttServerFactory implements StreamFactory
                 case 0xa2:
                     /* onUnsubscribe */
                     break;
+                case 0x7c:
+                    /* onDisconnect */
+                    break;
                 default:
                     doAbort(decodeTraceId);
                     break;
