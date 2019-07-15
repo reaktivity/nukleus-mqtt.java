@@ -148,5 +148,14 @@
             uint16 packetId;
             /*list<uint8> reasonCodes;*/
         }
+
+        struct MqttDisconnect
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            unit8 reasonCode;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
     }
  }
