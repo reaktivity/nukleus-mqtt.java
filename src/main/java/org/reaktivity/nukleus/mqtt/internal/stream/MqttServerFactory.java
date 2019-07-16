@@ -376,8 +376,11 @@ public final class MqttServerFactory implements StreamFactory
         {
         }
 
-        private void onMqttDisconnect()
+        private void onMqttDisconnect(
+            MqttDisconnectFW disconnect
+        )
         {
+
         }
 
         private void doBegin(
@@ -480,7 +483,7 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(supplyTraceId.getAsLong())
                 .groupId(0)
                 .padding(replyPadding)
-                .payload(connack.buffer(), connack.offset(), connack.limit())
+                .payload(connack.buffer(), connack.offset(), connack.sizeof())
                 .build();
 
             receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
@@ -488,8 +491,8 @@ public final class MqttServerFactory implements StreamFactory
 
         private void doMqttPingResp()
         {
-            final MqttPingRespFW ping = mqttPingRespRW.wrap(writeBuffer,  DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .packetType(0xC0)
+            final MqttPingRespFW ping = mqttPingRespRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .packetType(0xD0)
                 .remainingLength(0x00)
                 .build();
 
@@ -499,7 +502,7 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(supplyTraceId.getAsLong())
                 .groupId(0)
                 .padding(replyPadding)
-                .payload(ping.buffer(), ping.offset(), ping.limit())
+                .payload(ping.buffer(), ping.offset(), ping.sizeof())
                 .build();
 
             receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
@@ -515,6 +518,21 @@ public final class MqttServerFactory implements StreamFactory
 
         private void doMqttDisconnect()
         {
+            final MqttDisconnectFW disconnect = mqttDisconnectRW.wrap(writeBuffer,  0, writeBuffer.capacity())
+                .packetType(0xD0)
+                .remainingLength(0x00)
+                .build();
+
+            final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(replyId)
+                .trace(supplyTraceId.getAsLong())
+                .groupId(0)
+                .padding(replyPadding)
+                .payload(disconnect.buffer(), disconnect.offset(), disconnect.limit())
+                .build();
+
+            receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
         }
 
         private int decodeConnectPacket(
@@ -522,10 +540,10 @@ public final class MqttServerFactory implements StreamFactory
             final int offset,
             final int length)
         {
-            final MqttConnectFW mqttConnect = mqttConnectRO.wrap(buffer, offset, buffer.capacity());
+            final MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
             onMqttConnect(mqttConnect);
             this.decodeState = this::decodePacketType;
-            return mqttConnect.sizeof();
+            return mqttConnect == null ? 0 : mqttConnect.sizeof();
         }
 
         private int decodePacketType(
@@ -535,23 +553,23 @@ public final class MqttServerFactory implements StreamFactory
         {
             int consumed = 0;
 
-            final MqttPacketFW mqttPacket = mqttPacketRO.wrap(buffer, offset, buffer.capacity());
+            final MqttPacketFW mqttPacket = mqttPacketRO.wrap(buffer, offset, offset + length);
             final int packetType = mqttPacket.packetType();
 
             switch (packetType)
             {
-                case 0xb0:
-                    final MqttPingReqFW ping = mqttPingReqRO.wrap(buffer, offset, buffer.capacity());
+                case 0xC0:
+                    final MqttPingReqFW ping = mqttPingReqRO.tryWrap(buffer, offset, offset + length);
                     onMqttPingReq(ping);
                     break;
                 case 0x82:
                     /* onSubscribe */
                     break;
-                case 0xa2:
+                case 0xA2:
                     /* onUnsubscribe */
                     break;
-                case 0x7c:
-                    /* onDisconnect */
+                case 0xE0:
+                    /* decode reason code */
                     break;
                 default:
                     doAbort(decodeTraceId);

@@ -29,7 +29,7 @@ import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
-public class ConnectExchangeIT
+public class ConnectionIT
 {
     private final K3poRule k3po = new K3poRule()
         .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
@@ -63,6 +63,15 @@ public class ConnectExchangeIT
         "${route}/server/controller",
         "${client}/ping.exchange/client"})
     public void shouldExchangeConnectionPacketsThenPingPackets() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/disconnect/client"})
+    public void shouldExchangeConnectionPacketsThenDisconnect() throws Exception
     {
         k3po.finish();
     }
