@@ -545,7 +545,7 @@ public final class MqttServerFactory implements StreamFactory
             MqttConnectFW packet
         )
         {
-            return packet.protocolName().toString().equals("mqtt")
+            return packet.protocolName().toString().equals("MQTT")
                 && packet.protocolVersion() == 0x05;
         }
 
