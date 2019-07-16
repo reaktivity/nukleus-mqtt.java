@@ -377,8 +377,7 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void onMqttDisconnect(
-            MqttDisconnectFW disconnect
-        )
+            MqttDisconnectFW disconnect)
         {
 
         }
@@ -469,7 +468,7 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .remainingLength(0x02)
+                .remainingLength(0x03)
                 .flags(0x00)
                 .reasonCode(0x00)
                 .propertiesLength(0x00)
