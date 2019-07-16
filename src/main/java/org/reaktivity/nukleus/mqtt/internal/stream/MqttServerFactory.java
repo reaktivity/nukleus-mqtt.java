@@ -518,9 +518,15 @@ public final class MqttServerFactory implements StreamFactory
 
         private void doMqttDisconnect()
         {
-            final MqttDisconnectFW disconnect = mqttDisconnectRW.wrap(writeBuffer,  0, writeBuffer.capacity())
+            OctetsFW properties = new OctetsFW.Builder()
+                .wrap(writeBuffer, 0, writeBuffer.capacity())
+                .build();
+
+            final MqttDisconnectFW disconnect = mqttDisconnectRW.wrap(writeBuffer,  DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                 .packetType(0xD0)
                 .remainingLength(0x00)
+                .reasonCode(0x00)
+                .properties(properties)
                 .build();
 
             final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
@@ -529,10 +535,18 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(supplyTraceId.getAsLong())
                 .groupId(0)
                 .padding(replyPadding)
-                .payload(disconnect.buffer(), disconnect.offset(), disconnect.limit())
+                .payload(disconnect.buffer(), disconnect.offset(), disconnect.sizeof())
                 .build();
 
             receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+        }
+
+        private boolean isValidConnectPacket(
+            MqttConnectFW packet
+        )
+        {
+            return packet.protocolName().toString().equals("mqtt")
+                && packet.protocolVersion() == 0x05;
         }
 
         private int decodeConnectPacket(
@@ -563,13 +577,16 @@ public final class MqttServerFactory implements StreamFactory
                     onMqttPingReq(ping);
                     break;
                 case 0x82:
-                    /* onSubscribe */
+                    /* onMqttSubscribe */
                     break;
                 case 0xA2:
-                    /* onUnsubscribe */
+                    /* onMqttUnsubscribe */
                     break;
                 case 0xE0:
-                    /* decode reason code */
+                    /* onMqttDisconnect decode reason code */
+                    break;
+                case 0x30:
+                    /* onMqttPublish */
                     break;
                 default:
                     doAbort(decodeTraceId);
