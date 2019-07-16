@@ -18,7 +18,18 @@ package org.reaktivity.nukleus.mqtt.internal.stream;
 
 import static java.util.Objects.requireNonNull;
 
-import org.reaktivity.nukleus.mqtt.internal.types.stream.*;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPacketFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingReqFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingRespFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscribeFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubackFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribeFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPublishFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttDisconnectFW;
+
 import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
 
 import java.util.function.LongSupplier;
@@ -37,19 +48,17 @@ import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
 import org.reaktivity.nukleus.mqtt.internal.MqttNukleus;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
-import org.reaktivity.nukleus.mqtt.internal.types.stream.AbortFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.BeginFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.DataFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.EndFW;
-import org.reaktivity.nukleus.mqtt.internal.types.stream.ResetFW;
+import org.reaktivity.nukleus.mqtt.internal.types.stream.AbortFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.WindowFW;
+import org.reaktivity.nukleus.mqtt.internal.types.stream.ResetFW;
+import org.reaktivity.nukleus.mqtt.internal.types.stream.SignalFW;
 
 import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttBeginExFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttDataExFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttEndExFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPacketFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 
 public final class MqttServerFactory implements StreamFactory
 {
@@ -78,10 +87,25 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttPacketFW mqttPacketRO = new MqttPacketFW();
     private final MqttConnectFW mqttConnectRO = new MqttConnectFW();
     private final MqttConnackFW mqttConnackRO = new MqttConnackFW();
+    private final MqttPingReqFW mqttPingReqRO = new MqttPingReqFW();
+    private final MqttPingRespFW mqttPingRespRO = new MqttPingRespFW();
+    private final MqttDisconnectFW mqttDisconnectRO = new MqttDisconnectFW();
+    private final MqttSubscribeFW mqttSubscribeRO = new MqttSubscribeFW();
+    private final MqttSubackFW mqttSubackRO = new MqttSubackFW();
+    private final MqttUnsubscribeFW mqttUnsubscribeRO = new MqttUnsubscribeFW();
+    private final MqttUnsubackFW mqttUnsubackRO = new MqttUnsubackFW();
+    private final MqttPublishFW mqttPublishRO = new MqttPublishFW();
 
     private final MqttPacketFW.Builder mqttPacketRW = new MqttPacketFW.Builder();
     private final MqttConnectFW.Builder mqttConnectRW = new MqttConnectFW.Builder();
     private final MqttConnackFW.Builder mqttConnackRW = new MqttConnackFW.Builder();
+    private final MqttPingReqFW.Builder mqttPingReqRW = new MqttPingReqFW.Builder();
+    private final MqttDisconnectFW.Builder mqttDisconnectRW = new MqttDisconnectFW.Builder();
+    private final MqttPingRespFW.Builder mqttPingRespRW = new MqttPingRespFW.Builder();
+    private final MqttSubscribeFW.Builder mqttSubscribeRW = new MqttSubscribeFW.Builder();
+    private final MqttSubackFW.Builder mqttSubackRW = new MqttSubackFW.Builder();
+    private final MqttUnsubscribeFW.Builder mqttUnsubscribeRW = new MqttUnsubscribeFW.Builder();
+    private final MqttUnsubackFW.Builder mqttUnsubackRW = new MqttUnsubackFW.Builder();
 
     private final RouteManager router;
     private final MutableDirectBuffer writeBuffer;
@@ -345,6 +369,30 @@ public final class MqttServerFactory implements StreamFactory
             doMqttConnack();
         }
 
+        private void onMqttPingReq(
+            MqttPingReqFW packet)
+        {
+            doMqttPingResp();
+        }
+
+        private void onMqttSubscribe()
+        {
+        }
+
+        private void onMqttUnsubscribe()
+        {
+        }
+
+        private void onMqttPublish()
+        {
+        }
+
+        private void onMqttDisconnect(
+            MqttDisconnectFW disconnect)
+        {
+
+        }
+
         private void doBegin(
             long traceId)
         {
@@ -431,8 +479,7 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .packetType(0x20)
-                .remainingLength(0x02)
+                .remainingLength(0x03)
                 .flags(0x00)
                 .reasonCode(0x00)
                 .propertiesLength(0x00)
@@ -445,10 +492,68 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(supplyTraceId.getAsLong())
                 .groupId(0)
                 .padding(replyPadding)
-                .payload(connack.buffer(), connack.offset(), connack.limit())
+                .payload(connack.buffer(), connack.offset(), connack.sizeof())
                 .build();
 
             receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+        }
+
+        private void doMqttPingResp()
+        {
+            final MqttPingRespFW ping = mqttPingRespRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .remainingLength(0x00)
+                .build();
+
+            final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(replyId)
+                .trace(supplyTraceId.getAsLong())
+                .groupId(0)
+                .padding(replyPadding)
+                .payload(ping.buffer(), ping.offset(), ping.sizeof())
+                .build();
+
+            receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+        }
+
+        private void doMqttSuback()
+        {
+        }
+
+        private void doMqttUnsuback()
+        {
+        }
+
+        private void doMqttDisconnect()
+        {
+            OctetsFW properties = new OctetsFW.Builder()
+                .wrap(writeBuffer, 0, writeBuffer.capacity())
+                .build();
+
+            final MqttDisconnectFW disconnect = mqttDisconnectRW
+                .wrap(writeBuffer,  DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .remainingLength(0x00)
+                .reasonCode(0x00)
+                .properties(properties)
+                .build();
+
+            final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(replyId)
+                .trace(supplyTraceId.getAsLong())
+                .groupId(0)
+                .padding(replyPadding)
+                .payload(disconnect.buffer(), disconnect.offset(), disconnect.sizeof())
+                .build();
+
+            receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+        }
+
+        private boolean isValidConnectPacket(
+            MqttConnectFW packet)
+        {
+            return packet.protocolName().toString().equals("MQTT")
+                && packet.protocolVersion() == 0x05;
         }
 
         private int decodeConnectPacket(
@@ -458,6 +563,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             final MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
             onMqttConnect(mqttConnect);
+            this.decodeState = this::decodePacketType;
             return mqttConnect == null ? 0 : mqttConnect.sizeof();
         }
 
@@ -468,11 +574,30 @@ public final class MqttServerFactory implements StreamFactory
         {
             int consumed = 0;
 
-            final MqttPacketFW mqttPacket = mqttPacketRO.tryWrap(buffer, offset, offset + length);
+            final MqttPacketFW mqttPacket = mqttPacketRO.wrap(buffer, offset, offset + length);
+            final int packetType = mqttPacket.packetType();
 
-            switch (mqttPacket.packetType())
+            switch (packetType)
             {
-
+                case 0xc0:
+                    final MqttPingReqFW ping = mqttPingReqRO.tryWrap(buffer, offset, offset + length);
+                    onMqttPingReq(ping);
+                    break;
+                case 0x82:
+                    /* onMqttSubscribe */
+                    break;
+                case 0xa2:
+                    /* onMqttUnsubscribe */
+                    break;
+                case 0xe0:
+                    /* onMqttDisconnect decode reason code */
+                    break;
+                case 0x30:
+                    /* onMqttPublish */
+                    break;
+                default:
+                    doAbort(decodeTraceId);
+                    break;
             }
 
             return consumed;

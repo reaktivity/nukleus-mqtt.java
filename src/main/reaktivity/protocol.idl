@@ -50,6 +50,12 @@
             uint8 value;
         }
 
+        struct MqttTopic
+        {
+            string topic;
+            uint8 options;
+        }
+
         union MqttProperty switch (uint8)
         {
             case 0x11: uint32 sessionExpiry;
@@ -70,6 +76,7 @@
             case 0x1C: string serverReference;
             case 0x15: string authenticationMethod;
             case 0x16: protocol::codec::Binary authenticationData;
+            case 0x01: uint8 payloadFormatIndicator;
         }
 
         struct MqttConnect
@@ -80,16 +87,83 @@
             uint8 protocolVersion;
             uint8 flags;
             uint16 keepAlive;
-            varint32 propertiesLength;
+            uint8 propertiesLength;
             string16 clientId;
             octets[propertiesLength] properties;
         }
 
         struct MqttConnack
         {
-            uint8 packetType;
+            uint8 packetType = 0x20;
             uint8 remainingLength;
             uint8 flags;
+            uint8 reasonCode;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttPingReq
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+        }
+
+        struct MqttPingResp
+        {
+            uint8 packetType = 0xd0;
+            uint8 remainingLength;
+        }
+
+        struct MqttSubscribe
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 packetId;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+            list<protocol::codec::MqttTopic> topics;
+        }
+
+        struct MqttSuback
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 packetId;
+            octets reasonCodes;
+        }
+
+        struct MqttUnsubscribe
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 packetId;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+            list<string> topics;
+        }
+
+        struct MqttUnsuback
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 packetId;
+            octets reasonCodes;
+        }
+
+        struct MqttPublish
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            string topic;
+            uint16 packetId;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttDisconnect
+        {
+            uint8 packetType = 0xe0;
+            uint8 remainingLength;
             uint8 reasonCode;
             varint32 propertiesLength;
             octets[propertiesLength] properties;
