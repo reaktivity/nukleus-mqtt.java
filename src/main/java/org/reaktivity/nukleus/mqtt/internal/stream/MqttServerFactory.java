@@ -469,7 +469,6 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .packetType(0x20)
                 .remainingLength(0x02)
                 .flags(0x00)
                 .reasonCode(0x00)
@@ -492,7 +491,6 @@ public final class MqttServerFactory implements StreamFactory
         private void doMqttPingResp()
         {
             final MqttPingRespFW ping = mqttPingRespRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .packetType(0xD0)
                 .remainingLength(0x00)
                 .build();
 
@@ -522,8 +520,8 @@ public final class MqttServerFactory implements StreamFactory
                 .wrap(writeBuffer, 0, writeBuffer.capacity())
                 .build();
 
-            final MqttDisconnectFW disconnect = mqttDisconnectRW.wrap(writeBuffer,  DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .packetType(0xD0)
+            final MqttDisconnectFW disconnect = mqttDisconnectRW
+                .wrap(writeBuffer,  DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                 .remainingLength(0x00)
                 .reasonCode(0x00)
                 .properties(properties)
@@ -542,8 +540,7 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private boolean isValidConnectPacket(
-            MqttConnectFW packet
-        )
+            MqttConnectFW packet)
         {
             return packet.protocolName().toString().equals("MQTT")
                 && packet.protocolVersion() == 0x05;

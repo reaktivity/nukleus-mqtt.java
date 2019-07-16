@@ -94,7 +94,7 @@
 
         struct MqttConnack
         {
-            uint8 packetType;
+            uint8 packetType = 0x20;
             uint8 remainingLength;
             uint8 flags;
             uint8 reasonCode;
@@ -110,7 +110,7 @@
 
         struct MqttPingResp
         {
-            uint8 packetType;
+            uint8 packetType = 0xD0;
             uint8 remainingLength;
         }
 
@@ -162,7 +162,7 @@
 
         struct MqttDisconnect
         {
-            uint8 packetType;
+            uint8 packetType = 0xE0;
             uint8 remainingLength;
             uint8 reasonCode;
             varint32 propertiesLength;
