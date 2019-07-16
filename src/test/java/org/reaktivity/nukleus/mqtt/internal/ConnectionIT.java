@@ -52,7 +52,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/connection/client"})
+        "${client}/connect/client"})
     public void shouldExchangeConnectAndConnackPackets() throws Exception
     {
         k3po.finish();
@@ -61,7 +61,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/ping.exchange/client"})
+        "${client}/ping/client"})
     public void shouldExchangeConnectionPacketsThenPingPackets() throws Exception
     {
         k3po.finish();
