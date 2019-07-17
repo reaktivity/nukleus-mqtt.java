@@ -529,10 +529,52 @@ public final class MqttServerFactory implements StreamFactory
 
         private void doMqttSuback()
         {
+            OctetsFW reasonCodes = new OctetsFW.Builder()
+                .wrap(writeBuffer, 0, writeBuffer.capacity())
+                .put(new byte[] {0x00})
+                .build();
+
+            final MqttSubackFW suback = mqttSubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .remainingLength(0x00)
+                .packetId(0x00)
+                .reasonCodes(reasonCodes)
+                .build();
+
+            final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(replyId)
+                .trace(supplyTraceId.getAsLong())
+                .groupId(0)
+                .padding(replyPadding)
+                .payload(suback.buffer(), suback.offset(), suback.sizeof())
+                .build();
+
+            receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
         }
 
         private void doMqttUnsuback()
         {
+            OctetsFW reasonCodes = new OctetsFW.Builder()
+                .wrap(writeBuffer, 0, writeBuffer.capacity())
+                .put(new byte[] {0x00})
+                .build();
+
+            final MqttUnsubackFW unsuback = mqttUnsubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .remainingLength(0x00)
+                .packetId(0x00)
+                .reasonCodes(reasonCodes)
+                .build();
+
+            final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(replyId)
+                .trace(supplyTraceId.getAsLong())
+                .groupId(0)
+                .padding(replyPadding)
+                .payload(unsuback.buffer(), unsuback.offset(), unsuback.sizeof())
+                .build();
+
+            receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
         }
 
         private void doMqttDisconnect()
