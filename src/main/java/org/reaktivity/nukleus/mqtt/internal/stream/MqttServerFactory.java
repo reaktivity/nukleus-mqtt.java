@@ -613,10 +613,25 @@ public final class MqttServerFactory implements StreamFactory
             final int offset,
             final int length)
         {
-            MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
-            onMqttConnect(mqttConnect);
-            this.decodeState = this::decodeSession;
-            return mqttConnect == null ? 0 : mqttConnect.sizeof();
+            int consumed = 0;
+
+            final MqttPacketFW mqttPacket = mqttPacketRO.tryWrap(buffer, offset, offset + length);
+            final int packetType = mqttPacket == null ? 0 : mqttPacket.packetType();
+
+            if (packetType != 0x10)
+            {
+                this.decodeState = this::decodeEnd;
+                decodeState.decode(buffer, offset, length);
+            }
+            else
+            {
+                MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
+                onMqttConnect(mqttConnect);
+                this.decodeState = this::decodeSession;
+                return mqttConnect == null ? 0 : mqttConnect.sizeof();
+            }
+
+            return consumed;
         }
 
         private int decodeSession(
