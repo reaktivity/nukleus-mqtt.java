@@ -377,7 +377,21 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttConnect(
             MqttConnectFW packet)
         {
-            doMqttConnack();
+            int reasonCode = isValidProtocol(packet) ? 0x00 : 0x84;
+
+            OctetsFW properties = new OctetsFW.Builder()
+                .wrap(writeBuffer, 0, writeBuffer.capacity())
+                .build();
+
+            final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .remainingLength(0x03)
+                .flags(0x00)
+                .reasonCode(reasonCode)
+                .propertiesLength(0x00)
+                .properties(properties)
+                .build();
+
+            doMqttConnack(connack);
         }
 
         private void onMqttPingReq(
@@ -483,20 +497,9 @@ public final class MqttServerFactory implements StreamFactory
             receiver.accept(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
         }
 
-        private void doMqttConnack()
+        private void doMqttConnack(
+            MqttConnackFW connack)
         {
-            OctetsFW properties = new OctetsFW.Builder()
-                .wrap(writeBuffer, 0, writeBuffer.capacity())
-                .build();
-
-            final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .remainingLength(0x03)
-                .flags(0x00)
-                .reasonCode(0x00)
-                .propertiesLength(0x00)
-                .properties(properties)
-                .build();
-
             final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(replyId)
@@ -601,7 +604,7 @@ public final class MqttServerFactory implements StreamFactory
             receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
         }
 
-        private boolean isValidConnectPacket(
+        private boolean isValidProtocol(
             MqttConnectFW packet)
         {
             return packet.protocolName().toString().equals("MQTT")
@@ -615,13 +618,12 @@ public final class MqttServerFactory implements StreamFactory
         {
             int consumed = 0;
 
-            final MqttPacketFW mqttPacket = mqttPacketRO.tryWrap(buffer, offset, offset + length);
-            final int packetType = mqttPacket == null ? 0 : mqttPacket.packetType();
+            final MqttPacketFW mqttPacket = mqttPacketRO.wrap(buffer, offset, offset + length);
+            final int packetType = mqttPacket.packetType();
 
             if (packetType != 0x10)
             {
                 this.decodeState = this::decodeEnd;
-                decodeState.decode(buffer, offset, length);
             }
             else
             {
@@ -676,8 +678,9 @@ public final class MqttServerFactory implements StreamFactory
             final int length)
         {
             int consumed = 0;
-            doReset(decodeTraceId);
-            this.decodeState = this::decodeConnectPacket;
+
+            /* doEnd */
+
             return consumed;
         }
     }
