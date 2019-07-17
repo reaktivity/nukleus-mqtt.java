@@ -512,7 +512,6 @@ public final class MqttServerFactory implements StreamFactory
         private void doMqttPingResp()
         {
             final MqttPingRespFW ping = mqttPingRespRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .remainingLength(0x00)
                 .build();
 
             final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())

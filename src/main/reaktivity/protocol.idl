@@ -115,7 +115,7 @@
         struct MqttPingResp
         {
             uint8 packetType = 0xd0;
-            uint8 remainingLength;
+            uint8 remainingLength = 0x00;
         }
 
         struct MqttSubscribe
