@@ -323,6 +323,17 @@ public final class MqttServerFactory implements StreamFactory
             }
         }
 
+        private void cleanBufferSlot()
+        {
+            bufferPool.release(bufferSlot);
+            bufferSlot = BufferPool.NO_SLOT;
+        }
+
+        private boolean noBufferSlot()
+        {
+            return  bufferSlot == BufferPool.NO_SLOT;
+        }
+
         private void onEnd(
             EndFW end)
         {
@@ -561,13 +572,13 @@ public final class MqttServerFactory implements StreamFactory
             final int offset,
             final int length)
         {
-            final MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
+            MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
             onMqttConnect(mqttConnect);
-            this.decodeState = this::decodePacketType;
+            this.decodeState = this::decodeSession;
             return mqttConnect == null ? 0 : mqttConnect.sizeof();
         }
 
-        private int decodePacketType(
+        private int decodeSession(
             final DirectBuffer buffer,
             final int offset,
             final int length)
@@ -596,10 +607,21 @@ public final class MqttServerFactory implements StreamFactory
                     /* onMqttPublish */
                     break;
                 default:
-                    doAbort(decodeTraceId);
+                    doReset(decodeTraceId);
                     break;
             }
 
+            return consumed;
+        }
+
+        private int decodeEnd(
+            final DirectBuffer buffer,
+            final int offset,
+            final int length)
+        {
+            int consumed = 0;
+            doReset(decodeTraceId);
+            this.decodeState = this::decodeConnectPacket;
             return consumed;
         }
     }

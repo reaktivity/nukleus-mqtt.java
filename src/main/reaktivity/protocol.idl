@@ -27,6 +27,10 @@
             UNSUBSCRIBE,
             UNSUBACK,
             PUBLISH,
+            PUBACK,
+            PUBREC,
+            PUBREL,
+            PUBCOMP,
             PINGREQ,
             PINGRESP,
             DISCONNECT
