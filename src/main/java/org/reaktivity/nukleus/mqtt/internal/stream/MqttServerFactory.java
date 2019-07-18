@@ -380,6 +380,7 @@ public final class MqttServerFactory implements StreamFactory
             if (isValidProtocol(packet))
             {
                 doMqttConnack(0x00);
+                this.decodeState = this::decodeSession;
             }
             else
             {
@@ -580,7 +581,7 @@ public final class MqttServerFactory implements StreamFactory
 
             final MqttDisconnectFW disconnect = mqttDisconnectRW
                 .wrap(writeBuffer,  DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .remainingLength(0x00)
+                .remainingLength((byte) properties.sizeof() + 1)
                 .reasonCode(0x00)
                 .properties(properties)
                 .build();
@@ -591,8 +592,10 @@ public final class MqttServerFactory implements StreamFactory
         private boolean isValidProtocol(
             MqttConnectFW packet)
         {
-            return packet.protocolName().toString().equals("MQTT")
-                && packet.protocolVersion() == 0x05;
+            boolean protocol = packet.protocolName().asString() != null
+                && packet.protocolName().asString().equals("MQTT");
+
+            return protocol && packet.protocolVersion() == 5;
         }
 
         private int decodeConnectPacket(
@@ -600,11 +603,22 @@ public final class MqttServerFactory implements StreamFactory
             final int offset,
             final int length)
         {
-            MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
-            this.decodeState = this::decodeEnd;
-            onMqttConnect(mqttConnect);
-            this.decodeState = this::decodeSession;
-            return mqttConnect == null ? 0 : mqttConnect.sizeof();
+            final MqttPacketFW mqttPacket = mqttPacketRO.tryWrap(buffer, offset, offset + length);
+            final int packetType = mqttPacket == null ? 0 : mqttPacket.packetType();
+
+            if (packetType == 0x10)
+            {
+                MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
+                this.decodeState = this::decodeEnd;
+                onMqttConnect(mqttConnect);
+                return mqttConnect == null ? 0 : mqttConnect.sizeof();
+            }
+            else
+            {
+                this.decodeState = this::decodeEnd;
+            }
+
+            return mqttPacket == null ? 0 : mqttPacket.sizeof();
         }
 
         private int decodeSession(
@@ -614,8 +628,8 @@ public final class MqttServerFactory implements StreamFactory
         {
             int consumed = 0;
 
-            final MqttPacketFW mqttPacket = mqttPacketRO.wrap(buffer, offset, offset + length);
-            final int packetType = mqttPacket.packetType();
+            final MqttPacketFW mqttPacket = mqttPacketRO.tryWrap(buffer, offset, offset + length);
+            final int packetType = mqttPacket == null ? 0 : mqttPacket.packetType();
 
             switch (packetType)
             {
@@ -635,7 +649,9 @@ public final class MqttServerFactory implements StreamFactory
                     this.decodeState = this::decodeSession;
                     break;
                 case 0xe0:
-                    doEnd(decodeTraceId);
+                    final MqttDisconnectFW disconnect = mqttDisconnectRO.tryWrap(buffer, offset, offset + length);
+                    this.decodeState = this::decodeEnd;
+                    onMqttDisconnect(disconnect);
                     break;
                 case 0x30:
                     final MqttPublishFW publish = mqttPublishRO.tryWrap(buffer, offset, offset + length);
