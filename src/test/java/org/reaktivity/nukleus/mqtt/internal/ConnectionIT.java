@@ -102,4 +102,13 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/connect.with.invalid.protocol/client"})
+    public void shouldRejectInvalidMqttProtocolVersion() throws Exception
+    {
+        k3po.finish();
+    }
 }
