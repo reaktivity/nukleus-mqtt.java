@@ -75,4 +75,31 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/client"})
+    public void shouldExchangeConnectionPacketsThenSubscribe() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/unsubscribe/client"})
+    public void shouldExchangeConnectionPacketsThenUnsubscribeAfterSubscribe() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish/at.most.once/client"})
+    public void shouldExchangeConnectionPacketsThenPublish() throws Exception
+    {
+        k3po.finish();
+    }
 }

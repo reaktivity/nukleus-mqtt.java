@@ -164,6 +164,46 @@
             octets[propertiesLength] properties;
         }
 
+        struct Puback
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 packetId;
+            uint8 reasonCode;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttPubrec
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 packetId;
+            uint8 reasonCode;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttPubrel
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 packetId;
+            uint8 reasonCode;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttPubcomp
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+            uint16 packetId;
+            uint8 reasonCode;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
         struct MqttDisconnect
         {
             uint8 packetType = 0xe0;
