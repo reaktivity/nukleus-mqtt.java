@@ -132,7 +132,7 @@
         {
             uint8 packetType = 0x90;
             uint8 remainingLength;
-            uint16 packetId;
+            varint32 propertiesLength;
             octets reasonCodes;
         }
 
@@ -150,7 +150,7 @@
         {
             uint8 packetType = 0xa0;
             uint8 remainingLength;
-            uint16 packetId;
+            varint32 propertiesLength;
             octets reasonCodes;
         }
 

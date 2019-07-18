@@ -541,9 +541,13 @@ public final class MqttServerFactory implements StreamFactory
                 .put(new byte[] {0x00})
                 .build();
 
+            OctetsFW properties = new OctetsFW.Builder()
+                .wrap(writeBuffer, 0, writeBuffer.capacity())
+                .build();
+
             final MqttSubackFW suback = mqttSubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                 .remainingLength(0x02)
-                .packetId(0x00)
+                .propertiesLength(0x00)
                 .reasonCodes(reasonCodes)
                 .build();
 
@@ -557,9 +561,13 @@ public final class MqttServerFactory implements StreamFactory
                 .put(new byte[] {0x00})
                 .build();
 
+            OctetsFW properties = new OctetsFW.Builder()
+                .wrap(writeBuffer, 0, writeBuffer.capacity())
+                .build();
+
             final MqttUnsubackFW unsuback = mqttUnsubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .remainingLength(0x02)
-                .packetId(0x00)
+                .remainingLength(0x05)
+                .propertiesLength(0x00)
                 .reasonCodes(reasonCodes)
                 .build();
 
