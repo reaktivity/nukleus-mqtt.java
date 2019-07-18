@@ -377,9 +377,15 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttConnect(
             MqttConnectFW packet)
         {
-            // int reasonCode = isValidProtocol(packet) ? 0x00 : 0x84;
-
-            doMqttConnack(0x00);
+            if (isValidProtocol(packet))
+            {
+                doMqttConnack(0x00);
+            }
+            else
+            {
+                doMqttConnack(0x84);
+                this.decodeState = this::decodeEnd;
+            }
         }
 
         private void onMqttPingReq(

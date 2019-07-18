@@ -16,6 +16,8 @@
 
  scope protocol
  {
+    option byteorder network;
+
     scope codec
     {
         enum MqttPacketType
