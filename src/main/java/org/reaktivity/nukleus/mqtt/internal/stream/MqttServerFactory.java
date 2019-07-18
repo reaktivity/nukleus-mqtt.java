@@ -541,10 +541,6 @@ public final class MqttServerFactory implements StreamFactory
                 .put(new byte[] {0x00})
                 .build();
 
-            OctetsFW properties = new OctetsFW.Builder()
-                .wrap(writeBuffer, 0, writeBuffer.capacity())
-                .build();
-
             final MqttSubackFW suback = mqttSubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                 .remainingLength(0x02)
                 .propertiesLength(0x00)
@@ -559,10 +555,6 @@ public final class MqttServerFactory implements StreamFactory
             OctetsFW reasonCodes = new OctetsFW.Builder()
                 .wrap(writeBuffer, 0, writeBuffer.capacity())
                 .put(new byte[] {0x00})
-                .build();
-
-            OctetsFW properties = new OctetsFW.Builder()
-                .wrap(writeBuffer, 0, writeBuffer.capacity())
                 .build();
 
             final MqttUnsubackFW unsuback = mqttUnsubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
@@ -603,6 +595,7 @@ public final class MqttServerFactory implements StreamFactory
             final int length)
         {
             MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
+            this.decodeState = this::decodeEnd;
             onMqttConnect(mqttConnect);
             this.decodeState = this::decodeSession;
             return mqttConnect == null ? 0 : mqttConnect.sizeof();
@@ -617,8 +610,6 @@ public final class MqttServerFactory implements StreamFactory
 
             final MqttPacketFW mqttPacket = mqttPacketRO.wrap(buffer, offset, offset + length);
             final int packetType = mqttPacket.packetType();
-
-            this.decodeState = this::decodeEnd;
 
             switch (packetType)
             {
