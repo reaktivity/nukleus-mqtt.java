@@ -687,6 +687,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             int consumed = 0;
 
+            doMqttDisconnect(128);
             doEnd(decodeTraceId);
 
             return consumed;
