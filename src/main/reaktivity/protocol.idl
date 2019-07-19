@@ -62,6 +62,11 @@
             uint8 options;
         }
 
+        struct MqttSubscriptionTopics
+        {
+            list<protocol::codec::MqttTopic> topicFilters;
+        }
+
         union MqttProperty switch (uint8)
         {
             case 0x11: uint32 sessionExpiry;

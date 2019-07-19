@@ -29,6 +29,7 @@ import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribeFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPublishFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttDisconnectFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscriptionTopicsFW;
 
 import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
 
@@ -95,6 +96,7 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttUnsubscribeFW mqttUnsubscribeRO = new MqttUnsubscribeFW();
     private final MqttUnsubackFW mqttUnsubackRO = new MqttUnsubackFW();
     private final MqttPublishFW mqttPublishRO = new MqttPublishFW();
+    private final MqttSubscriptionTopicsFW mqttSubscriptionTopicsRO = new MqttSubscriptionTopicsFW();
 
     private final MqttPacketFW.Builder mqttPacketRW = new MqttPacketFW.Builder();
     private final MqttConnectFW.Builder mqttConnectRW = new MqttConnectFW.Builder();
@@ -406,7 +408,7 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttUnsubscribe(
             MqttUnsubscribeFW unsubscribe)
         {
-            int topics = unsubscribe == null ? 0 : unsubscribe.topics().sizeof();
+            int topics = unsubscribe == null ? 0 : unsubscribe.topicFilters().sizeof();
             doMqttUnsuback(topics);
         }
 
@@ -418,7 +420,7 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttDisconnect(
             MqttDisconnectFW disconnect)
         {
-
+            /* process reason code */
         }
 
         private void doBegin(
@@ -592,6 +594,13 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             doData(disconnect.buffer(), disconnect.offset(), disconnect.sizeof());
+        }
+
+        private boolean isReservedSubscriptionOptionsBits(
+            int options)
+        {
+            return ((options >> 8) & 1) != 0
+                && ((options >> 7) & 1) != 0;
         }
 
         private int getConnackReasonCode(
