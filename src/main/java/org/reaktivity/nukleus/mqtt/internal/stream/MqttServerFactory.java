@@ -29,7 +29,6 @@ import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribeFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPublishFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttDisconnectFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscriptionTopicsFW;
 
 import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
 
@@ -49,6 +48,7 @@ import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
 import org.reaktivity.nukleus.mqtt.internal.MqttNukleus;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
+import org.reaktivity.nukleus.mqtt.internal.types.ListFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.BeginFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.DataFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.EndFW;
@@ -96,7 +96,6 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttUnsubscribeFW mqttUnsubscribeRO = new MqttUnsubscribeFW();
     private final MqttUnsubackFW mqttUnsubackRO = new MqttUnsubackFW();
     private final MqttPublishFW mqttPublishRO = new MqttPublishFW();
-    private final MqttSubscriptionTopicsFW mqttSubscriptionTopicsRO = new MqttSubscriptionTopicsFW();
 
     private final MqttPacketFW.Builder mqttPacketRW = new MqttPacketFW.Builder();
     private final MqttConnectFW.Builder mqttConnectRW = new MqttConnectFW.Builder();
@@ -409,6 +408,11 @@ public final class MqttServerFactory implements StreamFactory
             MqttUnsubscribeFW unsubscribe)
         {
             int topics = unsubscribe == null ? 0 : unsubscribe.topicFilters().sizeof();
+
+            DirectBuffer buffer = unsubscribe.topicFilters().buffer();
+            int offset = unsubscribe.topicFilters().offset();
+            int length = unsubscribe.topicFilters().sizeof();
+
             doMqttUnsuback(topics);
         }
 
