@@ -377,19 +377,15 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttConnect(
             MqttConnectFW packet)
         {
-            if (packet == null)
+            int reasonCode = getConnackReasonCode(packet);
+            if (reasonCode == 0)
             {
-                doMqttConnack(0x80);
-                doEnd(decodeTraceId);
-            }
-            else if (isValidProtocol(packet))
-            {
-                doMqttConnack(0x00);
+                doMqttConnack(reasonCode);
                 this.decodeState = this::decodeSession;
             }
             else
             {
-                doMqttConnack(0x84);
+                doMqttConnack(reasonCode);
                 doEnd(decodeTraceId);
             }
         }
@@ -527,10 +523,10 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .remainingLength(0x03)
+                .remainingLength(properties.sizeof() + 3)
                 .flags(0x00)
                 .reasonCode(reasonCode)
-                .propertiesLength(0x00)
+                .propertiesLength(properties.sizeof())
                 .properties(properties)
                 .build();
 
@@ -553,7 +549,7 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             final MqttSubackFW suback = mqttSubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .remainingLength(0x02)
+                .remainingLength(reasonCodes.sizeof() + 1)
                 .propertiesLength(0x00)
                 .reasonCodes(reasonCodes)
                 .build();
@@ -569,7 +565,7 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             final MqttUnsubackFW unsuback = mqttUnsubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .remainingLength(0x05)
+                .remainingLength(reasonCodes.sizeof() + 1)
                 .propertiesLength(0x00)
                 .reasonCodes(reasonCodes)
                 .build();
@@ -594,13 +590,27 @@ public final class MqttServerFactory implements StreamFactory
             doData(disconnect.buffer(), disconnect.offset(), disconnect.sizeof());
         }
 
-        private boolean isValidProtocol(
+        private int getConnackReasonCode(
             MqttConnectFW packet)
         {
-            boolean protocol = packet.protocolName().asString() != null
+            if (packet == null)
+            {
+                return 128;
+            }
+
+            boolean protocol = packet.protocolName() != null
                 && packet.protocolName().asString().equals("MQTT");
 
-            return protocol && packet.protocolVersion() == 5;
+            if (!protocol || packet.protocolVersion() != 5)
+            {
+                return 132;
+            }
+            else if (((packet.flags() >> 1) & 1) == 0)
+            {
+                return 129;
+            }
+
+            return 0;
         }
 
         private int decodeConnectPacket(

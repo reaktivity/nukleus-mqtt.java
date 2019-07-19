@@ -111,4 +111,13 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/client.sends.malformed.connect.flags/client"})
+    public void shouldRejectMalformedConnectPacket() throws Exception
+    {
+        k3po.finish();
+    }
 }
