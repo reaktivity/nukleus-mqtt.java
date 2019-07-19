@@ -58,7 +58,7 @@
 
         struct MqttTopic
         {
-            string topic;
+            string16 topic;
             uint8 options;
         }
 

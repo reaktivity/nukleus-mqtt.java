@@ -399,13 +399,15 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttSubscribe(
             MqttSubscribeFW subscribe)
         {
-            doMqttSuback();
+            int topics = subscribe == null ? 0 : subscribe.topics().sizeof();
+            doMqttSuback(topics);
         }
 
         private void onMqttUnsubscribe(
             MqttUnsubscribeFW unsubscribe)
         {
-            doMqttUnsuback();
+            int topics = unsubscribe == null ? 0 : unsubscribe.topics().sizeof();
+            doMqttUnsuback(topics);
         }
 
         private void onMqttPublish(
@@ -541,7 +543,8 @@ public final class MqttServerFactory implements StreamFactory
             doData(ping.buffer(), ping.offset(), ping.sizeof());
         }
 
-        private void doMqttSuback()
+        private void doMqttSuback(
+            int subscriptions)
         {
             OctetsFW reasonCodes = new OctetsFW.Builder()
                 .wrap(writeBuffer, 0, writeBuffer.capacity())
@@ -557,7 +560,8 @@ public final class MqttServerFactory implements StreamFactory
             doData(suback.buffer(), suback.offset(), suback.sizeof());
         }
 
-        private void doMqttUnsuback()
+        private void doMqttUnsuback(
+            int subsriptions)
         {
             OctetsFW reasonCodes = new OctetsFW.Builder()
                 .wrap(writeBuffer, 0, writeBuffer.capacity())
