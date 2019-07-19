@@ -106,7 +106,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/connect.with.invalid.protocol/client"})
+        "${client}/malformed.connect/invalid.protocol.version/client"})
     public void shouldRejectInvalidMqttProtocolVersion() throws Exception
     {
         k3po.finish();
@@ -115,7 +115,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/client.sends.malformed.connect.flags/client"})
+        "${client}/malformed.connect/invalid.flags/client"})
     public void shouldRejectMalformedConnectPacket() throws Exception
     {
         k3po.finish();
