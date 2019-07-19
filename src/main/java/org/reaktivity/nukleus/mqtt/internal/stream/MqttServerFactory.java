@@ -600,7 +600,7 @@ public final class MqttServerFactory implements StreamFactory
             doData(disconnect.buffer(), disconnect.offset(), disconnect.sizeof());
         }
 
-        private boolean isReservedSubscriptionOptionsBits(
+        private boolean setReservedSubscriptionOptionsBits(
             int options)
         {
             return ((options >> 8) & 1) != 0
