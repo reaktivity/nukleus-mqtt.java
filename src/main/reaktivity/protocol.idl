@@ -127,7 +127,7 @@
             uint16 packetId;
             varint32 propertiesLength;
             octets[propertiesLength] properties;
-            list<protocol::codec::MqttTopic> topics;
+            octets topics;
         }
 
         struct MqttSuback
@@ -145,7 +145,7 @@
             uint16 packetId;
             varint32 propertiesLength;
             octets[propertiesLength] properties;
-            list<string16> topics;
+            octets topicFilters;
         }
 
         struct MqttUnsuback
