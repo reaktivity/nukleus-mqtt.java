@@ -145,7 +145,7 @@
             uint16 packetId;
             varint32 propertiesLength;
             octets[propertiesLength] properties;
-            list<string> topics;
+            list<string16> topics;
         }
 
         struct MqttUnsuback
