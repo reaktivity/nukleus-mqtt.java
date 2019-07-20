@@ -18,17 +18,7 @@ package org.reaktivity.nukleus.mqtt.internal.stream;
 
 import static java.util.Objects.requireNonNull;
 
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPacketFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingReqFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingRespFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscribeFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubackFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribeFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPublishFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttDisconnectFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.*;
 
 import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
 
@@ -401,6 +391,15 @@ public final class MqttServerFactory implements StreamFactory
             MqttSubscribeFW subscribe)
         {
             int topics = subscribe == null ? 0 : subscribe.topics().sizeof();
+
+            DirectBuffer buffer = subscribe.topics().buffer();
+            int offset = subscribe.topics().offset();
+            int length = subscribe.topics().sizeof();
+
+            MqttSubscriptionTopicsFW subs = new MqttSubscriptionTopicsFW()
+                .tryWrap(buffer, offset, offset + length);
+
+
             doMqttSuback(topics);
         }
 
@@ -408,10 +407,6 @@ public final class MqttServerFactory implements StreamFactory
             MqttUnsubscribeFW unsubscribe)
         {
             int topics = unsubscribe == null ? 0 : unsubscribe.topicFilters().sizeof();
-
-            DirectBuffer buffer = unsubscribe.topicFilters().buffer();
-            int offset = unsubscribe.topicFilters().offset();
-            int length = unsubscribe.topicFilters().sizeof();
 
             doMqttUnsuback(topics);
         }
