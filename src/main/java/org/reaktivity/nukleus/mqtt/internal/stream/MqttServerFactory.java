@@ -378,7 +378,18 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttConnect(
             MqttConnectFW packet)
         {
-            int reasonCode = getConnackReasonCode(packet);
+            int reasonCode = 0x00;
+
+            final String protocolName = packet.protocolName().asString();
+            if (!"MQTT".equals(protocolName) || packet.protocolVersion() != 5)
+            {
+                reasonCode = 0x84; // unsupported protocol version
+            }
+            else if ((packet.flags() & 0b0000_0001) != 0b0000_0000)
+            {
+                reasonCode = 0x81; // malformed packet
+            }
+
             if (reasonCode == 0)
             {
                 doMqttConnack(reasonCode);
@@ -610,29 +621,6 @@ public final class MqttServerFactory implements StreamFactory
         {
             return ((options >> 8) & 1) != 0
                 && ((options >> 7) & 1) != 0;
-        }
-
-        private int getConnackReasonCode(
-            MqttConnectFW packet)
-        {
-            if (packet == null)
-            {
-                return 128;
-            }
-
-            boolean protocol = packet.protocolName() != null
-                && packet.protocolName().asString().equals("MQTT");
-
-            if (!protocol || packet.protocolVersion() != 5)
-            {
-                return 132;
-            }
-            else if (((packet.flags() >> 1) & 1) == 0)
-            {
-                return 129;
-            }
-
-            return 0;
         }
 
         private int decodeConnectPacket(
