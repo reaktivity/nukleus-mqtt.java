@@ -96,6 +96,9 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttUnsubscribeFW mqttUnsubscribeRO = new MqttUnsubscribeFW();
     private final MqttUnsubackFW mqttUnsubackRO = new MqttUnsubackFW();
     private final MqttPublishFW mqttPublishRO = new MqttPublishFW();
+    private final MqttSubscriptionTopicsFW mqttSubscriptionTopicsRO = new MqttSubscriptionTopicsFW();
+
+    private final OctetsFW.Builder octetsRW = new OctetsFW.Builder();
 
     private final MqttPacketFW.Builder mqttPacketRW = new MqttPacketFW.Builder();
     private final MqttConnectFW.Builder mqttConnectRW = new MqttConnectFW.Builder();
@@ -542,7 +545,7 @@ public final class MqttServerFactory implements StreamFactory
         private void doMqttConnack(
             int reasonCode)
         {
-            OctetsFW properties = new OctetsFW.Builder()
+            OctetsFW properties = octetsRW
                 .wrap(writeBuffer, 0, writeBuffer.capacity())
                 .build();
 
@@ -568,7 +571,7 @@ public final class MqttServerFactory implements StreamFactory
         private void doMqttSuback(
             int subscriptions)
         {
-            OctetsFW reasonCodes = new OctetsFW.Builder()
+            OctetsFW reasonCodes = octetsRW
                 .wrap(writeBuffer, 0, writeBuffer.capacity())
                 .put(new byte[] {0x00})
                 .build();
@@ -585,7 +588,7 @@ public final class MqttServerFactory implements StreamFactory
         private void doMqttUnsuback(
             int subsriptions)
         {
-            OctetsFW reasonCodes = new OctetsFW.Builder()
+            OctetsFW reasonCodes = octetsRW
                 .wrap(writeBuffer, 0, writeBuffer.capacity())
                 .put(new byte[] {0x00})
                 .build();
@@ -602,7 +605,7 @@ public final class MqttServerFactory implements StreamFactory
         private void doMqttDisconnect(
             int reasonCode)
         {
-            OctetsFW properties = new OctetsFW.Builder()
+            OctetsFW properties = octetsRW
                 .wrap(writeBuffer, 0, writeBuffer.capacity())
                 .build();
 
