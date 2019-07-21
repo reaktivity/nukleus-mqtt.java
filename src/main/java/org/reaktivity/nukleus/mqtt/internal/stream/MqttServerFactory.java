@@ -672,27 +672,23 @@ public final class MqttServerFactory implements StreamFactory
                 case 0xc0:
                     final MqttPingReqFW ping = mqttPingReqRO.tryWrap(buffer, offset, offset + length);
                     onMqttPingReq(ping);
-                    this.decodeState = this::decodeSession;
                     break;
                 case 0x82:
                     final MqttSubscribeFW subscribe = mqttSubscribeRO.tryWrap(buffer, offset, offset + length);
                     onMqttSubscribe(subscribe);
-                    this.decodeState = this::decodeSession;
                     break;
                 case 0xa2:
                     final MqttUnsubscribeFW unsubscribe = mqttUnsubscribeRO.tryWrap(buffer, offset, offset + length);
                     onMqttUnsubscribe(unsubscribe);
-                    this.decodeState = this::decodeSession;
                     break;
                 case 0xe0:
                     final MqttDisconnectFW disconnect = mqttDisconnectRO.tryWrap(buffer, offset, offset + length);
-                    this.decodeState = this::decodeEnd;
                     onMqttDisconnect(disconnect);
+                    doEnd(decodeTraceId);
                     break;
                 case 0x30:
                     final MqttPublishFW publish = mqttPublishRO.tryWrap(buffer, offset, offset + length);
                     onMqttPublish(publish);
-                    this.decodeState = this::decodeSession;
                     break;
                 default:
                     doReset(decodeTraceId);
