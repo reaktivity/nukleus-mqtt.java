@@ -227,7 +227,7 @@ public final class MqttServerFactory implements StreamFactory
 
     private final class MqttServer
     {
-        private final MessageConsumer receiver;
+        private final MessageConsumer network;
         private final long routeId;
         private final long initialId;
         private final long replyId;
@@ -243,12 +243,12 @@ public final class MqttServerFactory implements StreamFactory
         private int bufferSlotOffset;
 
         private MqttServer(
-            MessageConsumer receiver,
+            MessageConsumer network,
             long routeId,
             long initialId,
             long replyId)
         {
-            this.receiver = receiver;
+            this.network = network;
             this.routeId = routeId;
             this.initialId = initialId;
             this.replyId = replyId;
@@ -451,7 +451,7 @@ public final class MqttServerFactory implements StreamFactory
                 .streamId(replyId)
                 .trace(traceId)
                 .build();
-            receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+            network.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
             router.setThrottle(replyId, this::onNetwork);
         }
 
@@ -469,7 +469,7 @@ public final class MqttServerFactory implements StreamFactory
                 .payload(buffer, offset, sizeOf)
                 .build();
 
-            receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+            network.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
         }
 
         private void doEnd(
@@ -481,7 +481,7 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(traceId)
                 .build();
 
-            receiver.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
+            network.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
         }
 
         private void doAbort(
@@ -493,7 +493,7 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(traceId)
                 .build();
 
-            receiver.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
+            network.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
         }
 
         private void doWindow(
@@ -513,7 +513,7 @@ public final class MqttServerFactory implements StreamFactory
                     .groupId(0)
                     .build();
 
-                receiver.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+                network.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
             }
         }
 
@@ -525,7 +525,7 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(traceId)
                 .build();
 
-            receiver.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+            network.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
         }
 
         private void doSignal(
@@ -536,7 +536,7 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(traceId)
                 .build();
 
-            receiver.accept(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
+            network.accept(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
         }
 
         private void doMqttConnack(
