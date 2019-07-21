@@ -52,7 +52,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/connect/client"})
+        "${client}/connect/successful/client"})
     public void shouldExchangeConnectAndConnackPackets() throws Exception
     {
         k3po.finish();
@@ -106,7 +106,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/malformed.connect/invalid.protocol.version/client"})
+        "${client}/connect/invalid.protocol.version/client"})
     public void shouldRejectInvalidMqttProtocolVersion() throws Exception
     {
         k3po.finish();
@@ -115,7 +115,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/malformed.connect/invalid.flags/client"})
+        "${client}/connect/invalid.flags/client"})
     public void shouldRejectMalformedConnectPacket() throws Exception
     {
         k3po.finish();
