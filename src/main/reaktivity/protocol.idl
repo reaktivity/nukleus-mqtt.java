@@ -149,10 +149,10 @@
 
         struct MqttPublish extends protocol::codec::MqttPacketFixedHeader
         {
-            string topic;
-            uint16 packetId;
+            string16 topicFilter;
             varint32 propertiesLength;
             octets[propertiesLength] properties;
+            octets payload;
         }
 
         struct MqttPuback extends protocol::codec::MqttPacketFixedHeader

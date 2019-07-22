@@ -327,14 +327,22 @@ public final class MqttServerFactory implements StreamFactory
                 MqttPacketFixedHeaderFW packet = mqttPacketFixedHeaderRO.tryWrap(buffer, offset, offset + 2);
                 int remainingLength = packet == null ? 0 : packet.remainingLength();
 
-                if (remainingLength == length - 2)
+                if (!noBufferSlot())
                 {
-                    decodeState.decode(buffer, offset, length);
+                    // append to buffer
                 }
-                else
+                else if (remainingLength < length - 2)
                 {
-                    // incomplete packet
+                    // initialize bufferSlot
                 }
+
+                while (length > 0)
+                {
+                    int progress = decodeState.decode(buffer, offset, length);
+                    offset += progress;
+                    length -= progress;
+                }
+
             }
         }
 
@@ -670,7 +678,7 @@ public final class MqttServerFactory implements StreamFactory
             final int offset,
             final int length)
         {
-            final MqttPacketFixedHeaderFW mqttPacket = mqttPacketFixedHeaderRO.tryWrap(buffer, offset, offset + length);
+            final MqttPacketFixedHeaderFW mqttPacket = mqttPacketFixedHeaderRO.tryWrap(buffer, offset, offset + 2);
             final int packetType = mqttPacket == null ? 0 : mqttPacket.packetType();
 
             if (packetType == 0x10)
@@ -702,23 +710,28 @@ public final class MqttServerFactory implements StreamFactory
                 case 0xc0:
                     final MqttPingReqFW ping = mqttPingReqRO.tryWrap(buffer, offset, offset + length);
                     onMqttPingReq(ping);
+                    consumed = ping.sizeof();
                     break;
                 case 0x82:
                     final MqttSubscribeFW subscribe = mqttSubscribeRO.tryWrap(buffer, offset, offset + length);
                     onMqttSubscribe(subscribe);
+                    consumed = subscribe.sizeof();
                     break;
                 case 0xa2:
                     final MqttUnsubscribeFW unsubscribe = mqttUnsubscribeRO.tryWrap(buffer, offset, offset + length);
                     onMqttUnsubscribe(unsubscribe);
+                    consumed = unsubscribe.sizeof();
                     break;
                 case 0xe0:
                     final MqttDisconnectFW disconnect = mqttDisconnectRO.tryWrap(buffer, offset, offset + length);
                     onMqttDisconnect(disconnect);
                     doEnd(decodeTraceId);
+                    consumed = disconnect.sizeof();
                     break;
                 case 0x30:
                     final MqttPublishFW publish = mqttPublishRO.tryWrap(buffer, offset, offset + length);
                     onMqttPublish(publish);
+                    consumed = publish.sizeof();
                     break;
                 default:
                     doReset(decodeTraceId);
