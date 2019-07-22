@@ -21,7 +21,7 @@ import static java.util.Objects.requireNonNull;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttDisconnectFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPacketFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPacketFixedHeaderFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingReqFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingRespFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPublishFW;
@@ -85,7 +85,7 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttDataExFW.Builder mqttDataExRW = new MqttDataExFW.Builder();
     private final MqttEndExFW.Builder mqttEndExRW = new MqttEndExFW.Builder();
 
-    private final MqttPacketFW mqttPacketRO = new MqttPacketFW();
+    private final MqttPacketFixedHeaderFW mqttPacketFixedHeaderRO = new MqttPacketFixedHeaderFW();
     private final MqttConnectFW mqttConnectRO = new MqttConnectFW();
     private final MqttConnackFW mqttConnackRO = new MqttConnackFW();
     private final MqttPingReqFW mqttPingReqRO = new MqttPingReqFW();
@@ -101,7 +101,7 @@ public final class MqttServerFactory implements StreamFactory
 
     private final OctetsFW.Builder octetsRW = new OctetsFW.Builder();
 
-    private final MqttPacketFW.Builder mqttPacketRW = new MqttPacketFW.Builder();
+    private final MqttPacketFixedHeaderFW.Builder mqttPacketFixedHeaderRW = new MqttPacketFixedHeaderFW.Builder();
     private final MqttConnectFW.Builder mqttConnectRW = new MqttConnectFW.Builder();
     private final MqttConnackFW.Builder mqttConnackRW = new MqttConnackFW.Builder();
     private final MqttPingReqFW.Builder mqttPingReqRW = new MqttPingReqFW.Builder();
@@ -324,7 +324,17 @@ public final class MqttServerFactory implements StreamFactory
                 int offset = payload.offset();
                 int length = payload.sizeof();
 
-                decodeState.decode(buffer, offset, length);
+                MqttPacketFixedHeaderFW packet = mqttPacketFixedHeaderRO.tryWrap(buffer, offset, offset + 2);
+                int remainingLength = packet == null ? 0 : packet.remainingLength();
+
+                if (remainingLength == length - 2)
+                {
+                    decodeState.decode(buffer, offset, length);
+                }
+                else
+                {
+                    // incomplete packet
+                }
             }
         }
 
@@ -660,7 +670,7 @@ public final class MqttServerFactory implements StreamFactory
             final int offset,
             final int length)
         {
-            final MqttPacketFW mqttPacket = mqttPacketRO.tryWrap(buffer, offset, offset + length);
+            final MqttPacketFixedHeaderFW mqttPacket = mqttPacketFixedHeaderRO.tryWrap(buffer, offset, offset + length);
             final int packetType = mqttPacket == null ? 0 : mqttPacket.packetType();
 
             if (packetType == 0x10)
@@ -684,7 +694,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             int consumed = 0;
 
-            final MqttPacketFW mqttPacket = mqttPacketRO.tryWrap(buffer, offset, offset + length);
+            final MqttPacketFixedHeaderFW mqttPacket = mqttPacketFixedHeaderRO.tryWrap(buffer, offset, offset + 2);
             final int packetType = mqttPacket == null ? 0 : mqttPacket.packetType();
 
             switch (packetType)

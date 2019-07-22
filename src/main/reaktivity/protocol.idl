@@ -20,7 +20,7 @@
 
     scope codec
     {
-        enum MqttPacketType
+        enum MqttPackeFixedHeaderType
         {
             CONNECT,
             CONNACK,
@@ -44,7 +44,7 @@
             octets[length] bytes;
         }
 
-        struct MqttPacket
+        struct MqttPacketFixedHeader
         {
             uint8 packetType;
             uint8 remainingLength;
@@ -89,7 +89,7 @@
             case 0x01: uint8 payloadFormatIndicator;
         }
 
-        struct MqttConnect extends protocol::codec::MqttPacket
+        struct MqttConnect extends protocol::codec::MqttPacketFixedHeader
         {
             string16 protocolName;
             uint8 protocolVersion;
@@ -100,7 +100,7 @@
             octets[propertiesLength] properties;
         }
 
-        struct MqttConnack extends protocol::codec::MqttPacket
+        struct MqttConnack extends protocol::codec::MqttPacketFixedHeader
         {
             uint8 flags;
             uint8 reasonCode;
@@ -114,26 +114,12 @@
             uint8 remainingLength;
         }
 
-        struct MqttPingResp extends protocol::codec::MqttPacket
+        struct MqttPingResp extends protocol::codec::MqttPacketFixedHeader
         {
 
         }
 
-        struct MqttSubscribe extends protocol::codec::MqttPacket
-        {
-            uint16 packetId;
-            varint32 propertiesLength;
-            octets[propertiesLength] properties;
-            octets topicFilters;
-        }
-
-        struct MqttSuback extends protocol::codec::MqttPacket
-        {
-            varint32 propertiesLength;
-            octets reasonCodes;
-        }
-
-        struct MqttUnsubscribe extends protocol::codec::MqttPacket
+        struct MqttSubscribe extends protocol::codec::MqttPacketFixedHeader
         {
             uint16 packetId;
             varint32 propertiesLength;
@@ -141,13 +127,27 @@
             octets topicFilters;
         }
 
-        struct MqttUnsuback extends protocol::codec::MqttPacket
+        struct MqttSuback extends protocol::codec::MqttPacketFixedHeader
         {
             varint32 propertiesLength;
             octets reasonCodes;
         }
 
-        struct MqttPublish extends protocol::codec::MqttPacket
+        struct MqttUnsubscribe extends protocol::codec::MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+            octets topicFilters;
+        }
+
+        struct MqttUnsuback extends protocol::codec::MqttPacketFixedHeader
+        {
+            varint32 propertiesLength;
+            octets reasonCodes;
+        }
+
+        struct MqttPublish extends protocol::codec::MqttPacketFixedHeader
         {
             string topic;
             uint16 packetId;
@@ -155,7 +155,7 @@
             octets[propertiesLength] properties;
         }
 
-        struct MqttPuback extends protocol::codec::MqttPacket
+        struct MqttPuback extends protocol::codec::MqttPacketFixedHeader
         {
             uint16 packetId;
             uint8 reasonCode;
@@ -163,7 +163,7 @@
             octets[propertiesLength] properties;
         }
 
-        struct MqttPubrec extends protocol::codec::MqttPacket
+        struct MqttPubrec extends protocol::codec::MqttPacketFixedHeader
         {
             uint16 packetId;
             uint8 reasonCode;
@@ -171,7 +171,7 @@
             octets[propertiesLength] properties;
         }
 
-        struct MqttPubrel extends protocol::codec::MqttPacket
+        struct MqttPubrel extends protocol::codec::MqttPacketFixedHeader
         {
             uint16 packetId;
             uint8 reasonCode;
@@ -179,7 +179,7 @@
             octets[propertiesLength] properties;
         }
 
-        struct MqttPubcomp extends protocol::codec::MqttPacket
+        struct MqttPubcomp extends protocol::codec::MqttPacketFixedHeader
         {
             uint16 packetId;
             uint8 reasonCode;
@@ -187,7 +187,7 @@
             octets[propertiesLength] properties;
         }
 
-        struct MqttDisconnect extends protocol::codec::MqttPacket
+        struct MqttDisconnect extends protocol::codec::MqttPacketFixedHeader
         {
             uint8 reasonCode;
             varint32 propertiesLength;
