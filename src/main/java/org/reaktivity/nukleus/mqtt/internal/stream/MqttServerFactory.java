@@ -360,7 +360,6 @@ public final class MqttServerFactory implements StreamFactory
             {
                 bufferPool.release(bufferSlot);
                 bufferSlot = BufferPool.NO_SLOT;
-                bufferSlotLimit = 0;
             }
         }
 
@@ -690,21 +689,19 @@ public final class MqttServerFactory implements StreamFactory
             final int offset,
             final int length)
         {
-            final MqttPacketFixedHeaderFW mqttPacket = mqttPacketFixedHeaderRO.tryWrap(buffer, offset, offset + 2);
-            final int packetType = mqttPacket == null ? 0 : mqttPacket.packetType();
-
-            if (packetType == 0x10)
+            MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
+            if (mqttConnect != null)
             {
-                MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, offset + length);
-                onMqttConnect(mqttConnect);
-                return mqttConnect == null ? 0 : mqttConnect.sizeof();
+                if (mqttConnect.packetType() == 0x10)
+                {
+                    onMqttConnect(mqttConnect);
+                }
+                else
+                {
+                    doEnd(decodeTraceId);
+                }
             }
-            else
-            {
-                doEnd(decodeTraceId);
-            }
-
-            return mqttPacket == null ? 0 : mqttPacket.sizeof();
+            return mqttConnect == null ? 0 : mqttConnect.sizeof();
         }
 
         private int decodeSession(
