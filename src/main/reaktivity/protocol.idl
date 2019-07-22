@@ -58,8 +58,13 @@
 
         struct MqttSubscriptionTopic
         {
-            string16 topic;
+            string16 topicFilter;
             uint8 options;
+        }
+
+        struct MqttTopic
+        {
+            string16 topicFilter;
         }
 
         union MqttProperty switch (uint8)
@@ -127,7 +132,7 @@
             uint16 packetId;
             varint32 propertiesLength;
             octets[propertiesLength] properties;
-            octets topics;
+            octets topicFilters;
         }
 
         struct MqttSuback

@@ -18,8 +18,19 @@ package org.reaktivity.nukleus.mqtt.internal.stream;
 
 import static java.util.Objects.requireNonNull;
 
-import org.reaktivity.nukleus.mqtt.internal.types.codec.*;
-
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttDisconnectFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPacketFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingReqFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingRespFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPublishFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubackFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscribeFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscriptionTopicFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttTopicFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribeFW;
 import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
 
 import java.util.function.LongSupplier;
@@ -86,6 +97,7 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttUnsubackFW mqttUnsubackRO = new MqttUnsubackFW();
     private final MqttPublishFW mqttPublishRO = new MqttPublishFW();
     private final MqttSubscriptionTopicFW mqttSubscriptionTopicRO = new MqttSubscriptionTopicFW();
+    private final MqttTopicFW mqttTopicRO = new MqttTopicFW();
 
     private final OctetsFW.Builder octetsRW = new OctetsFW.Builder();
 
@@ -403,9 +415,9 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttSubscribe(
             MqttSubscribeFW subscribe)
         {
-            DirectBuffer buffer = subscribe.topics().buffer();
-            int offset = subscribe.topics().offset();
-            int length = subscribe.topics().sizeof();
+            DirectBuffer buffer = subscribe.topicFilters().buffer();
+            int offset = subscribe.topicFilters().offset();
+            int length = subscribe.topicFilters().sizeof();
 
             int topicsLength = 0;
 
@@ -426,9 +438,24 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttUnsubscribe(
             MqttUnsubscribeFW unsubscribe)
         {
-            int topics = unsubscribe == null ? 0 : unsubscribe.topicFilters().sizeof();
+            DirectBuffer buffer = unsubscribe.topicFilters().buffer();
+            int offset = unsubscribe.topicFilters().offset();
+            int length = unsubscribe.topicFilters().sizeof();
 
-            doMqttUnsuback(topics);
+            int topicsLength = 0;
+
+            while (length > 0)
+            {
+                MqttTopicFW topic = mqttTopicRO
+                    .tryWrap(buffer, offset, offset + length);
+
+                offset += topic.sizeof();
+                length -= topic.sizeof();
+
+                topicsLength++;
+            }
+
+            doMqttUnsuback(topicsLength);
         }
 
         private void onMqttPublish(
