@@ -573,6 +573,7 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .packetType(0x20)
                 .remainingLength(properties.sizeof() + 3)
                 .flags(0x00)
                 .reasonCode(reasonCode)
@@ -586,6 +587,8 @@ public final class MqttServerFactory implements StreamFactory
         private void doMqttPingResp()
         {
             final MqttPingRespFW ping = mqttPingRespRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .packetType(0xd0)
+                .remainingLength(0x00)
                 .build();
 
             doData(ping.buffer(), ping.offset(), ping.sizeof());
@@ -600,6 +603,7 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             final MqttSubackFW suback = mqttSubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .packetType(0x90)
                 .remainingLength(reasonCodes.sizeof() + 1)
                 .propertiesLength(0x00)
                 .reasonCodes(reasonCodes)
@@ -617,6 +621,7 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             final MqttUnsubackFW unsuback = mqttUnsubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .packetType(0xa0)
                 .remainingLength(reasonCodes.sizeof() + 1)
                 .propertiesLength(0x00)
                 .reasonCodes(reasonCodes)
@@ -634,6 +639,7 @@ public final class MqttServerFactory implements StreamFactory
 
             final MqttDisconnectFW disconnect = mqttDisconnectRW
                 .wrap(writeBuffer,  DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                .packetType(0xe0)
                 .remainingLength((byte) properties.sizeof() + 1)
                 .reasonCode(reasonCode)
                 .properties(properties)
