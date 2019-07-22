@@ -345,9 +345,9 @@ public final class MqttServerFactory implements StreamFactory
 
                 while (length > 0)
                 {
-                    int progress = decodeState.decode(buffer, offset, length);
-                    offset += progress;
-                    length -= progress;
+                    int consumed = decodeState.decode(buffer, offset, length);
+                    offset += consumed;
+                    length -= consumed;
                 }
 
                 cleanBufferSlot();
