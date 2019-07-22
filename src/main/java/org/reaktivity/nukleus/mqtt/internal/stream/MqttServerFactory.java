@@ -671,7 +671,7 @@ public final class MqttServerFactory implements StreamFactory
             }
             else
             {
-                this.decodeState = this::decodeEnd;
+                doEnd(decodeTraceId);
             }
 
             return mqttPacket == null ? 0 : mqttPacket.sizeof();
@@ -714,19 +714,6 @@ public final class MqttServerFactory implements StreamFactory
                     doReset(decodeTraceId);
                     break;
             }
-
-            return consumed;
-        }
-
-        private int decodeEnd(
-            final DirectBuffer buffer,
-            final int offset,
-            final int length)
-        {
-            int consumed = 0;
-
-            doMqttDisconnect(128);
-            doEnd(decodeTraceId);
 
             return consumed;
         }
