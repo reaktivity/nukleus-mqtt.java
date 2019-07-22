@@ -330,6 +330,11 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (!noBufferSlot() || remainingLength > length - 2)
                 {
+                    if (noBufferSlot())
+                    {
+                        bufferSlot = bufferPool.acquire(data.streamId());
+                    }
+
                     MutableDirectBuffer delayedBuffer = bufferPool.buffer(bufferSlot);
                     delayedBuffer.putBytes(bufferSlotLimit, buffer, offset, length);
 
@@ -344,19 +349,19 @@ public final class MqttServerFactory implements StreamFactory
                     offset += progress;
                     length -= progress;
                 }
-            }
-        }
 
-        private void resetBuffer()
-        {
-            bufferSlot = bufferPool.acquire(initialBudget);
+                cleanBufferSlot();
+            }
         }
 
         private void cleanBufferSlot()
         {
-            bufferPool.release(bufferSlot);
-            bufferSlot = BufferPool.NO_SLOT;
-            bufferSlotLimit = 0;
+            if (!noBufferSlot())
+            {
+                bufferPool.release(bufferSlot);
+                bufferSlot = BufferPool.NO_SLOT;
+                bufferSlotLimit = 0;
+            }
         }
 
         private boolean noBufferSlot()
