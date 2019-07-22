@@ -339,8 +339,9 @@ public final class MqttServerFactory implements StreamFactory
                     delayedBuffer.putBytes(bufferSlotLimit, buffer, offset, length);
 
                     bufferSlotLimit += length;
-                    buffer = delayedBuffer;
                     length = bufferSlotLimit;
+
+                    buffer = delayedBuffer;
                 }
 
                 while (length > 0)
