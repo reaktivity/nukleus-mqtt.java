@@ -245,6 +245,7 @@ public final class MqttServerFactory implements StreamFactory
         private DecoderState decodeState;
         private int bufferSlot = BufferPool.NO_SLOT;
         private int bufferSlotOffset;
+        private int bufferSlotLimit = 0;
 
         private MqttServer(
             MessageConsumer network,
@@ -327,13 +328,14 @@ public final class MqttServerFactory implements StreamFactory
                 MqttPacketFixedHeaderFW packet = mqttPacketFixedHeaderRO.tryWrap(buffer, offset, offset + 2);
                 int remainingLength = packet == null ? 0 : packet.remainingLength();
 
-                if (!noBufferSlot())
+                if (!noBufferSlot() || remainingLength > length - 2)
                 {
-                    // append to buffer
-                }
-                else if (remainingLength < length - 2)
-                {
-                    // initialize bufferSlot
+                    MutableDirectBuffer delayedBuffer = bufferPool.buffer(bufferSlot);
+                    delayedBuffer.putBytes(bufferSlotLimit, buffer, offset, length);
+
+                    bufferSlotLimit += length;
+                    buffer = delayedBuffer;
+                    length = bufferSlotLimit;
                 }
 
                 while (length > 0)
@@ -342,14 +344,19 @@ public final class MqttServerFactory implements StreamFactory
                     offset += progress;
                     length -= progress;
                 }
-
             }
+        }
+
+        private void resetBuffer()
+        {
+            bufferSlot = bufferPool.acquire(initialBudget);
         }
 
         private void cleanBufferSlot()
         {
             bufferPool.release(bufferSlot);
             bufferSlot = BufferPool.NO_SLOT;
+            bufferSlotLimit = 0;
         }
 
         private boolean noBufferSlot()
