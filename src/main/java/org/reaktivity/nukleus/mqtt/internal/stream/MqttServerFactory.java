@@ -27,9 +27,9 @@ import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingRespFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPublishFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscribeFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscriptionTopicsFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribeFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttTopicFW;
 
 import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
 
@@ -96,7 +96,7 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttUnsubscribeFW mqttUnsubscribeRO = new MqttUnsubscribeFW();
     private final MqttUnsubackFW mqttUnsubackRO = new MqttUnsubackFW();
     private final MqttPublishFW mqttPublishRO = new MqttPublishFW();
-    private final MqttSubscriptionTopicsFW mqttSubscriptionTopicsRO = new MqttSubscriptionTopicsFW();
+    private final MqttTopicFW mqttTopicRO = new MqttTopicFW();
 
     private final OctetsFW.Builder octetsRW = new OctetsFW.Builder();
 
@@ -414,17 +414,24 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttSubscribe(
             MqttSubscribeFW subscribe)
         {
-            int topics = subscribe == null ? 0 : subscribe.topics().sizeof();
-
             DirectBuffer buffer = subscribe.topics().buffer();
             int offset = subscribe.topics().offset();
             int length = subscribe.topics().sizeof();
 
-            MqttSubscriptionTopicsFW subs = mqttSubscriptionTopicsRO
-                .tryWrap(buffer, offset, offset + length);
+            int topicsLength = 0;
 
+            while (length > 0)
+            {
+                MqttTopicFW topic = mqttTopicRO
+                    .tryWrap(buffer, offset, offset + length);
 
-            doMqttSuback(topics);
+                offset += topic.sizeof();
+                length -= topic.sizeof();
+
+                topicsLength ++;
+            }
+
+            doMqttSuback(topicsLength);
         }
 
         private void onMqttUnsubscribe(
