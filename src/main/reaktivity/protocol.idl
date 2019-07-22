@@ -56,15 +56,10 @@
             uint8 value;
         }
 
-        struct MqttTopic
+        struct MqttSubscriptionTopic
         {
             string16 topic;
             uint8 options;
-        }
-
-        struct MqttSubscriptionTopics
-        {
-            list<protocol::codec::MqttTopic> topicFilters;
         }
 
         union MqttProperty switch (uint8)
