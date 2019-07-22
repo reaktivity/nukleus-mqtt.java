@@ -420,7 +420,7 @@ public final class MqttServerFactory implements StreamFactory
             int offset = subscribe.topics().offset();
             int length = subscribe.topics().sizeof();
 
-            MqttSubscriptionTopicsFW subs = new MqttSubscriptionTopicsFW()
+            MqttSubscriptionTopicsFW subs = mqttSubscriptionTopicsRO
                 .tryWrap(buffer, offset, offset + length);
 
 
