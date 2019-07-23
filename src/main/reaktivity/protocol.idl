@@ -25,18 +25,19 @@
             RESERVED,
             CONNECT,
             CONNACK,
-            SUBSCRIBE,
-            SUBACK,
-            UNSUBSCRIBE,
-            UNSUBACK,
             PUBLISH,
             PUBACK,
             PUBREC,
             PUBREL,
             PUBCOMP,
+            SUBSCRIBE,
+            SUBACK,
+            UNSUBSCRIBE,
+            UNSUBACK,
             PINGREQ,
             PINGRESP,
-            DISCONNECT
+            DISCONNECT,
+            AUTH
         }
 
         struct Binary
