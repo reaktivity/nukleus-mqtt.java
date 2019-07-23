@@ -20,8 +20,9 @@
 
     scope codec
     {
-        enum MqttPackeFixedHeaderType
+        enum MqttPacketType
         {
+            RESERVED,
             CONNECT,
             CONNACK,
             SUBSCRIBE,
@@ -46,7 +47,7 @@
 
         struct MqttPacketFixedHeader
         {
-            uint8 packetType;
+            uint8 typeAndFlags;
             uint8 remainingLength;
         }
 
