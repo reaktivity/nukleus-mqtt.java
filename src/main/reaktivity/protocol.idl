@@ -65,7 +65,7 @@
 
         struct MqttTopic
         {
-            string16 topicFilter;
+            string16 filter;
         }
 
         union MqttProperty switch (uint8)

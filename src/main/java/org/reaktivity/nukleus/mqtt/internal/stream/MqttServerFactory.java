@@ -247,7 +247,7 @@ public final class MqttServerFactory implements StreamFactory
 
         private long decodeTraceId;
         private DecoderState decodeState;
-        private int bufferSlot = NO_SLOT;
+        private int slotIndex = NO_SLOT;
         private int slotLimit;
 
         private MqttServer(
@@ -329,9 +329,9 @@ public final class MqttServerFactory implements StreamFactory
                 int offset = payload.offset();
                 int limit = payload.limit();
 
-                if (bufferSlot != NO_SLOT)
+                if (slotIndex != NO_SLOT)
                 {
-                    final MutableDirectBuffer slotBuffer = bufferPool.buffer(bufferSlot);
+                    final MutableDirectBuffer slotBuffer = bufferPool.buffer(slotIndex);
                     slotBuffer.putBytes(slotLimit, buffer, offset, limit - offset);
                     slotLimit += limit - offset;
                     buffer = slotBuffer;
@@ -354,18 +354,18 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (offset < limit)
                 {
-                    if (bufferSlot == NO_SLOT)
+                    if (slotIndex == NO_SLOT)
                     {
-                        bufferSlot = bufferPool.acquire(streamId);
+                        slotIndex = bufferPool.acquire(streamId);
                     }
-                    final MutableDirectBuffer slotBuffer = bufferPool.buffer(bufferSlot);
+                    final MutableDirectBuffer slotBuffer = bufferPool.buffer(slotIndex);
                     slotLimit = limit - offset;
                     slotBuffer.putBytes(0, buffer, offset, slotLimit);
                 }
-                else if (bufferSlot != NO_SLOT)
+                else if (slotIndex != NO_SLOT)
                 {
-                    bufferPool.release(bufferSlot);
-                    bufferSlot = NO_SLOT;
+                    bufferPool.release(slotIndex);
+                    slotIndex = NO_SLOT;
                     slotLimit = 0;
                 }
             }
@@ -447,54 +447,56 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttSubscribe(
             MqttSubscribeFW subscribe)
         {
-            DirectBuffer buffer = subscribe.topicFilters().buffer();
-            int offset = subscribe.topicFilters().offset();
-            int length = subscribe.topicFilters().sizeof();
-            int topicsLength = 0;
+            final OctetsFW topicFilters = subscribe.topicFilters();
+            final DirectBuffer buffer = topicFilters.buffer();
+            final int limit = topicFilters.limit();
+            final int offset = topicFilters.offset();
 
-            if (length == 0)
+            if (limit == 0)
             {
                 doMqttDisconnect(0x82);
                 doEnd(decodeTraceId);
             }
             else
             {
-                while (length > 0)
+                int topics  = 0;
+
+                MqttSubscriptionTopicFW topic;
+                for (int progress = offset; progress < limit; progress = topic.limit())
                 {
-                    MqttSubscriptionTopicFW topic = mqttSubscriptionTopicRO
-                        .tryWrap(buffer, offset, offset + length);
-
-                    offset += topic.sizeof();
-                    length -= topic.sizeof();
-
-                    topicsLength++;
+                    topic = mqttSubscriptionTopicRO.tryWrap(buffer, progress, limit);
+                    if (topic == null)
+                    {
+                        break;
+                    }
+                    topics++;
                 }
 
-                doMqttSuback(topicsLength);
+                doMqttSuback(topics);
             }
         }
 
         private void onMqttUnsubscribe(
             MqttUnsubscribeFW unsubscribe)
         {
-            DirectBuffer buffer = unsubscribe.topicFilters().buffer();
-            int offset = unsubscribe.topicFilters().offset();
-            int length = unsubscribe.topicFilters().sizeof();
+            final OctetsFW topicFilters = unsubscribe.topicFilters();
+            final DirectBuffer buffer = topicFilters.buffer();
+            final int limit = topicFilters.limit();
+            final int offset = topicFilters.offset();
 
-            int topicsLength = 0;
-
-            while (length > 0)
+            int topics = 0;
+            MqttTopicFW topic;
+            for (int progress = offset; progress < limit; progress = topic.limit())
             {
-                MqttTopicFW topic = mqttTopicRO
-                    .tryWrap(buffer, offset, offset + length);
-
-                offset += topic.sizeof();
-                length -= topic.sizeof();
-
-                topicsLength++;
+                topic = mqttTopicRO.tryWrap(buffer, progress, limit);
+                if (topic == null)
+                {
+                    break;
+                }
+                topics++;
             }
 
-            doMqttUnsuback(topicsLength);
+            doMqttUnsuback(topics);
         }
 
         private void onMqttPublish(
@@ -722,42 +724,42 @@ public final class MqttServerFactory implements StreamFactory
             final int offset,
             final int limit)
         {
-            int consumed = 0;
+            int progress = 0;
 
             switch (packetType)
             {
             case PINGREQ:
                 final MqttPingReqFW ping = mqttPingReqRO.wrap(buffer, offset, limit);
                 onMqttPingReq(ping);
-                consumed = ping.limit();
+                progress = ping.limit();
                 break;
             case SUBSCRIBE:
                 final MqttSubscribeFW subscribe = mqttSubscribeRO.wrap(buffer, offset, limit);
                 onMqttSubscribe(subscribe);
-                consumed = subscribe.limit();
+                progress = subscribe.limit();
                 break;
             case UNSUBSCRIBE:
                 final MqttUnsubscribeFW unsubscribe = mqttUnsubscribeRO.wrap(buffer, offset, limit);
                 onMqttUnsubscribe(unsubscribe);
-                consumed = unsubscribe.limit();
+                progress = unsubscribe.limit();
                 break;
             case DISCONNECT:
                 final MqttDisconnectFW disconnect = mqttDisconnectRO.wrap(buffer, offset, limit);
                 onMqttDisconnect(disconnect);
                 doEnd(decodeTraceId);
-                consumed = disconnect.limit();
+                progress = disconnect.limit();
                 break;
             case PUBLISH:
                 final MqttPublishFW publish = mqttPublishRO.wrap(buffer, offset, limit);
                 onMqttPublish(publish);
-                consumed = publish.limit();
+                progress = publish.limit();
                 break;
             default:
                 doReset(decodeTraceId);
                 break;
             }
 
-            return consumed;
+            return progress;
         }
     }
 
