@@ -52,7 +52,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/connect/successful/complete/client"})
+        "${client}/connect/successful/client"})
     public void shouldExchangeConnectAndConnackPackets() throws Exception
     {
         k3po.finish();
@@ -124,7 +124,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/connect/successful/fragmented/client"})
+        "${client}/connect/successful.fragmented/client"})
     public void shouldProcessFragmentedConnectPacket() throws Exception
     {
         k3po.finish();
