@@ -52,7 +52,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/connect/client"})
+        "${client}/connect/successful/client"})
     public void shouldExchangeConnectAndConnackPackets() throws Exception
     {
         k3po.finish();
@@ -72,6 +72,60 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/disconnect/client"})
     public void shouldExchangeConnectionPacketsThenDisconnect() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/successful/client"})
+    public void shouldExchangeConnectionPacketsThenSubscribe() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/unsubscribe/client"})
+    public void shouldExchangeConnectionPacketsThenUnsubscribeAfterSubscribe() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish/at.most.once/client"})
+    public void shouldExchangeConnectionPacketsThenPublish() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/connect/invalid.protocol.version/client"})
+    public void shouldRejectInvalidMqttProtocolVersion() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/connect/invalid.flags/client"})
+    public void shouldRejectMalformedConnectPacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/connect/successful.fragmented/client"})
+    public void shouldProcessFragmentedConnectPacket() throws Exception
     {
         k3po.finish();
     }

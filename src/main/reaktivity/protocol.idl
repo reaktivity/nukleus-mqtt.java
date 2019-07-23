@@ -16,20 +16,28 @@
 
  scope protocol
  {
+    option byteorder network;
+
     scope codec
     {
         enum MqttPacketType
         {
+            RESERVED,
             CONNECT,
             CONNACK,
+            PUBLISH,
+            PUBACK,
+            PUBREC,
+            PUBREL,
+            PUBCOMP,
             SUBSCRIBE,
             SUBACK,
             UNSUBSCRIBE,
             UNSUBACK,
-            PUBLISH,
             PINGREQ,
             PINGRESP,
-            DISCONNECT
+            DISCONNECT,
+            AUTH
         }
 
         struct Binary
@@ -38,11 +46,10 @@
             octets[length] bytes;
         }
 
-        struct MqttPacket
+        struct MqttPacketFixedHeader
         {
-            uint8 packetType;
+            uint8 typeAndFlags;
             uint8 remainingLength;
-            octets[remainingLength] packet;
         }
 
         struct MqttByte
@@ -50,10 +57,15 @@
             uint8 value;
         }
 
+        struct MqttSubscriptionTopic
+        {
+            string16 topicFilter;
+            uint8 options;
+        }
+
         struct MqttTopic
         {
-            string topic;
-            uint8 options;
+            string16 filter;
         }
 
         union MqttProperty switch (uint8)
@@ -79,10 +91,8 @@
             case 0x01: uint8 payloadFormatIndicator;
         }
 
-        struct MqttConnect
+        struct MqttConnect extends protocol::codec::MqttPacketFixedHeader
         {
-            uint8 packetType;
-            uint8 remainingLength;
             string16 protocolName;
             uint8 protocolVersion;
             uint8 flags;
@@ -92,10 +102,8 @@
             octets[propertiesLength] properties;
         }
 
-        struct MqttConnack
+        struct MqttConnack extends protocol::codec::MqttPacketFixedHeader
         {
-            uint8 packetType = 0x20;
-            uint8 remainingLength;
             uint8 flags;
             uint8 reasonCode;
             varint32 propertiesLength;
@@ -108,62 +116,81 @@
             uint8 remainingLength;
         }
 
-        struct MqttPingResp
+        struct MqttPingResp extends protocol::codec::MqttPacketFixedHeader
         {
-            uint8 packetType = 0xd0;
-            uint8 remainingLength;
+
         }
 
-        struct MqttSubscribe
+        struct MqttSubscribe extends protocol::codec::MqttPacketFixedHeader
         {
-            uint8 packetType;
-            uint8 remainingLength;
             uint16 packetId;
             varint32 propertiesLength;
             octets[propertiesLength] properties;
-            list<protocol::codec::MqttTopic> topics;
+            octets topicFilters;
         }
 
-        struct MqttSuback
+        struct MqttSuback extends protocol::codec::MqttPacketFixedHeader
         {
-            uint8 packetType;
-            uint8 remainingLength;
-            uint16 packetId;
+            varint32 propertiesLength;
             octets reasonCodes;
         }
 
-        struct MqttUnsubscribe
+        struct MqttUnsubscribe extends protocol::codec::MqttPacketFixedHeader
         {
-            uint8 packetType;
-            uint8 remainingLength;
             uint16 packetId;
             varint32 propertiesLength;
             octets[propertiesLength] properties;
-            list<string> topics;
+            octets topicFilters;
         }
 
-        struct MqttUnsuback
+        struct MqttUnsuback extends protocol::codec::MqttPacketFixedHeader
         {
-            uint8 packetType;
-            uint8 remainingLength;
-            uint16 packetId;
+            varint32 propertiesLength;
             octets reasonCodes;
         }
 
-        struct MqttPublish
+        struct MqttPublish extends protocol::codec::MqttPacketFixedHeader
         {
-            uint8 packetType;
-            uint8 remainingLength;
-            string topic;
+            string16 topicFilter;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+            octets payload;
+        }
+
+        struct MqttPuback extends protocol::codec::MqttPacketFixedHeader
+        {
             uint16 packetId;
+            uint8 reasonCode;
             varint32 propertiesLength;
             octets[propertiesLength] properties;
         }
 
-        struct MqttDisconnect
+        struct MqttPubrec extends protocol::codec::MqttPacketFixedHeader
         {
-            uint8 packetType = 0xe0;
-            uint8 remainingLength;
+            uint16 packetId;
+            uint8 reasonCode;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttPubrel extends protocol::codec::MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            uint8 reasonCode;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttPubcomp extends protocol::codec::MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            uint8 reasonCode;
+            varint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttDisconnect extends protocol::codec::MqttPacketFixedHeader
+        {
             uint8 reasonCode;
             varint32 propertiesLength;
             octets[propertiesLength] properties;
