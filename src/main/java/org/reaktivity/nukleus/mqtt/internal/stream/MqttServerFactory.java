@@ -335,6 +335,8 @@ public final class MqttServerFactory implements StreamFactory
                     slotBuffer.putBytes(slotLimit, buffer, offset, limit - offset);
                     slotLimit += limit - offset;
                     buffer = slotBuffer;
+                    offset = 0;
+                    limit = slotLimit;
                 }
 
                 while (offset < limit)
