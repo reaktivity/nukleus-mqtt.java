@@ -248,7 +248,7 @@ public final class MqttServerFactory implements StreamFactory
         private long decodeTraceId;
         private DecoderState decodeState;
         private int bufferSlot = NO_SLOT;
-        private int slotLimit = 0;
+        private int slotLimit;
 
         private MqttServer(
             MessageConsumer network,
@@ -323,7 +323,6 @@ public final class MqttServerFactory implements StreamFactory
             else if (payload != null)
             {
                 final long streamId = data.streamId();
-                final DecoderState currentState = decodeState;
                 decodeTraceId = data.trace();
 
                 DirectBuffer buffer = payload.buffer();
@@ -348,14 +347,14 @@ public final class MqttServerFactory implements StreamFactory
                     }
 
                     final MqttPacketType packetType = MqttPacketType.valueOf(packet.typeAndFlags() >> 4);
-                    offset = decodeState.decode(packetType, buffer, offset, limit);
+                    offset += decodeState.decode(packetType, buffer, offset, limit);
                 }
 
                 if (offset < limit)
                 {
                     if (bufferSlot == NO_SLOT)
                     {
-                        bufferSlot = bufferPool.acquire(initialId);
+                        bufferSlot = bufferPool.acquire(streamId);
                     }
                     final MutableDirectBuffer slotBuffer = bufferPool.buffer(bufferSlot);
                     slotLimit = limit - offset;
@@ -722,8 +721,6 @@ public final class MqttServerFactory implements StreamFactory
             final int limit)
         {
             int consumed = 0;
-
-            final MqttPacketFixedHeaderFW mqttPacket = mqttPacketFixedHeaderRO.wrap(buffer, offset, offset + 2);
 
             switch (packetType)
             {
