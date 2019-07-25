@@ -104,7 +104,7 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttUnsubscribeFW mqttUnsubscribeRO = new MqttUnsubscribeFW();
     private final MqttUnsubackFW mqttUnsubackRO = new MqttUnsubackFW();
     private final MqttPublishFW mqttPublishRO = new MqttPublishFW();
-    private final MqttSubscriptionFW mqttSubscriptionTopicRO = new MqttSubscriptionFW();
+    private final MqttSubscriptionFW mqttSubscriptionRO = new MqttSubscriptionFW();
     private final MqttTopicFW mqttTopicRO = new MqttTopicFW();
     private final MqttRouteExFW routeExRO = new MqttRouteExFW();
 
@@ -493,7 +493,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 for (int progress = offset; progress < limit; progress = subscription.limit())
                 {
-                    subscription = mqttSubscriptionTopicRO.tryWrap(buffer, progress, limit);
+                    subscription = mqttSubscriptionRO.tryWrap(buffer, progress, limit);
                     if (subscription == null)
                     {
                         break;
