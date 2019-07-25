@@ -519,7 +519,7 @@ public final class MqttServerFactory implements StreamFactory
                         final MqttBeginExFW beginEx = mqttBeginExRW
                             .wrap(writeBuffer, BeginFW.FIELD_OFFSET_EXTENSION, writeBuffer.capacity())
                             .typeId(mqttTypeId)
-                            .role(r -> r.set(MqttRole.SENDER))
+                            .role(r -> r.set(MqttRole.RECEIVER))
                             .clientId("client")
                             .topic(topicFilter)
                             .subscriptionId(subscriptionId)

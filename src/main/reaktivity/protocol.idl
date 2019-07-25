@@ -139,7 +139,7 @@
         struct MqttUnsubscribe extends protocol::codec::MqttPacketFixedHeader
         {
             uint16 packetId;
-            varint32 propertiesLength;
+            uint8 propertiesLength;
             octets[propertiesLength] properties;
             octets topicFilters;
         }
