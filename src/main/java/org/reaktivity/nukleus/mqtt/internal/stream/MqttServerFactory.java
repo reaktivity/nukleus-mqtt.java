@@ -19,8 +19,6 @@ package org.reaktivity.nukleus.mqtt.internal.stream;
 import static java.util.Objects.requireNonNull;
 import static org.reaktivity.nukleus.buffer.BufferPool.NO_SLOT;
 
-import org.agrona.collections.ArrayListUtil;
-import org.agrona.collections.ArrayUtil;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttRole;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
@@ -41,7 +39,6 @@ import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPacketType;
 import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
 
 import java.util.ArrayList;
-import java.util.Queue;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.ToIntFunction;
