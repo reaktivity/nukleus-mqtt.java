@@ -140,4 +140,74 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/one.topic.wildcard/client",
+        "${server}/subscribe/one.topic.wildcard/server"})
+    public void shouldSubscribeToWildcardTopic() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/two.topics.both.exact.from.one.subscribe/client",
+        "${server}/subscribe/two.topics.both.exact.from.one.subscribe/server"})
+    public void shouldSubscribeWithTwoTopicsBothExactOneSubscribePacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/two.topics.both.exact.from.two.subscribes/client",
+        "${server}/subscribe/two.topics.both.exact.from.two.subscribes/server"})
+    public void shouldSubscribeWithTwoTopicsBothExactTwoSubscribePackets() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/two.topics.both.wildcard.from.one.subscribe/client",
+        "${server}/subscribe/two.topics.both.wildcard.from.one.subscribe/server"})
+    public void shouldSubscribeWithTwoTopicsBothWildcardOneSubscribePacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/two.topics.both.wildcard.from.two.subscribes/client",
+        "${server}/subscribe/two.topics.both.wildcard.from.two.subscribes/server"})
+    public void shouldSubscribeWithTwoTopicsBothWildcardTwoSubscribePackets() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/two.topics.one.exact.from.one.subscribe/client",
+        "${server}/subscribe/two.topics.one.exact.from.one.subscribe/server"})
+    public void shouldSubscribeWithTwoTopicsOneExactOneSubscribePacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/two.topics.one.exact.from.two.subscribes/client",
+        "${server}/subscribe/two.topics.one.exact.from.two.subscribes/server"})
+    public void shouldSubscribeWithTwoTopicsOneExactTwoSubscribePackets() throws Exception
+    {
+        k3po.finish();
+    }
 }

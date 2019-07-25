@@ -89,6 +89,7 @@
             case 0x15: string authenticationMethod;
             case 0x16: protocol::codec::Binary authenticationData;
             case 0x01: uint8 payloadFormatIndicator;
+            case 0x0b: uint8 subscriptionId;
         }
 
         struct MqttConnect extends protocol::codec::MqttPacketFixedHeader
@@ -124,7 +125,7 @@
         struct MqttSubscribe extends protocol::codec::MqttPacketFixedHeader
         {
             uint16 packetId;
-            varint32 propertiesLength;
+            uint8 propertiesLength;
             octets[propertiesLength] properties;
             octets topicFilters;
         }
