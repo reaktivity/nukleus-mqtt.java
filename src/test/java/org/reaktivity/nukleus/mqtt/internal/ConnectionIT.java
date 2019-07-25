@@ -33,7 +33,8 @@ public class ConnectionIT
 {
     private final K3poRule k3po = new K3poRule()
         .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
-        .addScriptRoot("client", "org/reaktivity/specification/mqtt");
+        .addScriptRoot("client", "org/reaktivity/specification/mqtt")
+        .addScriptRoot("server", "org/reaktivity/specification/nukleus/mqtt/streams");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
 
@@ -126,6 +127,16 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/connect/successful.fragmented/client"})
     public void shouldProcessFragmentedConnectPacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/one.topic.exact/client",
+        "${server}/subscribe/one.topic.exact/server"})
+    public void shouldSubscribeToOneExactTopic() throws Exception
     {
         k3po.finish();
     }
