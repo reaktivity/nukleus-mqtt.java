@@ -127,7 +127,7 @@ public final class MqttServerFactory implements StreamFactory
     private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyTraceId;
 
-    private final Long2ObjectHashMap<MqttServer> correlations;
+    private final Long2ObjectHashMap<MqttServerStream> correlations;
     private final MessageFunction<RouteFW> wrapRoute;
     private final int mqttTypeId;
 
@@ -208,7 +208,6 @@ public final class MqttServerFactory implements StreamFactory
         if (route != null)
         {
             final MqttServer connection = new MqttServer(sender, routeId, initialId, replyId);
-            correlations.put(replyId, connection);
             newStream = connection::onNetwork;
         }
         return newStream;
@@ -219,12 +218,12 @@ public final class MqttServerFactory implements StreamFactory
         final MessageConsumer sender)
     {
         final long replyId = begin.streamId();
-        final MqttServer connect = correlations.remove(replyId);
+        final MqttServerStream reply = correlations.remove(replyId);
 
         MessageConsumer newStream = null;
-        if (connect != null)
+        if (reply != null)
         {
-            newStream = connect::onNetwork;
+            newStream = reply::onApplication;
         }
         return newStream;
     }
@@ -514,7 +513,7 @@ public final class MqttServerFactory implements StreamFactory
                         final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
 
                         MqttBeginExFW beginEx = mqttBeginExRW
-                            .wrap(writeBuffer, 0, writeBuffer.capacity())
+                            .wrap(writeBuffer, BeginFW.FIELD_OFFSET_EXTENSION, writeBuffer.capacity())
                             .typeId(mqttTypeId)
                             .role(r -> r.set(MqttRole.SENDER))
                             .clientId("client")
@@ -522,8 +521,10 @@ public final class MqttServerFactory implements StreamFactory
                             .subscriptionId(1)
                             .build();
 
-                        doMqttBeginEx(newTarget, newRouteId, newReplyId,
+                        doMqttBeginEx(newTarget, newRouteId, newInitialId,
                             decodeTraceId, beginEx.buffer(), beginEx.offset(), beginEx.sizeof());
+
+                        correlations.put(newReplyId, subscriptionStream);
 
                         reasonCode = 0x00;
 
@@ -774,13 +775,6 @@ public final class MqttServerFactory implements StreamFactory
             doData(disconnect.buffer(), disconnect.offset(), disconnect.sizeof());
         }
 
-        private boolean validSubscriptionBits(
-            int options)
-        {
-            return ((options >> 8) & 1) != 0
-                && ((options >> 7) & 1) != 0;
-        }
-
         private int decodeConnectPacket(
             final MqttPacketType packetType,
             final DirectBuffer buffer,
@@ -849,9 +843,27 @@ public final class MqttServerFactory implements StreamFactory
 
     private final class MqttServerStream
     {
-
         MqttServerStream()
         {
+        }
+
+        private void onApplication(
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length) {
+            switch (msgTypeId) {
+                case BeginFW.TYPE_ID:
+                    final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+                    onBegin(begin);
+                    break;
+            }
+        }
+
+        private void onBegin(
+            BeginFW begin)
+        {
+            
         }
     }
 
