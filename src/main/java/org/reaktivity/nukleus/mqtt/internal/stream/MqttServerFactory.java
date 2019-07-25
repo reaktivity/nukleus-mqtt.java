@@ -19,27 +19,30 @@ package org.reaktivity.nukleus.mqtt.internal.stream;
 import static java.util.Objects.requireNonNull;
 import static org.reaktivity.nukleus.buffer.BufferPool.NO_SLOT;
 
+import org.reaktivity.nukleus.mqtt.internal.types.MqttRole;
+
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttDisconnectFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPacketFixedHeaderFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPacketType;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingReqFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingRespFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPublishFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscribeFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscriptionTopicFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscriptionFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttTopicFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribeFW;
-
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPacketType;
-
 import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
 
+import java.util.ArrayList;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.ToIntFunction;
+import java.util.HashMap;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
@@ -64,6 +67,7 @@ import org.reaktivity.nukleus.mqtt.internal.types.stream.SignalFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttBeginExFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttDataExFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttEndExFW;
+import org.reaktivity.specification.mqtt.internal.types.control.MqttRouteExFW;
 
 public final class MqttServerFactory implements StreamFactory
 {
@@ -100,8 +104,10 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttUnsubscribeFW mqttUnsubscribeRO = new MqttUnsubscribeFW();
     private final MqttUnsubackFW mqttUnsubackRO = new MqttUnsubackFW();
     private final MqttPublishFW mqttPublishRO = new MqttPublishFW();
-    private final MqttSubscriptionTopicFW mqttSubscriptionTopicRO = new MqttSubscriptionTopicFW();
+    private final MqttSubscriptionFW mqttSubscriptionRO = new MqttSubscriptionFW();
     private final MqttTopicFW mqttTopicRO = new MqttTopicFW();
+    private final MqttRouteExFW routeExRO = new MqttRouteExFW();
+    private final MqttPropertyFW mqttPropertyRO = new MqttPropertyFW();
 
     private final OctetsFW.Builder octetsRW = new OctetsFW.Builder();
 
@@ -122,7 +128,7 @@ public final class MqttServerFactory implements StreamFactory
     private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyTraceId;
 
-    private final Long2ObjectHashMap<MqttServer> correlations;
+    private final Long2ObjectHashMap<MqttServerStream> correlations;
     private final MessageFunction<RouteFW> wrapRoute;
     private final int mqttTypeId;
 
@@ -203,7 +209,6 @@ public final class MqttServerFactory implements StreamFactory
         if (route != null)
         {
             final MqttServer connection = new MqttServer(sender, routeId, initialId, replyId);
-            correlations.put(replyId, connection);
             newStream = connection::onNetwork;
         }
         return newStream;
@@ -214,12 +219,12 @@ public final class MqttServerFactory implements StreamFactory
         final MessageConsumer sender)
     {
         final long replyId = begin.streamId();
-        final MqttServer connect = correlations.remove(replyId);
+        final MqttServerStream reply = correlations.remove(replyId);
 
         MessageConsumer newStream = null;
-        if (connect != null)
+        if (reply != null)
         {
-            newStream = connect::onNetwork;
+            newStream = reply::onApplication;
         }
         return newStream;
     }
@@ -233,12 +238,33 @@ public final class MqttServerFactory implements StreamFactory
         return routeRO.wrap(buffer, index, index + length);
     }
 
+    private RouteFW resolveTarget(
+        long routeId,
+        long authorization,
+        String topicFilter)
+    {
+        final MessagePredicate filter = (t, b, o, l) ->
+        {
+            final RouteFW route = routeRO.wrap(b, o, o + l);
+            final OctetsFW ext = route.extension();
+            if (ext.sizeof() > 0)
+            {
+                final MqttRouteExFW routeEx = ext.get(routeExRO::wrap);
+                final String topicEx = routeEx.topic().asString();
+                return topicEx.equals(topicFilter);
+            }
+            return true;
+        };
+        return router.resolve(routeId, authorization, filter, this::wrapRoute);
+    }
+
     private final class MqttServer
     {
         private final MessageConsumer network;
         private final long routeId;
         private final long initialId;
         private final long replyId;
+        private long authorization;
 
         private int initialBudget;
         private int initialPadding;
@@ -249,6 +275,7 @@ public final class MqttServerFactory implements StreamFactory
         private DecoderState decodeState;
         private int slotIndex = NO_SLOT;
         private int slotLimit;
+        private HashMap<String, MqttServerStream> mqttStreams;
 
         private MqttServer(
             MessageConsumer network,
@@ -261,6 +288,7 @@ public final class MqttServerFactory implements StreamFactory
             this.initialId = initialId;
             this.replyId = replyId;
             this.decodeState = this::decodeConnectPacket;
+            this.mqttStreams = new HashMap<>();
         }
 
         private void onNetwork(
@@ -324,6 +352,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 final long streamId = data.streamId();
                 decodeTraceId = data.trace();
+                this.authorization = data.authorization();
 
                 DirectBuffer buffer = payload.buffer();
                 int offset = payload.offset();
@@ -451,6 +480,7 @@ public final class MqttServerFactory implements StreamFactory
             final DirectBuffer buffer = topicFilters.buffer();
             final int limit = topicFilters.limit();
             final int offset = topicFilters.offset();
+            ArrayList<Byte> reasonCodes = new ArrayList<>();
 
             if (limit == 0)
             {
@@ -459,21 +489,75 @@ public final class MqttServerFactory implements StreamFactory
             }
             else
             {
-                int topics  = 0;
+                MqttSubscriptionFW subscription;
+                OctetsFW properties = subscribe.properties();
+                final int propertiesOffset = properties.offset();
+                final int propertiesLimit = properties.limit();
+                int subscriptionId = 0;
 
-                MqttSubscriptionTopicFW topic;
-                for (int progress = offset; progress < limit; progress = topic.limit())
+                MqttPropertyFW mqttProperty;
+
+                for (int progress = propertiesOffset; progress < propertiesLimit; progress = mqttProperty.limit())
                 {
-                    topic = mqttSubscriptionTopicRO.tryWrap(buffer, progress, limit);
-                    if (topic == null)
+                    mqttProperty = mqttPropertyRO.tryWrap(buffer, progress, propertiesLimit);
+                    switch(mqttProperty.kind())
+                    {
+                    case 0x0b:
+                        subscriptionId = mqttProperty.subscriptionId();
+                        break;
+                    }
+                }
+
+                for (int progress = offset; progress < limit; progress = subscription.limit())
+                {
+                    subscription = mqttSubscriptionRO.tryWrap(buffer, progress, limit);
+                    if (subscription == null)
                     {
                         break;
                     }
-                    topics++;
-                }
 
-                doMqttSuback(topics);
+                    int reasonCode = 0x8f;
+                    final String topicFilter = subscription.topicFilter().asString();
+                    final RouteFW route = resolveTarget(routeId, authorization, topicFilter);
+
+                    if (route != null)
+                    {
+                        final MqttServerStream serverStream = new MqttServerStream();
+
+                        final long newRouteId = route.correlationId();
+                        final long newInitialId = supplyInitialId.applyAsLong(newRouteId);
+                        final long newReplyId = supplyReplyId.applyAsLong(newInitialId);
+
+                        final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
+
+                        final MqttBeginExFW beginEx = mqttBeginExRW
+                            .wrap(writeBuffer, BeginFW.FIELD_OFFSET_EXTENSION, writeBuffer.capacity())
+                            .typeId(mqttTypeId)
+                            .role(r -> r.set(MqttRole.RECEIVER))
+                            .clientId("client")
+                            .topic(topicFilter)
+                            .subscriptionId(subscriptionId)
+                            .build();
+
+                        serverStream.doMqttBeginEx(newTarget, newRouteId, newInitialId,
+                            decodeTraceId, beginEx.buffer(), beginEx.offset(), beginEx.sizeof());
+
+                        correlations.put(newReplyId, serverStream);
+
+                        reasonCode = 0x00;
+
+                        mqttStreams.put(topicFilter, serverStream);
+                    }
+
+                    reasonCodes.add((byte) reasonCode);
+                }
             }
+            byte[] subackReasonCodes = new byte[reasonCodes.size()];
+            for (int i = 0; i < reasonCodes.size(); i++)
+            {
+                subackReasonCodes[i] = reasonCodes.get(i);
+            }
+            doMqttSuback(subackReasonCodes);
         }
 
         private void onMqttUnsubscribe(
@@ -636,11 +720,11 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doMqttSuback(
-            int subscriptions)
+            byte[] subscriptions)
         {
             OctetsFW reasonCodes = octetsRW
                 .wrap(writeBuffer, 0, writeBuffer.capacity())
-                .put(new byte[] {0x00})
+                .put(subscriptions)
                 .build();
 
             final MqttSubackFW suback = mqttSubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
@@ -688,13 +772,6 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             doData(disconnect.buffer(), disconnect.offset(), disconnect.sizeof());
-        }
-
-        private boolean validSubscriptionBits(
-            int options)
-        {
-            return ((options >> 8) & 1) != 0
-                && ((options >> 7) & 1) != 0;
         }
 
         private int decodeConnectPacket(
@@ -760,6 +837,73 @@ public final class MqttServerFactory implements StreamFactory
             }
 
             return progress;
+        }
+    }
+
+    private final class MqttServerStream
+    {
+        MqttServerStream()
+        {
+        }
+
+        private void onApplication(
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length)
+        {
+            switch (msgTypeId)
+            {
+            case BeginFW.TYPE_ID:
+                final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+                onBegin(begin);
+                break;
+            case EndFW.TYPE_ID:
+                final EndFW end = endRO.wrap(buffer, index, index + length);
+                onEnd(end);
+                break;
+            case ResetFW.TYPE_ID:
+                final ResetFW reset = resetRO.wrap(buffer, index, index + length);
+                onReset(reset);
+                break;
+            }
+        }
+
+        private void onBegin(
+            BeginFW begin)
+        {
+
+        }
+
+        private void onEnd(
+            EndFW end)
+        {
+
+        }
+
+        private void onReset(
+            ResetFW reset)
+        {
+
+        }
+
+        private void doMqttBeginEx(
+            MessageConsumer target,
+            long routeId,
+            long streamId,
+            long traceId,
+            DirectBuffer buffer,
+            int offset,
+            int length)
+        {
+            final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(streamId)
+                .trace(traceId)
+                .extension(buffer, offset, length)
+                .build();
+
+            target.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
         }
     }
 

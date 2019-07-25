@@ -33,7 +33,8 @@ public class ConnectionIT
 {
     private final K3poRule k3po = new K3poRule()
         .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
-        .addScriptRoot("client", "org/reaktivity/specification/mqtt");
+        .addScriptRoot("client", "org/reaktivity/specification/mqtt")
+        .addScriptRoot("server", "org/reaktivity/specification/nukleus/mqtt/streams");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
 
@@ -41,7 +42,7 @@ public class ConnectionIT
         .directory("target/nukleus-itests")
         .commandBufferCapacity(1024)
         .responseBufferCapacity(1024)
-        .counterValuesBufferCapacity(4096)
+        .counterValuesBufferCapacity(8192)
         .nukleus("mqtt"::equals)
         .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
         .clean();
@@ -126,6 +127,86 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/connect/successful.fragmented/client"})
     public void shouldProcessFragmentedConnectPacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/one.topic.exact/client",
+        "${server}/subscribe/one.topic.exact/server"})
+    public void shouldSubscribeToOneExactTopic() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/one.topic.wildcard/client",
+        "${server}/subscribe/one.topic.wildcard/server"})
+    public void shouldSubscribeToWildcardTopic() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/two.topics.both.exact.from.one.subscribe/client",
+        "${server}/subscribe/two.topics.both.exact.from.one.subscribe/server"})
+    public void shouldSubscribeWithTwoTopicsBothExactOneSubscribePacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/two.topics.both.exact.from.two.subscribes/client",
+        "${server}/subscribe/two.topics.both.exact.from.two.subscribes/server"})
+    public void shouldSubscribeWithTwoTopicsBothExactTwoSubscribePackets() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/two.topics.both.wildcard.from.one.subscribe/client",
+        "${server}/subscribe/two.topics.both.wildcard.from.one.subscribe/server"})
+    public void shouldSubscribeWithTwoTopicsBothWildcardOneSubscribePacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/two.topics.both.wildcard.from.two.subscribes/client",
+        "${server}/subscribe/two.topics.both.wildcard.from.two.subscribes/server"})
+    public void shouldSubscribeWithTwoTopicsBothWildcardTwoSubscribePackets() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/two.topics.one.exact.from.one.subscribe/client",
+        "${server}/subscribe/two.topics.one.exact.from.one.subscribe/server"})
+    public void shouldSubscribeWithTwoTopicsOneExactOneSubscribePacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/two.topics.one.exact.from.two.subscribes/client",
+        "${server}/subscribe/two.topics.one.exact.from.two.subscribes/server"})
+    public void shouldSubscribeWithTwoTopicsOneExactTwoSubscribePackets() throws Exception
     {
         k3po.finish();
     }
