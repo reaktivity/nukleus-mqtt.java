@@ -526,7 +526,7 @@ public final class MqttServerFactory implements StreamFactory
                             .build();
 
                         doMqttBeginEx(newTarget, newRouteId, newReplyId,
-                            decodeTraceId, beginEx);
+                            decodeTraceId, beginEx.buffer(), beginEx.offset(), beginEx.sizeof());
 
                         reasonCode = 0x00;
 
@@ -679,13 +679,15 @@ public final class MqttServerFactory implements StreamFactory
             long routeId,
             long streamId,
             long traceId,
-            MqttBeginExFW ex)
+            DirectBuffer buffer,
+            int offset,
+            int length)
         {
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
                 .trace(traceId)
-                .extension(ex.buffer(), ex.offset(), ex.sizeof())
+                .extension(buffer, offset, length)
                 .build();
 
             target.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
