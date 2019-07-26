@@ -202,4 +202,14 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish/receive.at.most.once/client",
+        "${server}/receive.at.most.once/server"})
+    public void shouldReceivePublishAfterSubscribe() throws Exception
+    {
+        k3po.finish();
+    }
 }
