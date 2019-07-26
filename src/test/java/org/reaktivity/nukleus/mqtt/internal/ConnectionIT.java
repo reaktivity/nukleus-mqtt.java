@@ -80,15 +80,6 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/subscribe/successful/client"})
-    public void shouldExchangeConnectionPacketsThenSubscribe() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
-        "${route}/server/controller",
         "${client}/unsubscribe/client"})
     public void shouldExchangeConnectionPacketsThenUnsubscribeAfterSubscribe() throws Exception
     {
@@ -134,8 +125,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/subscribe/one.topic.exact/client",
-        "${server}/subscribe/one.topic.exact/server"})
+        "${client}/subscribe/single.topic.filter.exact/client",
+        "${server}/connect.as.receiver.with.exact.topic.filter/server"})
     public void shouldSubscribeToOneExactTopic() throws Exception
     {
         k3po.finish();
@@ -144,8 +135,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/subscribe/one.topic.wildcard/client",
-        "${server}/subscribe/one.topic.wildcard/server"})
+        "${client}/subscribe/single.topic.filter.wildcard/client",
+        "${server}/connect.as.receiver.with.wildcard.topic.filter/server"})
     public void shouldSubscribeToWildcardTopic() throws Exception
     {
         k3po.finish();
@@ -154,8 +145,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/subscribe/two.topics.both.exact.from.one.subscribe/client",
-        "${server}/subscribe/two.topics.both.exact.from.one.subscribe/server"})
+        "${client}/subscribe/aggregated.topic.filters.both.exact/client",
+        "${server}/connect.as.receiver.with.aggregated.topic.filters.both.exact/server"})
     public void shouldSubscribeWithTwoTopicsBothExactOneSubscribePacket() throws Exception
     {
         k3po.finish();
@@ -164,8 +155,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/subscribe/two.topics.both.exact.from.two.subscribes/client",
-        "${server}/subscribe/two.topics.both.exact.from.two.subscribes/server"})
+        "${client}/subscribe/isolated.topic.filters.both.exact/client",
+        "${server}/connect.as.receiver.with.isolated.topic.filters.both.exact/server"})
     public void shouldSubscribeWithTwoTopicsBothExactTwoSubscribePackets() throws Exception
     {
         k3po.finish();
@@ -174,8 +165,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/subscribe/two.topics.both.wildcard.from.one.subscribe/client",
-        "${server}/subscribe/two.topics.both.wildcard.from.one.subscribe/server"})
+        "${client}/subscribe/aggregated.topic.filters.both.wildcard/client",
+        "${server}/connect.as.receiver.with.aggregated.topic.filters.both.wildcard/server"})
     public void shouldSubscribeWithTwoTopicsBothWildcardOneSubscribePacket() throws Exception
     {
         k3po.finish();
@@ -184,8 +175,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/subscribe/two.topics.both.wildcard.from.two.subscribes/client",
-        "${server}/subscribe/two.topics.both.wildcard.from.two.subscribes/server"})
+        "${client}/subscribe/isolated.topic.filters.both.wildcard/client",
+        "${server}/connect.as.receiver.with.isolated.topic.filters.both.wildcard/server"})
     public void shouldSubscribeWithTwoTopicsBothWildcardTwoSubscribePackets() throws Exception
     {
         k3po.finish();
@@ -194,8 +185,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/subscribe/two.topics.one.exact.from.one.subscribe/client",
-        "${server}/subscribe/two.topics.one.exact.from.one.subscribe/server"})
+        "${client}/subscribe/aggregated.topic.filters.exact.and.wildcard/client",
+        "${server}/connect.as.receiver.with.aggregated.topic.filters.exact.and.wildcard/server"})
     public void shouldSubscribeWithTwoTopicsOneExactOneSubscribePacket() throws Exception
     {
         k3po.finish();
@@ -204,8 +195,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/subscribe/two.topics.one.exact.from.two.subscribes/client",
-        "${server}/subscribe/two.topics.one.exact.from.two.subscribes/server"})
+        "${client}/subscribe/isolated.topic.filters.exact.and.wildcard/client",
+        "${server}/connect.as.receiver.with.isolated.topic.filters.exact.and.wildcard/server"})
     public void shouldSubscribeWithTwoTopicsOneExactTwoSubscribePackets() throws Exception
     {
         k3po.finish();
