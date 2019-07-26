@@ -640,7 +640,7 @@ public final class MqttServerFactory implements StreamFactory
                             decodeTraceId, dataEx.buffer(), dataEx.offset(), dataEx.sizeof(), payload);
 
                         correlations.put(newReplyId, serverStream);
-                        mqttSubscriptionStreams.put(topicName, serverStream);
+                        mqttPublishStreams.put(topicName, serverStream);
                     }
                 }
             }
