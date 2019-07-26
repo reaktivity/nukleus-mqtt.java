@@ -89,7 +89,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/publish/at.most.once/client"})
+        "${client}/publish/send.at.most.once/client",
+        "${server}/send.to.server.at.most.once/server"})
     public void shouldExchangeConnectionPacketsThenPublish() throws Exception
     {
         k3po.finish();

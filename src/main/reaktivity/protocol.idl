@@ -152,7 +152,7 @@
 
         struct MqttPublish extends protocol::codec::MqttPacketFixedHeader
         {
-            string16 topicFilter;
+            string16 topicName;
             varint32 propertiesLength;
             octets[propertiesLength] properties;
             octets payload;
