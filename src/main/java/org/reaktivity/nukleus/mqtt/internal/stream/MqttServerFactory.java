@@ -41,8 +41,8 @@ import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribeFW;
 import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.ToIntFunction;
@@ -281,8 +281,8 @@ public final class MqttServerFactory implements StreamFactory
         private DecoderState decodeState;
         private int slotIndex = NO_SLOT;
         private int slotLimit;
-        private HashMap<String, MqttServerStream> mqttSubscriptionStreams;
-        private HashMap<String, MqttServerStream> mqttPublishStreams;
+        private Map<String, MqttServerStream> subscribers;
+        private Map<String, MqttServerStream> publishers;
 
         private MqttServer(
             MessageConsumer network,
@@ -295,8 +295,8 @@ public final class MqttServerFactory implements StreamFactory
             this.initialId = initialId;
             this.replyId = replyId;
             this.decodeState = this::decodeConnectPacket;
-            this.mqttSubscriptionStreams = new HashMap<>();
-            this.mqttPublishStreams = new HashMap<>();
+            this.subscribers = new HashMap<>();
+            this.publishers = new HashMap<>();
         }
 
         private void onNetwork(
@@ -554,7 +554,7 @@ public final class MqttServerFactory implements StreamFactory
 
                         reasonCode = 0x00;
 
-                        mqttSubscriptionStreams.put(topicFilter, serverStream);
+                        subscribers.put(topicFilter, serverStream);
                     }
 
                     reasonCodes.add((byte) reasonCode);
@@ -594,60 +594,51 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttPublish(
             MqttPublishFW publish)
         {
-            if (publish != null)
+            final String topicName = publish.topicName().asString();
+
+            String info = "info";
+
+            final MqttDataExFW dataEx = mqttDataExRW
+                .wrap(extBuffer, 0, extBuffer.capacity())
+                .typeId(mqttTypeId)
+                .topic(topicName)
+                .expiryInterval(15)
+                .contentType("message")
+                .format(f -> f.set(MqttPayloadFormat.TEXT))
+                .responseTopic(topicName)
+                .correlationInfo(c -> c.bytes(b -> b.set(info.getBytes(UTF_8))))
+                .build();
+
+            OctetsFW payload = publish.payload();
+
+            MqttServerStream publishStream = publishers.get(topicName);
+
+            final RouteFW route = resolveTarget(routeId, authorization, topicName);
+            if (route != null)
             {
-                final String topicName = publish.topicName().asString();
-
-                String info = "info";
-
-                final MqttDataExFW dataEx = mqttDataExRW
-                    .wrap(extBuffer, 0, extBuffer.capacity())
-                    .typeId(mqttTypeId)
-                    .topic(topicName)
-                    .expiryInterval(15)
-                    .contentType("message")
-                    .format(f -> f.set(MqttPayloadFormat.TEXT))
-                    .responseTopic(topicName)
-                    .correlationInfo(c -> c.bytes(b -> b.set(info.getBytes(UTF_8))))
-                    .build();
-
-                OctetsFW payload = publish.payload();
-
-                MqttServerStream publishStream = mqttPublishStreams.get(topicName);
-
-                final RouteFW route = resolveTarget(routeId, authorization, topicName);
-                if (route != null)
+                final long newRouteId = route.correlationId();
+                final long newInitialId = supplyInitialId.applyAsLong(newRouteId);
+                final long newReplyId = supplyReplyId.applyAsLong(newInitialId);
+                final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
+                if (publishStream != null)
                 {
-                    final long newRouteId = route.correlationId();
-                    final long newInitialId = supplyInitialId.applyAsLong(newRouteId);
-                    final long newReplyId = supplyReplyId.applyAsLong(newInitialId);
-
-                    final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
-
-                    if (publishStream != null)
-                    {
-                        publishStream.doMqttDataEx(newTarget, newRouteId, newInitialId,
-                            decodeTraceId, dataEx.buffer(), dataEx.offset(), dataEx.sizeof(), payload);
-                        correlations.put(newReplyId, publishStream);
-                    }
-                    else {
-                        final MqttServerStream serverStream = new MqttServerStream();
-
-                        serverStream.doBegin(newTarget, newRouteId, newInitialId,
-                            decodeTraceId);
-
-                        serverStream.doMqttDataEx(newTarget, newRouteId, newInitialId,
-                            decodeTraceId, dataEx.buffer(), dataEx.offset(), dataEx.sizeof(), payload);
-
-                        correlations.put(newReplyId, serverStream);
-                        mqttPublishStreams.put(topicName, serverStream);
-                    }
+                    publishStream.doMqttDataEx(newTarget, newRouteId, newInitialId,
+                        decodeTraceId, dataEx.buffer(), dataEx.offset(), dataEx.sizeof(), payload);
+                    correlations.put(newReplyId, publishStream);
                 }
-            }
-            else
-            {
-                doMqttDisconnect(130);
-                doEnd(decodeTraceId);
+                else
+                {
+                    final MqttServerStream serverStream = new MqttServerStream();
+
+                    serverStream.doBegin(newTarget, newRouteId, newInitialId,
+                        decodeTraceId);
+
+                    serverStream.doMqttDataEx(newTarget, newRouteId, newInitialId,
+                        decodeTraceId, dataEx.buffer(), dataEx.offset(), dataEx.sizeof(), payload);
+
+                    correlations.put(newReplyId, serverStream);
+                    publishers.put(topicName, serverStream);
+                }
             }
         }
 
