@@ -18,8 +18,8 @@ package org.reaktivity.nukleus.mqtt.internal.control;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
-import static org.reaktivity.nukleus.route.RouteKind.SERVER;
 import static org.reaktivity.nukleus.route.RouteKind.CLIENT;
+import static org.reaktivity.nukleus.route.RouteKind.SERVER;
 
 import org.junit.Rule;
 import org.junit.Test;

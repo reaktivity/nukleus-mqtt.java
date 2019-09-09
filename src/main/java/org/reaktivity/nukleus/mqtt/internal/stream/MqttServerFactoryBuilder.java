@@ -25,10 +25,10 @@ import java.util.function.ToIntFunction;
 
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
-import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
 
 public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
 {

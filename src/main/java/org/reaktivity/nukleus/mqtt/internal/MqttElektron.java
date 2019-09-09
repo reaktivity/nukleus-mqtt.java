@@ -16,17 +16,15 @@
 
 package org.reaktivity.nukleus.mqtt.internal;
 
-//import static org.reaktivity.nukleus.route.RouteKind.CLIENT;
 import static org.reaktivity.nukleus.route.RouteKind.SERVER;
 
 import java.util.EnumMap;
 import java.util.Map;
 
 import org.reaktivity.nukleus.Elektron;
+import org.reaktivity.nukleus.mqtt.internal.stream.MqttServerFactoryBuilder;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
-/*import org.reaktivity.nukleus.mqtt.internal.stream.MqttClientFactoryBuilder;*/
-import org.reaktivity.nukleus.mqtt.internal.stream.MqttServerFactoryBuilder;
 
 final class MqttElektron implements Elektron
 {
