@@ -497,7 +497,7 @@ public final class MqttServerFactory implements StreamFactory
                 for (int progress = propertiesOffset; progress < propertiesLimit; progress = mqttProperty.limit())
                 {
                     mqttProperty = mqttPropertyRO.tryWrap(buffer, progress, propertiesLimit);
-                    switch(mqttProperty.kind())
+                    switch (mqttProperty.kind())
                     {
                     case 0x0b:
                         subscriptionId = mqttProperty.subscriptionId();
