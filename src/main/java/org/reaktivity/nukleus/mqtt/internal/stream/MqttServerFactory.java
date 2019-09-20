@@ -37,6 +37,7 @@ import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
 import org.reaktivity.nukleus.mqtt.internal.MqttNukleus;
+import org.reaktivity.nukleus.mqtt.internal.types.Flyweight;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttRole;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
@@ -548,8 +549,8 @@ public final class MqttServerFactory implements StreamFactory
                             .subscriptionId(subscriptionId)
                             .build();
 
-                        serverStream.doMqttBeginEx(newTarget, newRouteId, newInitialId,
-                            decodeTraceId, beginEx.buffer(), beginEx.offset(), beginEx.sizeof());
+                        serverStream.doMqttBeginEx(newInitialId,
+                            decodeTraceId, beginEx);
 
                         correlations.put(newReplyId, serverStream);
 
@@ -623,8 +624,8 @@ public final class MqttServerFactory implements StreamFactory
                 final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
                 if (publishStream != null)
                 {
-                    publishStream.doMqttDataEx(newTarget, newRouteId, newInitialId,
-                        decodeTraceId, dataEx.buffer(), dataEx.offset(), dataEx.sizeof(), payload);
+                    publishStream.doMqttDataEx(newInitialId,
+                        decodeTraceId, payload, dataEx);
                     correlations.put(newReplyId, publishStream);
                 }
                 else
@@ -632,11 +633,11 @@ public final class MqttServerFactory implements StreamFactory
                     final MqttServerStream serverStream = new MqttServerStream(this, newTarget,
                         newRouteId, newInitialId, newReplyId);
 
-                    serverStream.doBegin(newTarget, newRouteId, newInitialId,
+                    serverStream.doBegin(newInitialId,
                         decodeTraceId);
 
-                    serverStream.doMqttDataEx(newTarget, newRouteId, newInitialId,
-                        decodeTraceId, dataEx.buffer(), dataEx.offset(), dataEx.sizeof(), payload);
+                    serverStream.doMqttDataEx(newInitialId,
+                        decodeTraceId, payload, dataEx);
 
                     correlations.put(newReplyId, serverStream);
                     publishers.put(topicName, serverStream);
@@ -1027,8 +1028,6 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doBegin(
-            MessageConsumer target,
-            long routeId,
             long streamId,
             long traceId)
         {
@@ -1038,37 +1037,29 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(traceId)
                 .build();
 
-            target.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+            application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
         }
 
         private void doMqttBeginEx(
-            MessageConsumer target,
-            long routeId,
             long streamId,
             long traceId,
-            DirectBuffer buffer,
-            int offset,
-            int length)
+            Flyweight extension)
         {
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
                 .trace(traceId)
-                .extension(buffer, offset, length)
+                .extension(extension.buffer(), extension.offset(), extension.sizeof())
                 .build();
 
-            target.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+            application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
         }
 
         private void doMqttDataEx(
-            MessageConsumer target,
-            long routeId,
             long streamId,
             long traceId,
-            DirectBuffer buffer,
-            int offset,
-            int length,
-            OctetsFW payload)
+            OctetsFW payload,
+            Flyweight extension)
         {
             final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
@@ -1077,10 +1068,10 @@ public final class MqttServerFactory implements StreamFactory
                 .groupId(0)
                 .padding(0)
                 .payload(payload)
-                .extension(buffer, offset, length)
+                .extension(extension.buffer(), extension.offset(), extension.sizeof())
                 .build();
 
-            target.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+            application.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
         }
     }
 
