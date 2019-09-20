@@ -549,8 +549,7 @@ public final class MqttServerFactory implements StreamFactory
                             .subscriptionId(subscriptionId)
                             .build();
 
-                        serverStream.doMqttBeginEx(newInitialId,
-                            decodeTraceId, beginEx);
+                        serverStream.doMqttBeginEx(decodeTraceId, beginEx);
 
                         correlations.put(newReplyId, serverStream);
 
@@ -624,20 +623,17 @@ public final class MqttServerFactory implements StreamFactory
                 final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
                 if (publishStream != null)
                 {
-                    publishStream.doMqttDataEx(newInitialId,
-                        decodeTraceId, payload, dataEx);
-                    correlations.put(newReplyId, publishStream);
+                    publishStream.doMqttDataEx(decodeTraceId, payload, dataEx);
+                    correlations.put(newReplyId, publishStream);    // TODO: do we need to clean up correlations onAbort()?
                 }
                 else
                 {
                     final MqttServerStream serverStream = new MqttServerStream(this, newTarget,
                         newRouteId, newInitialId, newReplyId);
 
-                    serverStream.doBegin(newInitialId,
-                        decodeTraceId);
+                    serverStream.doBegin(decodeTraceId);
 
-                    serverStream.doMqttDataEx(newInitialId,
-                        decodeTraceId, payload, dataEx);
+                    serverStream.doMqttDataEx(decodeTraceId, payload, dataEx);
 
                     correlations.put(newReplyId, serverStream);
                     publishers.put(topicName, serverStream);
@@ -1028,12 +1024,11 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doBegin(
-            long streamId,
             long traceId)
         {
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
-                .streamId(streamId)
+                .streamId(initialId)
                 .trace(traceId)
                 .build();
 
@@ -1041,13 +1036,12 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doMqttBeginEx(
-            long streamId,
             long traceId,
             Flyweight extension)
         {
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
-                .streamId(streamId)
+                .streamId(initialId)
                 .trace(traceId)
                 .extension(extension.buffer(), extension.offset(), extension.sizeof())
                 .build();
@@ -1056,14 +1050,13 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doMqttDataEx(
-            long streamId,
             long traceId,
             OctetsFW payload,
             Flyweight extension)
         {
             final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
-                .streamId(streamId)
+                .streamId(initialId)
                 .trace(traceId)
                 .groupId(0)
                 .padding(0)
