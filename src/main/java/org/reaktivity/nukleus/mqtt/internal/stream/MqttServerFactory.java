@@ -270,6 +270,8 @@ public final class MqttServerFactory implements StreamFactory
         private final long routeId;
         private final long initialId;
         private final long replyId;
+        private final Map<String, MqttServerStream> subscribers;
+        private final Map<String, MqttServerStream> publishers;
         private long authorization;
 
         private int initialBudget;
@@ -281,8 +283,6 @@ public final class MqttServerFactory implements StreamFactory
         private DecoderState decodeState;
         private int slotIndex = NO_SLOT;
         private int slotLimit;
-        private Map<String, MqttServerStream> subscribers;
-        private Map<String, MqttServerStream> publishers;
 
         private MqttServer(
             MessageConsumer network,
@@ -746,6 +746,38 @@ public final class MqttServerFactory implements StreamFactory
             network.accept(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
         }
 
+        private void doMqttPublish(
+            String topicName,
+            OctetsFW payload)
+        {
+            OctetsFW properties = octetsRW
+                    .wrap(writeBuffer, 0, 0)
+                    .build();
+
+            final MqttPublishFW publish = mqttPublishRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                    .typeAndFlags(0x30)
+                    .remainingLength(0x14)
+                    .topicName(topicName)
+                    .properties(properties)
+                    .payload(payload)
+                    .build();
+
+            final DirectBuffer publishBuffer = publish.buffer();
+            final int publishOffset = publish.offset();
+            final int publishLength = publish.sizeof();
+
+            final DataFW dataFW = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(replyId)
+                    .trace(supplyTraceId.getAsLong())
+                    .groupId(0)
+                    .padding(0)
+                    .payload(publishBuffer, publishOffset, publishLength)
+                    .build();
+
+            this.network.accept(dataFW.typeId(), dataFW.buffer(), dataFW.offset(), dataFW.sizeof());
+        }
+
         private void doMqttConnack(
             int reasonCode)
         {
@@ -898,20 +930,20 @@ public final class MqttServerFactory implements StreamFactory
 
     private final class MqttServerStream
     {
-        private final MqttServer receiver;
+        private final MqttServer server;
         private final MessageConsumer application;
         private long routeId;
         private long initialId;
         private long replyId;
 
         MqttServerStream(
-            MqttServer network,
+            MqttServer server,
             MessageConsumer application,
             long routeId,
             long initialId,
             long replyId)
         {
-            this.receiver = network;
+            this.server = server;
             this.application = application;
             this.routeId = routeId;
             this.initialId = initialId;
@@ -952,57 +984,31 @@ public final class MqttServerFactory implements StreamFactory
         private void onBegin(
             BeginFW begin)
         {
-            final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .routeId(routeId)
-                .streamId(replyId)
-                .trace(supplyTraceId.getAsLong())
-                .credit(bufferPool.slotCapacity())
-                .padding(0)
-                .groupId(0)
-                .build();
-
-            application.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+//            final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+//                .routeId(routeId)
+//                .streamId(replyId)
+//                .trace(supplyTraceId.getAsLong())
+//                .credit(bufferPool.slotCapacity())
+//                .padding(0)
+//                .groupId(0)
+//                .build();
+//
+//            application.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
         }
 
         private void onData(
             DataFW data)
         {
-            OctetsFW ex = data.extension();
+            final OctetsFW extension = data.extension();
 
-            final DirectBuffer exBuffer = data.extension().buffer();
-            final int exOffset = data.extension().offset();
-            final int exLength = data.extension().sizeof();
+            final DirectBuffer exBuffer = extension.buffer();
+            final int exOffset = extension.offset();
+            final int exLength = extension.sizeof();
 
             final MqttDataExFW dataEx = mqttDataExRO.wrap(exBuffer, exOffset, exOffset + exLength);
 
             final String topicName = dataEx.topic().asString();
-
-            OctetsFW properties = octetsRW
-                .wrap(writeBuffer, 0, 0)
-                .build();
-
-            final MqttPublishFW publish = mqttPublishRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .typeAndFlags(0x30)
-                .remainingLength(0x14)
-                .topicName(topicName)
-                .properties(properties)
-                .payload(data.payload())
-                .build();
-
-            final DirectBuffer publishBuffer = publish.buffer();
-            final int publishOffset = publish.offset();
-            final int publishLength = publish.sizeof();
-
-            final DataFW dataFW = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .routeId(receiver.routeId)
-                .streamId(receiver.replyId)
-                .trace(supplyTraceId.getAsLong())
-                .groupId(0)
-                .padding(0)
-                .payload(publishBuffer, publishOffset, publishLength)
-                .build();
-
-            this.receiver.network.accept(dataFW.typeId(), dataFW.buffer(), dataFW.offset(), dataFW.sizeof());
+            this.server.doMqttPublish(topicName, data.payload());
         }
 
         private void onEnd(
