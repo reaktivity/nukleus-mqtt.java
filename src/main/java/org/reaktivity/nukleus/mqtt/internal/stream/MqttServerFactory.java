@@ -566,6 +566,9 @@ public final class MqttServerFactory implements StreamFactory
             {
                 subackReasonCodes[i] = reasonCodes.get(i);
             }
+            // TODO - Next step would be to defer sending the SUBACK frame until all reason codes are collected from multiple
+            //      application streams, triggered by sending parallel application BEGIN streams in reaction to the same inbound
+            //      SUBSCRIBE frame.
             doMqttSuback(subackReasonCodes);
         }
 
@@ -659,10 +662,9 @@ public final class MqttServerFactory implements StreamFactory
             router.setThrottle(replyId, this::onNetwork);
         }
 
+        // TODO: can change to Flyweight payload?
         private void doData(
-            DirectBuffer buffer,
-            int offset,
-            int sizeOf)
+            Flyweight payload)
         {
             final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
@@ -670,7 +672,7 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(supplyTraceId.getAsLong())
                 .groupId(0)
                 .padding(replyPadding)
-                .payload(buffer, offset, sizeOf)
+                .payload(payload.buffer(), payload.offset(), payload.sizeof())
                 .build();
 
             network.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
@@ -791,7 +793,7 @@ public final class MqttServerFactory implements StreamFactory
                 .properties(properties)
                 .build();
 
-            doData(connack.buffer(), connack.offset(), connack.sizeof());
+            doData(connack);
         }
 
         private void doMqttPingResp()
@@ -801,7 +803,7 @@ public final class MqttServerFactory implements StreamFactory
                 .remainingLength(0x00)
                 .build();
 
-            doData(ping.buffer(), ping.offset(), ping.sizeof());
+            doData(ping);
         }
 
         private void doMqttSuback(
@@ -819,7 +821,7 @@ public final class MqttServerFactory implements StreamFactory
                 .reasonCodes(reasonCodes)
                 .build();
 
-            doData(suback.buffer(), suback.offset(), suback.sizeof());
+            doData(suback);
         }
 
         private void doMqttUnsuback(
@@ -837,7 +839,7 @@ public final class MqttServerFactory implements StreamFactory
                 .reasonCodes(reasonCodes)
                 .build();
 
-            doData(unsuback.buffer(), unsuback.offset(), unsuback.sizeof());
+            doData(unsuback);
         }
 
         private void doMqttDisconnect(
@@ -856,7 +858,7 @@ public final class MqttServerFactory implements StreamFactory
                 .properties(properties)
                 .build();
 
-            doData(disconnect.buffer(), disconnect.offset(), disconnect.sizeof());
+            doData(disconnect);
         }
 
         private int decodeConnectPacket(
@@ -981,16 +983,6 @@ public final class MqttServerFactory implements StreamFactory
         private void onBegin(
             BeginFW begin)
         {
-//            final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-//                .routeId(routeId)
-//                .streamId(replyId)
-//                .trace(supplyTraceId.getAsLong())
-//                .credit(bufferPool.slotCapacity())
-//                .padding(0)
-//                .groupId(0)
-//                .build();
-//
-//            application.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
         }
 
         private void onData(
