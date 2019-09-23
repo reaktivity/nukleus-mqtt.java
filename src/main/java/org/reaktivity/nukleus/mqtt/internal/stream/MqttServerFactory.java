@@ -438,8 +438,6 @@ public final class MqttServerFactory implements StreamFactory
 
             final int initialCredit = bufferPool.slotCapacity() - initialBudget;
 
-            System.out.printf("window.streamId(): %d\n", window.streamId());
-
             doWindow(supplyTraceId.getAsLong(), initialCredit);
         }
 
@@ -567,9 +565,6 @@ public final class MqttServerFactory implements StreamFactory
 
                         serverStream.doMqttBeginEx(decodeTraceId, beginEx);
 
-                        System.out.printf("new strim: %d\n", serverStream.initialId);
-                        System.out.printf("mine: %d\n", initialId);
-
                         correlations.put(newReplyId, serverStream);
 
                         subscribers.put(topicFilter, serverStream);
@@ -579,7 +574,6 @@ public final class MqttServerFactory implements StreamFactory
                     // reasonCodes.add((byte) reasonCode);
                 }
             }
-            System.out.printf("reasonCodeCount: %d\n", reasonCodeCount);
 
             Subscription subscription = new Subscription(reasonCodeCount);
             correlations.forEach((id, stream) -> stream.subscription = subscription);
@@ -685,7 +679,6 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(traceId)
                 .build();
 
-            System.out.printf("server - do begin : %d\n", begin.streamId());
             network.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
             router.setThrottle(replyId, this::onNetwork);
         }
@@ -746,7 +739,6 @@ public final class MqttServerFactory implements StreamFactory
                     .padding(initialPadding)
                     .groupId(0)
                     .build();
-                System.out.println("server - do window");
 
                 network.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
             }
@@ -977,7 +969,6 @@ public final class MqttServerFactory implements StreamFactory
             final int bit = 1 << index;
             reasonCodes.set(index, (byte) 0x00);
             reasonCodesMask |= bit;
-            System.out.printf("reasonCodes: %s\n", reasonCodes);
             if ((reasonCodesMask & fullReasonCodesMask) == fullReasonCodesMask)
             {
                 doMqttSuback(doSuback);
@@ -993,7 +984,6 @@ public final class MqttServerFactory implements StreamFactory
                 subackReasonCodes[i] = reasonCodes.get(i);
             }
 
-            System.out.printf("SUBACK: %s\n", Arrays.toString(subackReasonCodes));
             doSuback.accept(subackReasonCodes);
         }
     }
@@ -1058,8 +1048,6 @@ public final class MqttServerFactory implements StreamFactory
         private void onBegin(
             BeginFW begin)
         {
-            System.out.printf("stream - begin: %d\n", begin.streamId());
-            System.out.printf("stream - mine: %d\n", initialId);
             // server.doWindow(supplyTraceId.getAsLong(), bufferPool.slotCapacity());
 
             subscription.setReasonCode(reasonCodesIndex, this.server::doMqttSuback);
@@ -1098,7 +1086,6 @@ public final class MqttServerFactory implements StreamFactory
         private void onWindow(
             WindowFW window)
         {
-            System.out.println("Server Stream WINDOW");
         }
 
         private void onReset(
@@ -1122,7 +1109,6 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             Flyweight extension)
         {
-            System.out.println("doing mqtt begin ex");
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(initialId)
