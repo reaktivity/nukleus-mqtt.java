@@ -22,6 +22,8 @@ import static org.reaktivity.nukleus.buffer.BufferPool.NO_SLOT;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -541,16 +543,10 @@ public final class MqttServerFactory implements StreamFactory
                     //      - defer reason code assignment to WINDOW
                     // need to map reason code -> stream in order of when they were created, not when they come in
                     // 	- ie. streams: 0, 1, 2, 3
-                    // 			0 -> list[0]
-                    // 			1 -> list[1]
-                    // 			2 -> list[2]
-                    // 			3 -> list[3]
-                    // 				...
-                    // 			n -> list[n]
                     //
                     // 		even if 1 sends WINDOW before 0, should sitll map to list[1], not list[0]
                     //      would streams be assigned a number to indicate their reasoncodesIndex?
-                    int reasonCode = 0x8f;  // 0x8F - Topic Filter invalid
+                    // int reasonCode = 0x8f;  // 0x8F - Topic Filter invalid
                     final String topicFilter = subscription.topicFilter().asString();
                     final RouteFW route = resolveTarget(routeId, authorization, topicFilter);
 
@@ -988,7 +984,7 @@ public final class MqttServerFactory implements StreamFactory
         private Subscription(
             int reasonCodesCount)
         {
-            this.reasonCodes = new ArrayList<>(reasonCodesCount);
+            this.reasonCodes = new ArrayList<>(Collections.nCopies(reasonCodesCount, (byte) 0x8f));
             this.fullReasonCodesMask = 1 << (reasonCodesCount - 1);
         }
 
@@ -997,7 +993,7 @@ public final class MqttServerFactory implements StreamFactory
             Consumer<byte[]> doSuback)
         {
             final int bit = 1 << index;
-            reasonCodes.add(index, (byte) 0x00);
+            reasonCodes.set(index, (byte) 0x00);
             reasonCodesMask |= bit;
             if ((reasonCodesMask & fullReasonCodesMask) == fullReasonCodesMask)
             {
