@@ -278,9 +278,7 @@ public final class MqttServerFactory implements StreamFactory
         private final long replyId;
         private final Map<String, MqttServerStream> subscribers;
         private final Map<String, MqttServerStream> publishers;
-        private List<Byte> reasonCodes;
         private long authorization;
-        private int reasonCodeCount;
 
         private int initialBudget;
         private int initialPadding;
@@ -302,12 +300,9 @@ public final class MqttServerFactory implements StreamFactory
             this.routeId = routeId;
             this.initialId = initialId;
             this.replyId = replyId;
-            // TODO: reasonCodes variable, done from stream.doBegin.a,sd;kas;lf
-            this.reasonCodes = new ArrayList<>();
             this.decodeState = this::decodeConnectPacket;
             this.subscribers = new HashMap<>();
             this.publishers = new HashMap<>();
-            this.reasonCodeCount = 0;
         }
 
         private void onNetwork(
@@ -502,7 +497,7 @@ public final class MqttServerFactory implements StreamFactory
             final DirectBuffer buffer = topicFilters.buffer();
             final int limit = topicFilters.limit();
             final int offset = topicFilters.offset();
-            reasonCodeCount = 0;
+            int reasonCodeCount = 0;
 
             if (limit == 0)
             {
@@ -574,11 +569,8 @@ public final class MqttServerFactory implements StreamFactory
 
                         System.out.printf("new strim: %d\n", serverStream.initialId);
                         System.out.printf("mine: %d\n", initialId);
-                        // reasonCodesIndex.put(serverStream.initialId, index);
 
                         correlations.put(newReplyId, serverStream);
-
-                        // reasonCode = 0x00; // defer reason code assignment to WINDOW; isn't guaranteed success here
 
                         subscribers.put(topicFilter, serverStream);
                         reasonCodeCount++;
@@ -587,35 +579,24 @@ public final class MqttServerFactory implements StreamFactory
                     // reasonCodes.add((byte) reasonCode);
                 }
             }
-            // byte[] subackReasonCodes = new byte[reasonCodes.size()];
-            // for (int i = 0; i < reasonCodes.size(); i++)
-            // {
-            //     subackReasonCodes[i] = reasonCodes.get(i);
-            // }
-            // // TODO - Next step would be to defer sending the SUBACK frame until all reason codes are collected from multiple
-            // //      application streams, triggered by sending parallel application BEGIN streams in reaction to the same inbound
-            // //      SUBSCRIBE frame.
-            // System.out.printf("SUBACK: %s\n", Arrays.toString(subackReasonCodes));
-            // doMqttSuback(subackReasonCodes);
-            // System.out.println("sent all BEGIN");
             System.out.printf("reasonCodeCount: %d\n", reasonCodeCount);
 
             Subscription subscription = new Subscription(reasonCodeCount);
             correlations.forEach((id, stream) -> stream.subscription = subscription);
         }
 
-        private void doMqttSuback() {
-            byte[] subackReasonCodes = new byte[reasonCodes.size()];
-            for (int i = 0; i < reasonCodes.size(); i++)
-            {
-                subackReasonCodes[i] = reasonCodes.get(i);
-            }
-            // TODO - Next step would be to defer sending the SUBACK frame until all reason codes are collected from multiple
-            //      application streams, triggered by sending parallel application BEGIN streams in reaction to the same inbound
-            //      SUBSCRIBE frame.
-            System.out.printf("SUBACK: %s\n", Arrays.toString(subackReasonCodes));
-            doMqttSuback(subackReasonCodes);
-        }
+        // private void doMqttSuback() {
+        //     byte[] subackReasonCodes = new byte[reasonCodes.size()];
+        //     for (int i = 0; i < reasonCodes.size(); i++)
+        //     {
+        //         subackReasonCodes[i] = reasonCodes.get(i);
+        //     }
+        //     // TODO - Next step would be to defer sending the SUBACK frame until all reason codes are collected from multiple
+        //     //      application streams, triggered by sending parallel application BEGIN streams in reaction to the same inbound
+        //     //      SUBSCRIBE frame.
+        //     System.out.printf("SUBACK: %s\n", Arrays.toString(subackReasonCodes));
+        //     doMqttSuback(subackReasonCodes);
+        // }
 
         private void onMqttUnsubscribe(
             MqttUnsubscribeFW unsubscribe)
@@ -704,7 +685,7 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(traceId)
                 .build();
 
-            System.out.printf("A:KJF:KAFKJALFJAF : %d\n", begin.streamId());
+            System.out.printf("server - do begin : %d\n", begin.streamId());
             network.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
             router.setThrottle(replyId, this::onNetwork);
         }
@@ -765,6 +746,7 @@ public final class MqttServerFactory implements StreamFactory
                     .padding(initialPadding)
                     .groupId(0)
                     .build();
+                System.out.println("server - do window");
 
                 network.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
             }
@@ -995,6 +977,7 @@ public final class MqttServerFactory implements StreamFactory
             final int bit = 1 << index;
             reasonCodes.set(index, (byte) 0x00);
             reasonCodesMask |= bit;
+            System.out.printf("reasonCodes: %s\n", reasonCodes);
             if ((reasonCodesMask & fullReasonCodesMask) == fullReasonCodesMask)
             {
                 doMqttSuback(doSuback);
@@ -1077,7 +1060,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             System.out.printf("stream - begin: %d\n", begin.streamId());
             System.out.printf("stream - mine: %d\n", initialId);
-            server.doWindow(supplyTraceId.getAsLong(), bufferPool.slotCapacity());
+            // server.doWindow(supplyTraceId.getAsLong(), bufferPool.slotCapacity());
 
             subscription.setReasonCode(reasonCodesIndex, this.server::doMqttSuback);
             // need serverStream window to do work
@@ -1139,6 +1122,7 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             Flyweight extension)
         {
+            System.out.println("doing mqtt begin ex");
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(initialId)
