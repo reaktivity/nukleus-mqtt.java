@@ -21,8 +21,6 @@ import static java.util.Objects.requireNonNull;
 import static org.reaktivity.nukleus.buffer.BufferPool.NO_SLOT;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -278,6 +276,7 @@ public final class MqttServerFactory implements StreamFactory
         private final long replyId;
         private final Map<String, MqttServerStream> subscribers;
         private final Map<String, MqttServerStream> publishers;
+        private final Map<Integer, Subscription> subscriptionsByPacketId;
         private long authorization;
 
         private int initialBudget;
@@ -303,6 +302,7 @@ public final class MqttServerFactory implements StreamFactory
             this.decodeState = this::decodeConnectPacket;
             this.subscribers = new HashMap<>();
             this.publishers = new HashMap<>();
+            this.subscriptionsByPacketId = new HashMap<>();
         }
 
         private void onNetwork(
@@ -496,6 +496,7 @@ public final class MqttServerFactory implements StreamFactory
             final int limit = topicFilters.limit();
             final int offset = topicFilters.offset();
             int reasonCodeCount = 0;
+            int subscriptionId = 0;
 
             if (limit == 0)
             {
@@ -508,7 +509,6 @@ public final class MqttServerFactory implements StreamFactory
                 OctetsFW properties = subscribe.properties();
                 final int propertiesOffset = properties.offset();
                 final int propertiesLimit = properties.limit();
-                int subscriptionId = 0;
 
                 MqttPropertyFW mqttProperty;
 
@@ -523,7 +523,7 @@ public final class MqttServerFactory implements StreamFactory
                     }
                 }
 
-                for (int progress = offset, index = 0; progress < limit; progress = subscription.limit(), index++)
+                for (int progress = offset, ackIndex = 0; progress < limit; progress = subscription.limit(), ackIndex++)
                 {
                     subscription = mqttSubscriptionRO.tryWrap(buffer, progress, limit);
                     if (subscription == null)
@@ -552,18 +552,9 @@ public final class MqttServerFactory implements StreamFactory
                         final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
 
                         final MqttServerStream serverStream = new MqttServerStream(this, newTarget,
-                            newRouteId, newInitialId, newReplyId, index);
+                            newRouteId, newInitialId, newReplyId, ackIndex, subscriptionId);
 
-                        final MqttBeginExFW beginEx = mqttBeginExRW
-                            .wrap(extBuffer, 0, extBuffer.capacity())
-                            .typeId(mqttTypeId)
-                            .role(r -> r.set(MqttRole.RECEIVER))
-                            .clientId("client")
-                            .topic(topicFilter)
-                            .subscriptionId(subscriptionId)
-                            .build();
-
-                        serverStream.doMqttBeginEx(decodeTraceId, beginEx);
+                        serverStream.doMqttBeginEx(decodeTraceId, topicFilter, subscriptionId);
 
                         correlations.put(newReplyId, serverStream);
 
@@ -575,22 +566,14 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
+            // TODO - For each non-routable server stream, explicitly set the failure reason code at the corresponding ackIndex.
+            //        If all server streams were non-routable, then onMqttSubscribe should respond immediately because all reason
+            //        codes are known.
             Subscription subscription = new Subscription(reasonCodeCount);
             correlations.forEach((id, stream) -> stream.subscription = subscription);
-        }
 
-        // private void doMqttSuback() {
-        //     byte[] subackReasonCodes = new byte[reasonCodes.size()];
-        //     for (int i = 0; i < reasonCodes.size(); i++)
-        //     {
-        //         subackReasonCodes[i] = reasonCodes.get(i);
-        //     }
-        //     // TODO - Next step would be to defer sending the SUBACK frame until all reason codes are collected from multiple
-        //     //      application streams, triggered by sending parallel application BEGIN streams in reaction to the same inbound
-        //     //      SUBSCRIBE frame.
-        //     System.out.printf("SUBACK: %s\n", Arrays.toString(subackReasonCodes));
-        //     doMqttSuback(subackReasonCodes);
-        // }
+            subscriptionsByPacketId.put(subscriptionId, subscription);
+        }
 
         private void onMqttUnsubscribe(
             MqttUnsubscribeFW unsubscribe)
@@ -652,7 +635,7 @@ public final class MqttServerFactory implements StreamFactory
                 else
                 {
                     final MqttServerStream serverStream = new MqttServerStream(this, newTarget,
-                        newRouteId, newInitialId, newReplyId, -1);
+                        newRouteId, newInitialId, newReplyId, -1, -1);
 
                     serverStream.doBegin(decodeTraceId);
 
@@ -997,6 +980,7 @@ public final class MqttServerFactory implements StreamFactory
         private long initialId;
         private long replyId;
         private Subscription subscription;
+        private int subscriptionId;
 
         MqttServerStream(
             MqttServer server,
@@ -1004,7 +988,8 @@ public final class MqttServerFactory implements StreamFactory
             long routeId,
             long initialId,
             long replyId,
-            int reasonCodesIndex)
+            int reasonCodesIndex,
+            int subscriptionId)
         {
             this.server = server;
             this.application = application;
@@ -1012,6 +997,7 @@ public final class MqttServerFactory implements StreamFactory
             this.initialId = initialId;
             this.replyId = replyId;
             this.reasonCodesIndex = reasonCodesIndex;
+            this.subscriptionId = subscriptionId;
         }
 
         private void onApplication(
@@ -1049,6 +1035,7 @@ public final class MqttServerFactory implements StreamFactory
             BeginFW begin)
         {
             // server.doWindow(supplyTraceId.getAsLong(), bufferPool.slotCapacity());
+            System.out.println("stream - onBegin");
 
             subscription.setReasonCode(reasonCodesIndex, this.server::doMqttSuback);
             // need serverStream window to do work
@@ -1101,20 +1088,32 @@ public final class MqttServerFactory implements StreamFactory
                 .streamId(initialId)
                 .trace(traceId)
                 .build();
+            System.out.println("stream - doBegin");
 
             application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
         }
 
         private void doMqttBeginEx(
             long traceId,
-            Flyweight extension)
+            String topicFilter,
+            int subscriptionId)
         {
+            final MqttBeginExFW beginEx = mqttBeginExRW
+                    .wrap(extBuffer, 0, extBuffer.capacity())
+                    .typeId(mqttTypeId)
+                    .role(r -> r.set(MqttRole.RECEIVER))
+                    .clientId("client")
+                    .topic(topicFilter)
+                    .subscriptionId(subscriptionId)
+                    .build();
+
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(initialId)
                 .trace(traceId)
-                .extension(extension.buffer(), extension.offset(), extension.sizeof())
+                .extension(beginEx.buffer(), beginEx.offset(), beginEx.sizeof())
                 .build();
+            System.out.println("stream - doMqttBeginEx");
 
             application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
         }
