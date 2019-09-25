@@ -497,6 +497,7 @@ public final class MqttServerFactory implements StreamFactory
             final int offset = topicFilters.offset();
             int reasonCodeCount = 0;
             int subscriptionId = 0;
+            int nullRoutesMask = 0;
 
             if (limit == 0)
             {
@@ -561,6 +562,10 @@ public final class MqttServerFactory implements StreamFactory
                         subscribers.put(topicFilter, serverStream);
                         reasonCodeCount++;
                     }
+                    else
+                    {
+                        nullRoutesMask |= 1 << ackIndex;
+                    }
 
                     // reasonCodes.add((byte) reasonCode);
                 }
@@ -570,9 +575,19 @@ public final class MqttServerFactory implements StreamFactory
             //        If all server streams were non-routable, then onMqttSubscribe should respond immediately because all reason
             //        codes are known.
             Subscription subscription = new Subscription(reasonCodeCount);
+            subscriptionsByPacketId.put(subscriptionId, subscription);
+
+            System.out.printf("reasonCodeCount: %d\n", reasonCodeCount);
+
+            for (int i = 0; i < reasonCodeCount; i++)
+            {
+                if ((nullRoutesMask & 1 << i) == 1)
+                {
+                    subscription.setReasonCode(i, 0x8f, this::doMqttSuback);
+                }
+            }
             correlations.forEach((id, stream) -> stream.subscription = subscription);
 
-            subscriptionsByPacketId.put(subscriptionId, subscription);
         }
 
         private void onMqttUnsubscribe(
@@ -941,16 +956,18 @@ public final class MqttServerFactory implements StreamFactory
         private Subscription(
             int reasonCodesCount)
         {
-            this.reasonCodes = new ArrayList<>(Collections.nCopies(reasonCodesCount, (byte) 0x8f));
+            this.reasonCodes = new ArrayList<>(reasonCodesCount);
             this.fullReasonCodesMask = 1 << (reasonCodesCount - 1);
         }
 
         private void setReasonCode(
             int index,
+            int reasonCode,
             Consumer<byte[]> doSuback)
         {
             final int bit = 1 << index;
-            reasonCodes.set(index, (byte) 0x00);
+            reasonCodes.set(index, (byte) reasonCode);
+            System.out.printf("reason codes: %s\n", reasonCodes);
             reasonCodesMask |= bit;
             if ((reasonCodesMask & fullReasonCodesMask) == fullReasonCodesMask)
             {
@@ -1037,7 +1054,7 @@ public final class MqttServerFactory implements StreamFactory
             // server.doWindow(supplyTraceId.getAsLong(), bufferPool.slotCapacity());
             System.out.println("stream - onBegin");
 
-            subscription.setReasonCode(reasonCodesIndex, this.server::doMqttSuback);
+            subscription.setReasonCode(reasonCodesIndex, 0x00, this.server::doMqttSuback);
             // need serverStream window to do work
             // if (reasonCodesIndex > -1) {
             //     reasonCodes.add(reasonCodesIndex, (byte) 0x00);
