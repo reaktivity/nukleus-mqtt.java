@@ -581,7 +581,7 @@ public final class MqttServerFactory implements StreamFactory
 
             for (int i = 0; i < reasonCodeCount; i++)
             {
-                if ((nullRoutesMask & 1 << i) == 1)
+                if ((nullRoutesMask & (1 << i)) > 0)
                 {
                     subscription.setReasonCode(i, 0x8f, this::doMqttSuback);
                 }
