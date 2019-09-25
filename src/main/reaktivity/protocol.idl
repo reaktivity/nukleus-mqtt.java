@@ -132,7 +132,9 @@
 
         struct MqttSuback extends protocol::codec::MqttPacketFixedHeader
         {
+            uint16 packetId;
             varint32 propertiesLength;
+            octets[propertiesLength] properties;
             octets reasonCodes;
         }
 
