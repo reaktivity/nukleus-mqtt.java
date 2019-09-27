@@ -87,12 +87,12 @@
             case 0x1A: string responseInformation;
             case 0x1C: string serverReference;
             case 0x15: string authenticationMethod;
-            case 0x16: protocol::codec::Binary authenticationData;
+            case 0x16: Binary authenticationData;
             case 0x01: uint8 payloadFormatIndicator;
             case 0x0b: uint8 subscriptionId;
         }
 
-        struct MqttConnect extends protocol::codec::MqttPacketFixedHeader
+        struct MqttConnect extends MqttPacketFixedHeader
         {
             string16 protocolName;
             uint8 protocolVersion;
@@ -103,7 +103,7 @@
             octets[propertiesLength] properties;
         }
 
-        struct MqttConnack extends protocol::codec::MqttPacketFixedHeader
+        struct MqttConnack extends MqttPacketFixedHeader
         {
             uint8 flags;
             uint8 reasonCode;
@@ -117,27 +117,12 @@
             uint8 remainingLength;
         }
 
-        struct MqttPingResp extends protocol::codec::MqttPacketFixedHeader
+        struct MqttPingResp extends MqttPacketFixedHeader
         {
 
         }
 
-        struct MqttSubscribe extends protocol::codec::MqttPacketFixedHeader
-        {
-            uint16 packetId;
-            uint8 propertiesLength;
-            octets[propertiesLength] properties;
-            octets topicFilters;
-        }
-
-        struct MqttSuback extends protocol::codec::MqttPacketFixedHeader
-        {
-            uint16 packetId;
-            varint32 propertiesLength;
-            octets reasonCodes;
-        }
-
-        struct MqttUnsubscribe extends protocol::codec::MqttPacketFixedHeader
+        struct MqttSubscribe extends MqttPacketFixedHeader
         {
             uint16 packetId;
             uint8 propertiesLength;
@@ -145,13 +130,28 @@
             octets topicFilters;
         }
 
-        struct MqttUnsuback extends protocol::codec::MqttPacketFixedHeader
+        struct MqttSuback extends MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            varint32 propertiesLength;
+            octets reasonCodes;
+        }
+
+        struct MqttUnsubscribe extends MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            uint8 propertiesLength;
+            octets[propertiesLength] properties;
+            octets topicFilters;
+        }
+
+        struct MqttUnsuback extends MqttPacketFixedHeader
         {
             varint32 propertiesLength;
             octets reasonCodes;
         }
 
-        struct MqttPublish extends protocol::codec::MqttPacketFixedHeader
+        struct MqttPublish extends MqttPacketFixedHeader
         {
             string16 topicName;
             uint8 propertiesLength;
@@ -159,7 +159,7 @@
             octets payload;
         }
 
-        struct MqttPuback extends protocol::codec::MqttPacketFixedHeader
+        struct MqttPuback extends MqttPacketFixedHeader
         {
             uint16 packetId;
             uint8 reasonCode;
@@ -167,7 +167,7 @@
             octets[propertiesLength] properties;
         }
 
-        struct MqttPubrec extends protocol::codec::MqttPacketFixedHeader
+        struct MqttPubrec extends MqttPacketFixedHeader
         {
             uint16 packetId;
             uint8 reasonCode;
@@ -175,7 +175,7 @@
             octets[propertiesLength] properties;
         }
 
-        struct MqttPubrel extends protocol::codec::MqttPacketFixedHeader
+        struct MqttPubrel extends MqttPacketFixedHeader
         {
             uint16 packetId;
             uint8 reasonCode;
@@ -183,7 +183,7 @@
             octets[propertiesLength] properties;
         }
 
-        struct MqttPubcomp extends protocol::codec::MqttPacketFixedHeader
+        struct MqttPubcomp extends MqttPacketFixedHeader
         {
             uint16 packetId;
             uint8 reasonCode;
@@ -191,7 +191,7 @@
             octets[propertiesLength] properties;
         }
 
-        struct MqttDisconnect extends protocol::codec::MqttPacketFixedHeader
+        struct MqttDisconnect extends MqttPacketFixedHeader
         {
             uint8 reasonCode;
             varint32 propertiesLength;
