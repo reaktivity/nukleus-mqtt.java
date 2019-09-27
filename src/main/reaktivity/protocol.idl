@@ -132,6 +132,7 @@
 
         struct MqttSuback extends MqttPacketFixedHeader
         {
+            uint16 packetId;
             varint32 propertiesLength;
             octets reasonCodes;
         }
@@ -152,8 +153,8 @@
 
         struct MqttPublish extends MqttPacketFixedHeader
         {
-            string16 topicFilter;
-            varint32 propertiesLength;
+            string16 topicName;
+            uint8 propertiesLength;
             octets[propertiesLength] properties;
             octets payload;
         }

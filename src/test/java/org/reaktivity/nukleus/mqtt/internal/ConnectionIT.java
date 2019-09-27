@@ -81,7 +81,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/unsubscribe/client"})
+        "${client}/unsubscribe/client",
+        "${server}/connect.as.receiver.with.exact.topic.filter/server"})
     public void shouldExchangeConnectionPacketsThenUnsubscribeAfterSubscribe() throws Exception
     {
         k3po.finish();
@@ -91,7 +92,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/publish/at.most.once/client"})
+        "${client}/publish/send.at.most.once/client",
+        "${server}/send.at.most.once/server"})
     public void shouldExchangeConnectionPacketsThenPublish() throws Exception
     {
         k3po.finish();
@@ -200,6 +202,17 @@ public class ConnectionIT
         "${client}/subscribe/isolated.topic.filters.exact.and.wildcard/client",
         "${server}/connect.as.receiver.with.isolated.topic.filters.exact.and.wildcard/server"})
     public void shouldSubscribeWithTwoTopicsOneExactTwoSubscribePackets() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Ignore
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish/receive.at.most.once/client",
+        "${server}/receive.at.most.once/server"})
+    public void shouldReceivePublishAfterSubscribe() throws Exception
     {
         k3po.finish();
     }
