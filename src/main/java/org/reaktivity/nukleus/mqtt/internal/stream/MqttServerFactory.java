@@ -1108,7 +1108,7 @@ public final class MqttServerFactory implements StreamFactory
         private void onReset(
             ResetFW reset)
         {
-
+            subscription.onSubscribeFailed(packetId, reasonCodesIndex);
         }
 
         private void doBegin(
