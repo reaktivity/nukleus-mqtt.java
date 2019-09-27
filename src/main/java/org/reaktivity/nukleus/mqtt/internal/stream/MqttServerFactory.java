@@ -1023,26 +1023,26 @@ public final class MqttServerFactory implements StreamFactory
             {
                 switch (msgTypeId)
                 {
-                    case BeginFW.TYPE_ID:
-                        final BeginFW begin = beginRO.wrap(buffer, index, index + length);
-                        onBegin(begin);
-                        break;
-                    case DataFW.TYPE_ID:
-                        final DataFW data = dataRO.wrap(buffer, index, index + length);
-                        onData(data);
-                        break;
-                    case EndFW.TYPE_ID:
-                        final EndFW end = endRO.wrap(buffer, index, index + length);
-                        onEnd(end);
-                        break;
-                    case WindowFW.TYPE_ID:
-                        final WindowFW window = windowRO.wrap(buffer, index, index + length);
-                        onWindow(window);
-                        break;
-                    case ResetFW.TYPE_ID:
-                        final ResetFW reset = resetRO.wrap(buffer, index, index + length);
-                        onReset(reset);
-                        break;
+                case BeginFW.TYPE_ID:
+                    final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+                    onBegin(begin);
+                    break;
+                case DataFW.TYPE_ID:
+                    final DataFW data = dataRO.wrap(buffer, index, index + length);
+                    onData(data);
+                    break;
+                case EndFW.TYPE_ID:
+                    final EndFW end = endRO.wrap(buffer, index, index + length);
+                    onEnd(end);
+                    break;
+                case WindowFW.TYPE_ID:
+                    final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                    onWindow(window);
+                    break;
+                case ResetFW.TYPE_ID:
+                    final ResetFW reset = resetRO.wrap(buffer, index, index + length);
+                    onReset(reset);
+                    break;
                 }
             }
 
