@@ -81,7 +81,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/unsubscribe/client"})
+        "${client}/unsubscribe/client",
+        "${server}/connect.as.receiver.with.exact.topic.filter/server"})
     public void shouldExchangeConnectionPacketsThenUnsubscribeAfterSubscribe() throws Exception
     {
         k3po.finish();

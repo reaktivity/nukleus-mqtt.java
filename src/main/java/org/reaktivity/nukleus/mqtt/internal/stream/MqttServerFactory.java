@@ -232,6 +232,7 @@ public final class MqttServerFactory implements StreamFactory
         MessageConsumer newStream = null;
         if (reply != null)
         {
+            router.setThrottle(replyId, reply::onApplication);
             newStream = reply::onApplication;
         }
         return newStream;
@@ -530,16 +531,6 @@ public final class MqttServerFactory implements StreamFactory
                     {
                         break;
                     }
-
-                    // TODO - order of reason codes MATTER. first stream -> first entry into list, etc
-                    //      - need to be able to map the correct reason codes to the correct streams
-                    //      - defer reason code assignment to WINDOW
-                    // need to map reason code -> stream in order of when they were created, not when they come in
-                    //  - ie. streams: 0, 1, 2, 3
-                    //
-                    //      even if 1 sends WINDOW before 0, should sitll map to list[1], not list[0]
-                    //      would streams be assigned a number to indicate their reasoncodesIndex?
-                    // int reasonCode = 0x8f;  // 0x8F - Topic Filter invalid
                     final String topicFilter = subscription.topicFilter().asString();
                     final RouteFW route = resolveTarget(routeId, authorization, topicFilter);
 
@@ -567,18 +558,11 @@ public final class MqttServerFactory implements StreamFactory
                     {
                         nullRoutesMask |= 1 << ackIndex;
                     }
-
-                    // reasonCodes.add((byte) reasonCode);
                 }
             }
 
-            // TODO - For each non-routable server stream, explicitly set the failure reason code at the corresponding ackIndex.
-            //        If all server streams were non-routable, then onMqttSubscribe should respond immediately because all reason
-            //        codes are known.
             Subscription subscription = new Subscription(this, reasonCodeCount);
             subscriptionsByPacketId.put(packetId, subscription);
-
-            System.out.printf("reasonCodeCount: %d\n", reasonCodeCount);
 
             for (int i = 0; i < reasonCodeCount; i++)
             {
@@ -593,7 +577,6 @@ public final class MqttServerFactory implements StreamFactory
         private void onMqttUnsubscribe(
             MqttUnsubscribeFW unsubscribe)
         {
-            System.out.println("unsub");
             final OctetsFW topicFilters = unsubscribe.topicFilters();
             final DirectBuffer buffer = topicFilters.buffer();
             final int limit = topicFilters.limit();
@@ -841,7 +824,6 @@ public final class MqttServerFactory implements StreamFactory
                 .propertiesLength(0x00)
                 .reasonCodes(reasonCodes)
                 .build();
-            System.out.printf("suback: %s\n", suback);
 
             doData(suback);
         }
@@ -1013,7 +995,7 @@ public final class MqttServerFactory implements StreamFactory
     {
         private final MqttServer server;
         private final MessageConsumer application;
-        private final int reasonCodesIndex;
+        private final int ackIndex;
         private long routeId;
         private long initialId;
         private long replyId;
@@ -1026,7 +1008,7 @@ public final class MqttServerFactory implements StreamFactory
             long routeId,
             long initialId,
             long replyId,
-            int reasonCodesIndex,
+            int ackIndex,
             int subscriptionId)
         {
             this.server = server;
@@ -1034,7 +1016,7 @@ public final class MqttServerFactory implements StreamFactory
             this.routeId = routeId;
             this.initialId = initialId;
             this.replyId = replyId;
-            this.reasonCodesIndex = reasonCodesIndex;
+            this.ackIndex = ackIndex;
             this.packetId = subscriptionId;
         }
 
@@ -1047,27 +1029,22 @@ public final class MqttServerFactory implements StreamFactory
             switch (msgTypeId)
             {
             case BeginFW.TYPE_ID:
-                System.out.println("Stream - BEGIN");
                 final BeginFW begin = beginRO.wrap(buffer, index, index + length);
                 onBegin(begin);
                 break;
             case DataFW.TYPE_ID:
-                System.out.println("Stream - DATA");
                 final DataFW data = dataRO.wrap(buffer, index, index + length);
                 onData(data);
                 break;
             case EndFW.TYPE_ID:
-                System.out.println("Stream - END");
                 final EndFW end = endRO.wrap(buffer, index, index + length);
                 onEnd(end);
                 break;
             case WindowFW.TYPE_ID:
-                System.out.println("Stream - WINDOW");
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
                 onWindow(window);
                 break;
             case ResetFW.TYPE_ID:
-                System.out.println("Stream - RESET");
                 final ResetFW reset = resetRO.wrap(buffer, index, index + length);
                 onReset(reset);
                 break;
@@ -1102,13 +1079,13 @@ public final class MqttServerFactory implements StreamFactory
         private void onWindow(
             WindowFW window)
         {
-            subscription.onSubscribeSucceeded(packetId, reasonCodesIndex);
+            subscription.onSubscribeSucceeded(packetId, ackIndex);
         }
 
         private void onReset(
             ResetFW reset)
         {
-            subscription.onSubscribeFailed(packetId, reasonCodesIndex);
+            subscription.onSubscribeFailed(packetId, ackIndex);
         }
 
         private void doBegin(
@@ -1119,7 +1096,6 @@ public final class MqttServerFactory implements StreamFactory
                 .streamId(initialId)
                 .trace(traceId)
                 .build();
-            System.out.println("stream - doBegin");
 
             application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
         }
@@ -1144,7 +1120,6 @@ public final class MqttServerFactory implements StreamFactory
                 .trace(traceId)
                 .extension(beginEx.buffer(), beginEx.offset(), beginEx.sizeof())
                 .build();
-            System.out.println("stream - doMqttBeginEx");
 
             application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
         }
