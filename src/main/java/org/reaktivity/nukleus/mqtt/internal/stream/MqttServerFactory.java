@@ -30,6 +30,7 @@ import java.util.function.ToIntFunction;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
+import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
@@ -135,7 +136,7 @@ public final class MqttServerFactory implements StreamFactory
     private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyTraceId;
 
-    private final Long2ObjectHashMap<MqttServerStream> correlations;
+    private final Long2ObjectHashMap<MqttServer.MqttServerStream> correlations;
     private final MessageFunction<RouteFW> wrapRoute;
     private final int mqttTypeId;
 
@@ -227,12 +228,11 @@ public final class MqttServerFactory implements StreamFactory
         final MessageConsumer sender)
     {
         final long replyId = begin.streamId();
-        final MqttServerStream reply = correlations.remove(replyId);
+        final MqttServer.MqttServerStream reply = correlations.remove(replyId);
 
         MessageConsumer newStream = null;
         if (reply != null)
         {
-            router.setThrottle(replyId, reply::onApplication);
             newStream = reply::onApplication;
         }
         return newStream;
@@ -275,7 +275,7 @@ public final class MqttServerFactory implements StreamFactory
         private final long replyId;
         private final Map<String, MqttServerStream> subscribers;
         private final Map<String, MqttServerStream> publishers;
-        private final Map<Integer, Subscription> subscriptionsByPacketId;
+        private final Int2ObjectHashMap<Subscription> subscriptionsByPacketId;
         private long authorization;
 
         private int initialBudget;
@@ -301,7 +301,7 @@ public final class MqttServerFactory implements StreamFactory
             this.decodeState = this::decodeConnectPacket;
             this.subscribers = new HashMap<>();
             this.publishers = new HashMap<>();
-            this.subscriptionsByPacketId = new HashMap<>();
+            this.subscriptionsByPacketId = new Int2ObjectHashMap<>();
         }
 
         private void onNetwork(
@@ -497,7 +497,7 @@ public final class MqttServerFactory implements StreamFactory
             final int packetId = subscribe.packetId();
             int reasonCodeCount = 0;
             int subscriptionId = 0;
-            int nullRoutesMask = 0;
+            int unrouteableMask = 0;
 
             if (limit == 0)
             {
@@ -542,10 +542,8 @@ public final class MqttServerFactory implements StreamFactory
 
                         final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
 
-                        final MqttServerStream serverStream = new MqttServerStream(this, newTarget,
+                        final MqttServerStream serverStream = new MqttServerStream(newTarget,
                             newRouteId, newInitialId, newReplyId, ackIndex, packetId);
-
-                        router.setThrottle(newInitialId, serverStream::onApplication);
 
                         serverStream.doMqttBeginEx(decodeTraceId, topicFilter, subscriptionId);
 
@@ -556,19 +554,19 @@ public final class MqttServerFactory implements StreamFactory
                     }
                     else
                     {
-                        nullRoutesMask |= 1 << ackIndex;
+                        unrouteableMask |= 1 << ackIndex;
                     }
                 }
             }
 
-            Subscription subscription = new Subscription(this, reasonCodeCount);
+            Subscription subscription = new Subscription(unrouteableMask, reasonCodeCount);
             subscriptionsByPacketId.put(packetId, subscription);
 
             for (int i = 0; i < reasonCodeCount; i++)
             {
-                if ((nullRoutesMask & (1 << i)) > 0)
+                if ((unrouteableMask & (1 << i)) > 0)
                 {
-                    subscription.onSubscribeFailed(packetId, i);
+                    subscription.onSubscribeFailed(packetId, i, 0x8f);
                 }
             }
             subscribers.forEach((filter, stream) -> stream.subscription = subscription);
@@ -633,7 +631,7 @@ public final class MqttServerFactory implements StreamFactory
                 }
                 else
                 {
-                    final MqttServerStream serverStream = new MqttServerStream(this, newTarget,
+                    final MqttServerStream serverStream = new MqttServerStream(newTarget,
                         newRouteId, newInitialId, newReplyId, -1, -1);
 
                     serverStream.doBegin(decodeTraceId);
@@ -929,217 +927,217 @@ public final class MqttServerFactory implements StreamFactory
 
             return progress;
         }
-    }
 
-    private final class Subscription
-    {
-        private final MqttServer server;
-        private final int fullReasonCodesMask;
-        private final List<Byte> reasonCodes;
 
-        private int reasonCodesMask;
-
-        private Subscription(
-            MqttServer server,
-            int reasonCodesCount)
+        private final class Subscription
         {
-            this.server = server;
-            this.reasonCodes = new ArrayList<>();
-            for (int i = 0; i < reasonCodesCount; i++)
-            {
-                reasonCodes.add((byte) 0x8f);
-            }
-            this.fullReasonCodesMask = 1 << (reasonCodesCount - 1);
-        }
+            private final List<Byte> reasonCodes;
+            private final int ackCount;
 
-        private void onSubscribeFailed(
-            int packetId,
-            int ackIndex)
-        {
-            final int bit = 1 << ackIndex;
-            reasonCodes.set(ackIndex, (byte) 0x8f);
-            reasonCodesMask |= bit;
-            if ((reasonCodesMask & fullReasonCodesMask) == fullReasonCodesMask)
-            {
-                doMqttSuback(packetId);
-            }
-        }
+            private int successMask;
+            private int ackMask;
 
-        private void onSubscribeSucceeded(
-            int packetId,
-            int ackIndex)
-        {
-            final int bit = 1 << ackIndex;
-            reasonCodes.set(ackIndex, (byte) 0x00);
-            reasonCodesMask |= bit;
-            if ((reasonCodesMask & fullReasonCodesMask) == fullReasonCodesMask)
+            private Subscription(
+                int unrouteableMask,
+                int ackCount)
             {
-                doMqttSuback(packetId);
-            }
-        }
-
-        private void doMqttSuback(
-            int packetId)
-        {
-            byte[] subackReasonCodes = new byte[reasonCodes.size()];
-            for (int i = 0; i < reasonCodes.size(); i++)
-            {
-                subackReasonCodes[i] = reasonCodes.get(i);
+                this.ackMask = unrouteableMask;
+                this.ackCount = ackCount;
+                this.successMask = 0;
+                this.reasonCodes = new ArrayList<>();
+                for (int i = 0; i < ackCount; i++)
+                {
+                    reasonCodes.add((byte) 0x8f);
+                }
             }
 
-            server.doMqttSuback(subackReasonCodes, packetId);
-        }
-    }
-
-    private final class MqttServerStream
-    {
-        private final MqttServer server;
-        private final MessageConsumer application;
-        private final int ackIndex;
-        private long routeId;
-        private long initialId;
-        private long replyId;
-        private Subscription subscription;
-        private int packetId;
-
-        MqttServerStream(
-            MqttServer server,
-            MessageConsumer application,
-            long routeId,
-            long initialId,
-            long replyId,
-            int ackIndex,
-            int subscriptionId)
-        {
-            this.server = server;
-            this.application = application;
-            this.routeId = routeId;
-            this.initialId = initialId;
-            this.replyId = replyId;
-            this.ackIndex = ackIndex;
-            this.packetId = subscriptionId;
-        }
-
-        private void onApplication(
-            int msgTypeId,
-            DirectBuffer buffer,
-            int index,
-            int length)
-        {
-            switch (msgTypeId)
+            private void onSubscribeFailed(
+                int packetId,
+                int ackIndex,
+                int reasonCode)
             {
-            case BeginFW.TYPE_ID:
-                final BeginFW begin = beginRO.wrap(buffer, index, index + length);
-                onBegin(begin);
-                break;
-            case DataFW.TYPE_ID:
-                final DataFW data = dataRO.wrap(buffer, index, index + length);
-                onData(data);
-                break;
-            case EndFW.TYPE_ID:
-                final EndFW end = endRO.wrap(buffer, index, index + length);
-                onEnd(end);
-                break;
-            case WindowFW.TYPE_ID:
-                final WindowFW window = windowRO.wrap(buffer, index, index + length);
-                onWindow(window);
-                break;
-            case ResetFW.TYPE_ID:
-                final ResetFW reset = resetRO.wrap(buffer, index, index + length);
-                onReset(reset);
-                break;
+                final int bit = 1 << ackIndex;
+                reasonCodes.set(ackIndex, (byte) reasonCode);
+                ackMask |= bit;
+                onSubscribeCompleted(packetId);
+            }
+
+            private void onSubscribeSucceeded(
+                int packetId,
+                int ackIndex,
+                int reasonCode)
+            {
+                final int bit = 1 << ackIndex;
+                reasonCodes.set(ackIndex, (byte) reasonCode);
+                successMask |= bit;
+                ackMask |= bit;
+                onSubscribeCompleted(packetId);
+            }
+
+            private void onSubscribeCompleted(
+                int packetId)
+            {
+                if (Integer.bitCount(ackMask) == ackCount)
+                {
+                    byte[] subackReasonCodes = new byte[reasonCodes.size()];
+                    for (int i = 0; i < reasonCodes.size(); i++)
+                    {
+                        subackReasonCodes[i] = reasonCodes.get(i);
+                    }
+                    doMqttSuback(subackReasonCodes, packetId);
+                }
             }
         }
 
-        private void onBegin(
-            BeginFW begin)
+        private final class MqttServerStream
         {
-        }
+            private final MessageConsumer application;
+            private final int ackIndex;
+            private long routeId;
+            private long initialId;
+            private long replyId;
+            private Subscription subscription;
+            private int packetId;
 
-        private void onData(
-            DataFW data)
-        {
-            final OctetsFW extension = data.extension();
+            MqttServerStream(
+                MessageConsumer application,
+                long routeId,
+                long initialId,
+                long replyId,
+                int ackIndex,
+                int subscriptionId)
+            {
+                this.application = application;
+                this.routeId = routeId;
+                this.initialId = initialId;
+                this.replyId = replyId;
+                this.ackIndex = ackIndex;
+                this.packetId = subscriptionId;
+            }
 
-            final DirectBuffer exBuffer = extension.buffer();
-            final int exOffset = extension.offset();
-            final int exLength = extension.sizeof();
+            private void onApplication(
+                int msgTypeId,
+                DirectBuffer buffer,
+                int index,
+                int length)
+            {
+                switch (msgTypeId)
+                {
+                    case BeginFW.TYPE_ID:
+                        final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+                        onBegin(begin);
+                        break;
+                    case DataFW.TYPE_ID:
+                        final DataFW data = dataRO.wrap(buffer, index, index + length);
+                        onData(data);
+                        break;
+                    case EndFW.TYPE_ID:
+                        final EndFW end = endRO.wrap(buffer, index, index + length);
+                        onEnd(end);
+                        break;
+                    case WindowFW.TYPE_ID:
+                        final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                        onWindow(window);
+                        break;
+                    case ResetFW.TYPE_ID:
+                        final ResetFW reset = resetRO.wrap(buffer, index, index + length);
+                        onReset(reset);
+                        break;
+                }
+            }
 
-            final MqttDataExFW dataEx = mqttDataExRO.wrap(exBuffer, exOffset, exOffset + exLength);
+            private void onBegin(
+                BeginFW begin)
+            {
+            }
 
-            final String topicName = dataEx.topic().asString();
-            this.server.doMqttPublish(topicName, data.payload());
-        }
+            private void onData(
+                DataFW data)
+            {
+                final OctetsFW extension = data.extension();
 
-        private void onEnd(
-            EndFW end)
-        {
-        }
+                final DirectBuffer exBuffer = extension.buffer();
+                final int exOffset = extension.offset();
+                final int exLength = extension.sizeof();
 
-        private void onWindow(
-            WindowFW window)
-        {
-            subscription.onSubscribeSucceeded(packetId, ackIndex);
-        }
+                final MqttDataExFW dataEx = mqttDataExRO.wrap(exBuffer, exOffset, exOffset + exLength);
 
-        private void onReset(
-            ResetFW reset)
-        {
-            subscription.onSubscribeFailed(packetId, ackIndex);
-        }
+                final String topicName = dataEx.topic().asString();
+                doMqttPublish(topicName, data.payload());
+            }
 
-        private void doBegin(
-            long traceId)
-        {
-            final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .routeId(routeId)
-                .streamId(initialId)
-                .trace(traceId)
-                .build();
+            private void onEnd(
+                EndFW end)
+            {
+            }
 
-            application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
-        }
+            private void onWindow(
+                WindowFW window)
+            {
+                subscription.onSubscribeSucceeded(packetId, ackIndex, 0x00);
+            }
 
-        private void doMqttBeginEx(
-            long traceId,
-            String topicFilter,
-            int subscriptionId)
-        {
-            final MqttBeginExFW beginEx = mqttBeginExRW
-                    .wrap(extBuffer, 0, extBuffer.capacity())
-                    .typeId(mqttTypeId)
-                    .role(r -> r.set(MqttRole.RECEIVER))
-                    .clientId("client")
-                    .topic(topicFilter)
-                    .subscriptionId(subscriptionId)
-                    .build();
+            private void onReset(
+                ResetFW reset)
+            {
+                subscription.onSubscribeFailed(packetId, ackIndex, 0x8f);
+            }
 
-            final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .routeId(routeId)
-                .streamId(initialId)
-                .trace(traceId)
-                .extension(beginEx.buffer(), beginEx.offset(), beginEx.sizeof())
-                .build();
+            private void doBegin(
+                long traceId)
+            {
+                final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                        .routeId(routeId)
+                        .streamId(initialId)
+                        .trace(traceId)
+                        .build();
 
-            application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
-        }
+                application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+            }
 
-        private void doMqttDataEx(
-            long traceId,
-            OctetsFW payload,
-            Flyweight extension)
-        {
-            final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .routeId(routeId)
-                .streamId(initialId)
-                .trace(traceId)
-                .groupId(0)
-                .padding(0)
-                .payload(payload)
-                .extension(extension.buffer(), extension.offset(), extension.sizeof())
-                .build();
+            private void doMqttBeginEx(
+                long traceId,
+                String topicFilter,
+                int subscriptionId)
+            {
+                router.setThrottle(initialId, this::onApplication);
 
-            application.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+                final MqttBeginExFW beginEx = mqttBeginExRW
+                        .wrap(extBuffer, 0, extBuffer.capacity())
+                        .typeId(mqttTypeId)
+                        .role(r -> r.set(MqttRole.RECEIVER))
+                        .clientId("client")
+                        .topic(topicFilter)
+                        .subscriptionId(subscriptionId)
+                        .build();
+
+                final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                        .routeId(routeId)
+                        .streamId(initialId)
+                        .trace(traceId)
+                        .extension(beginEx.buffer(), beginEx.offset(), beginEx.sizeof())
+                        .build();
+
+                application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+            }
+
+            private void doMqttDataEx(
+                long traceId,
+                OctetsFW payload,
+                Flyweight extension)
+            {
+                final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                        .routeId(routeId)
+                        .streamId(initialId)
+                        .trace(traceId)
+                        .groupId(0)
+                        .padding(0)
+                        .payload(payload)
+                        .extension(extension.buffer(), extension.offset(), extension.sizeof())
+                        .build();
+
+                application.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+            }
         }
     }
 
