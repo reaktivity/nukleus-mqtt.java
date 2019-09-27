@@ -20,9 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.reaktivity.nukleus.buffer.BufferPool.NO_SLOT;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
@@ -495,7 +493,6 @@ public final class MqttServerFactory implements StreamFactory
             final int limit = topicFilters.limit();
             final int offset = topicFilters.offset();
             final int packetId = subscribe.packetId();
-            int reasonCodeCount = 0;
             int subscriptionId = 0;
             int unrouteableMask = 0;
             Subscription subscription = new Subscription();
@@ -526,8 +523,9 @@ public final class MqttServerFactory implements StreamFactory
                     }
                 }
 
-                for (int progress = offset, ackIndex = 0; progress < limit; progress = mqttSubscription.limit(), ackIndex++)
+                for (int progress = offset; progress < limit; progress = mqttSubscription.limit(), subscription.ackCount++)
                 {
+                    final int ackIndex = subscription.ackCount;
                     mqttSubscription = mqttSubscriptionRO.tryWrap(buffer, progress, limit);
                     if (mqttSubscription == null)
                     {
@@ -552,7 +550,6 @@ public final class MqttServerFactory implements StreamFactory
                         correlations.put(newReplyId, serverStream);
 
                         subscribers.put(topicFilter, serverStream);
-                        reasonCodeCount++;
                     }
                     else
                     {
@@ -560,7 +557,6 @@ public final class MqttServerFactory implements StreamFactory
                     }
                 }
             }
-            subscription.ackCount = reasonCodeCount;
             subscription.ackMask = unrouteableMask;
         }
 
