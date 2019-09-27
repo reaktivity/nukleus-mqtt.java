@@ -271,8 +271,8 @@ public final class MqttServerFactory implements StreamFactory
         private final long routeId;
         private final long initialId;
         private final long replyId;
-        private final Map<String, MqttServerStream> subscribers;
-        private final Map<String, MqttServerStream> publishers;
+        private final Map<String, MqttSubscribeStream> subscribers;
+        private final Map<String, MqttPublishStream> publishers;
         private final Int2ObjectHashMap<Subscription> subscriptionsByPacketId;
         private long authorization;
 
@@ -525,7 +525,6 @@ public final class MqttServerFactory implements StreamFactory
 
                 for (int progress = offset; progress < limit; progress = mqttSubscription.limit(), subscription.ackCount++)
                 {
-                    final int ackIndex = subscription.ackCount;
                     mqttSubscription = mqttSubscriptionRO.tryWrap(buffer, progress, limit);
                     if (mqttSubscription == null)
                     {
@@ -542,22 +541,22 @@ public final class MqttServerFactory implements StreamFactory
 
                         final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
 
-                        final MqttServerStream serverStream = new MqttServerStream(newTarget,
-                            newRouteId, newInitialId, newReplyId, ackIndex, packetId, subscription);
+                        final MqttSubscribeStream subscribeStream = new MqttSubscribeStream(newTarget,
+                            newRouteId, newInitialId, newReplyId, packetId, subscription);
 
-                        serverStream.doMqttBeginEx(decodeTraceId, topicFilter, subscriptionId);
+                        subscribeStream.doMqttBeginEx(decodeTraceId, topicFilter, subscriptionId);
 
-                        correlations.put(newReplyId, serverStream);
+                        correlations.put(newReplyId, subscribeStream);
 
-                        subscribers.put(topicFilter, serverStream);
+                        subscribers.put(topicFilter, subscribeStream);
                     }
                     else
                     {
-                        unrouteableMask |= 1 << ackIndex;
+                        unrouteableMask |= 1 << subscription.ackCount;
                     }
                 }
             }
-            subscription.ackMask = unrouteableMask;
+            subscription.ackMask |= unrouteableMask;
         }
 
         private void onMqttUnsubscribe(
@@ -603,7 +602,7 @@ public final class MqttServerFactory implements StreamFactory
 
             OctetsFW payload = publish.payload();
 
-            MqttServerStream publishStream = publishers.get(topicName);
+            MqttPublishStream publishStream = publishers.get(topicName);
 
             final RouteFW route = resolveTarget(routeId, authorization, topicName);
             if (route != null)
@@ -619,8 +618,8 @@ public final class MqttServerFactory implements StreamFactory
                 }
                 else
                 {
-                    final MqttServerStream serverStream = new MqttServerStream(newTarget,
-                        newRouteId, newInitialId, newReplyId, -1, -1, null);
+                    final MqttPublishStream serverStream = new MqttPublishStream(newTarget,
+                        newRouteId, newInitialId, newReplyId, 0);
 
                     serverStream.doBegin(decodeTraceId);
 
@@ -966,7 +965,162 @@ public final class MqttServerFactory implements StreamFactory
             }
         }
 
-        private final class MqttServerStream
+        private abstract class MqttServerStream
+        {
+            abstract void onApplication(
+                int msgTypeId,
+                DirectBuffer buffer,
+                int index,
+                int length);
+        }
+
+        private final class MqttPublishStream extends MqttServerStream
+        {
+            private final MessageConsumer application;
+            private long routeId;
+            private long initialId;
+            private long replyId;
+            private int packetId;
+
+            MqttPublishStream(
+                MessageConsumer application,
+                long routeId,
+                long initialId,
+                long replyId,
+                int packetId)
+            {
+                this.application = application;
+                this.routeId = routeId;
+                this.initialId = initialId;
+                this.replyId = replyId;
+                this.packetId = packetId;
+            }
+
+            @Override
+            public void onApplication(
+                int msgTypeId,
+                DirectBuffer buffer,
+                int index,
+                int length)
+            {
+                switch (msgTypeId)
+                {
+                case BeginFW.TYPE_ID:
+                    final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+                    onBegin(begin);
+                    break;
+                case DataFW.TYPE_ID:
+                    final DataFW data = dataRO.wrap(buffer, index, index + length);
+                    onData(data);
+                    break;
+                case EndFW.TYPE_ID:
+                    final EndFW end = endRO.wrap(buffer, index, index + length);
+                    onEnd(end);
+                    break;
+                case WindowFW.TYPE_ID:
+                    final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                    onWindow(window);
+                    break;
+                case ResetFW.TYPE_ID:
+                    final ResetFW reset = resetRO.wrap(buffer, index, index + length);
+                    onReset(reset);
+                    break;
+                }
+            }
+
+            private void onBegin(
+                BeginFW begin)
+            {
+            }
+
+            private void onData(
+                DataFW data)
+            {
+                final OctetsFW extension = data.extension();
+
+                final DirectBuffer exBuffer = extension.buffer();
+                final int exOffset = extension.offset();
+                final int exLength = extension.sizeof();
+
+                final MqttDataExFW dataEx = mqttDataExRO.wrap(exBuffer, exOffset, exOffset + exLength);
+
+                final String topicName = dataEx.topic().asString();
+                doMqttPublish(topicName, data.payload());
+            }
+
+            private void onEnd(
+                EndFW end)
+            {
+            }
+
+            private void onWindow(
+                WindowFW window)
+            {
+            }
+
+            private void onReset(
+                ResetFW reset)
+            {
+            }
+
+            private void doBegin(
+                long traceId)
+            {
+                final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                        .routeId(routeId)
+                        .streamId(initialId)
+                        .trace(traceId)
+                        .build();
+
+                application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+            }
+
+            private void doMqttBeginEx(
+                long traceId,
+                String topicFilter,
+                int subscriptionId)
+            {
+                router.setThrottle(initialId, this::onApplication);
+
+                final MqttBeginExFW beginEx = mqttBeginExRW
+                        .wrap(extBuffer, 0, extBuffer.capacity())
+                        .typeId(mqttTypeId)
+                        .role(r -> r.set(MqttRole.RECEIVER))
+                        .clientId("client")
+                        .topic(topicFilter)
+                        .subscriptionId(subscriptionId)
+                        .build();
+
+                final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                        .routeId(routeId)
+                        .streamId(initialId)
+                        .trace(traceId)
+                        .extension(beginEx.buffer(), beginEx.offset(), beginEx.sizeof())
+                        .build();
+
+                application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+            }
+
+            private void doMqttDataEx(
+                long traceId,
+                OctetsFW payload,
+                Flyweight extension)
+            {
+                final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                        .routeId(routeId)
+                        .streamId(initialId)
+                        .trace(traceId)
+                        .groupId(0)
+                        .padding(0)
+                        .payload(payload)
+                        .extension(extension.buffer(), extension.offset(), extension.sizeof())
+                        .build();
+
+                application.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+            }
+        }
+
+        private final class MqttSubscribeStream extends MqttServerStream
         {
             private final MessageConsumer application;
             private final int ackIndex;
@@ -976,12 +1130,11 @@ public final class MqttServerFactory implements StreamFactory
             private Subscription subscription;
             private int packetId;
 
-            MqttServerStream(
+            MqttSubscribeStream(
                 MessageConsumer application,
                 long routeId,
                 long initialId,
                 long replyId,
-                int ackIndex,
                 int packetId,
                 Subscription subscription)
             {
@@ -989,12 +1142,13 @@ public final class MqttServerFactory implements StreamFactory
                 this.routeId = routeId;
                 this.initialId = initialId;
                 this.replyId = replyId;
-                this.ackIndex = ackIndex;
                 this.packetId = packetId;
                 this.subscription = subscription;
+                this.ackIndex = subscription != null ? subscription.ackCount : -1;
             }
 
-            private void onApplication(
+            @Override
+            public void onApplication(
                 int msgTypeId,
                 DirectBuffer buffer,
                 int index,
