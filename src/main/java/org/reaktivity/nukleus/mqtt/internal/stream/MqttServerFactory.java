@@ -498,6 +498,8 @@ public final class MqttServerFactory implements StreamFactory
             int reasonCodeCount = 0;
             int subscriptionId = 0;
             int unrouteableMask = 0;
+            Subscription subscription = new Subscription();
+            subscriptionsByPacketId.put(packetId, subscription);
 
             if (limit == 0)
             {
@@ -506,7 +508,7 @@ public final class MqttServerFactory implements StreamFactory
             }
             else
             {
-                MqttSubscriptionFW subscription;
+                MqttSubscriptionFW mqttSubscription;
                 OctetsFW properties = subscribe.properties();
                 final int propertiesOffset = properties.offset();
                 final int propertiesLimit = properties.limit();
@@ -524,14 +526,14 @@ public final class MqttServerFactory implements StreamFactory
                     }
                 }
 
-                for (int progress = offset, ackIndex = 0; progress < limit; progress = subscription.limit(), ackIndex++)
+                for (int progress = offset, ackIndex = 0; progress < limit; progress = mqttSubscription.limit(), ackIndex++)
                 {
-                    subscription = mqttSubscriptionRO.tryWrap(buffer, progress, limit);
-                    if (subscription == null)
+                    mqttSubscription = mqttSubscriptionRO.tryWrap(buffer, progress, limit);
+                    if (mqttSubscription == null)
                     {
                         break;
                     }
-                    final String topicFilter = subscription.topicFilter().asString();
+                    final String topicFilter = mqttSubscription.topicFilter().asString();
                     final RouteFW route = resolveTarget(routeId, authorization, topicFilter);
 
                     if (route != null)
@@ -543,7 +545,7 @@ public final class MqttServerFactory implements StreamFactory
                         final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
 
                         final MqttServerStream serverStream = new MqttServerStream(newTarget,
-                            newRouteId, newInitialId, newReplyId, ackIndex, packetId);
+                            newRouteId, newInitialId, newReplyId, ackIndex, packetId, subscription);
 
                         serverStream.doMqttBeginEx(decodeTraceId, topicFilter, subscriptionId);
 
@@ -558,18 +560,8 @@ public final class MqttServerFactory implements StreamFactory
                     }
                 }
             }
-
-            Subscription subscription = new Subscription(unrouteableMask, reasonCodeCount);
-            subscriptionsByPacketId.put(packetId, subscription);
-
-            for (int i = 0; i < reasonCodeCount; i++)
-            {
-                if ((unrouteableMask & (1 << i)) > 0)
-                {
-                    subscription.onSubscribeFailed(packetId, i, 0x8f);
-                }
-            }
-            subscribers.forEach((filter, stream) -> stream.subscription = subscription);
+            subscription.ackCount = reasonCodeCount;
+            subscription.ackMask = unrouteableMask;
         }
 
         private void onMqttUnsubscribe(
@@ -632,7 +624,7 @@ public final class MqttServerFactory implements StreamFactory
                 else
                 {
                     final MqttServerStream serverStream = new MqttServerStream(newTarget,
-                        newRouteId, newInitialId, newReplyId, -1, -1);
+                        newRouteId, newInitialId, newReplyId, -1, -1, null);
 
                     serverStream.doBegin(decodeTraceId);
 
@@ -807,9 +799,18 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doMqttSuback(
-            byte[] subscriptions,
+            int ackMask,
+            int successMask,
             int packetId)
         {
+            final int ackCount = Integer.bitCount(ackMask);
+            final byte[] subscriptions = new byte[ackCount];
+            for (int i = 0; i < ackCount; i++)
+            {
+                final int ackIndex = 1 << i;
+                subscriptions[i] = (byte) ((successMask & ackIndex) > 0 ? 0x00 : 0x8f);
+            }
+
             OctetsFW reasonCodes = octetsRW
                 .wrap(writeBuffer, 0, writeBuffer.capacity())
                 .put(subscriptions)
@@ -931,44 +932,29 @@ public final class MqttServerFactory implements StreamFactory
 
         private final class Subscription
         {
-            private final List<Byte> reasonCodes;
-            private final int ackCount;
-
+            private int ackCount;
             private int successMask;
             private int ackMask;
 
-            private Subscription(
-                int unrouteableMask,
-                int ackCount)
+            private Subscription()
             {
-                this.ackMask = unrouteableMask;
-                this.ackCount = ackCount;
                 this.successMask = 0;
-                this.reasonCodes = new ArrayList<>();
-                for (int i = 0; i < ackCount; i++)
-                {
-                    reasonCodes.add((byte) 0x8f);
-                }
             }
 
             private void onSubscribeFailed(
                 int packetId,
-                int ackIndex,
-                int reasonCode)
+                int ackIndex)
             {
                 final int bit = 1 << ackIndex;
-                reasonCodes.set(ackIndex, (byte) reasonCode);
                 ackMask |= bit;
                 onSubscribeCompleted(packetId);
             }
 
             private void onSubscribeSucceeded(
                 int packetId,
-                int ackIndex,
-                int reasonCode)
+                int ackIndex)
             {
                 final int bit = 1 << ackIndex;
-                reasonCodes.set(ackIndex, (byte) reasonCode);
                 successMask |= bit;
                 ackMask |= bit;
                 onSubscribeCompleted(packetId);
@@ -979,12 +965,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 if (Integer.bitCount(ackMask) == ackCount)
                 {
-                    byte[] subackReasonCodes = new byte[reasonCodes.size()];
-                    for (int i = 0; i < reasonCodes.size(); i++)
-                    {
-                        subackReasonCodes[i] = reasonCodes.get(i);
-                    }
-                    doMqttSuback(subackReasonCodes, packetId);
+                    doMqttSuback(ackMask, successMask, packetId);
                 }
             }
         }
@@ -1005,14 +986,16 @@ public final class MqttServerFactory implements StreamFactory
                 long initialId,
                 long replyId,
                 int ackIndex,
-                int subscriptionId)
+                int packetId,
+                Subscription subscription)
             {
                 this.application = application;
                 this.routeId = routeId;
                 this.initialId = initialId;
                 this.replyId = replyId;
                 this.ackIndex = ackIndex;
-                this.packetId = subscriptionId;
+                this.packetId = packetId;
+                this.subscription = subscription;
             }
 
             private void onApplication(
@@ -1074,13 +1057,13 @@ public final class MqttServerFactory implements StreamFactory
             private void onWindow(
                 WindowFW window)
             {
-                subscription.onSubscribeSucceeded(packetId, ackIndex, 0x00);
+                subscription.onSubscribeSucceeded(packetId, ackIndex);
             }
 
             private void onReset(
                 ResetFW reset)
             {
-                subscription.onSubscribeFailed(packetId, ackIndex, 0x8f);
+                subscription.onSubscribeFailed(packetId, ackIndex);
             }
 
             private void doBegin(
