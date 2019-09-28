@@ -352,15 +352,15 @@ public final class MqttServerFactory implements StreamFactory
         private void onData(
             DataFW data)
         {
-            final OctetsFW payload = data.payload();
-            initialBudget -= data.length() + data.padding();
+            initialBudget -= data.reserved();
 
             if (initialBudget < 0)
             {
                 doReset(supplyTraceId.getAsLong());
             }
-            else if (payload != null)
+            else
             {
+                final OctetsFW payload = data.payload();
                 final long streamId = data.streamId();
                 decodeTraceId = data.trace();
                 this.authorization = data.authorization();
@@ -658,7 +658,7 @@ public final class MqttServerFactory implements StreamFactory
                 .streamId(replyId)
                 .trace(supplyTraceId.getAsLong())
                 .groupId(0)
-                .padding(replyPadding)
+                .reserved(payload.sizeof() + replyPadding)
                 .payload(payload.buffer(), payload.offset(), payload.sizeof())
                 .build();
 
@@ -757,7 +757,7 @@ public final class MqttServerFactory implements StreamFactory
                     .streamId(replyId)
                     .trace(supplyTraceId.getAsLong())
                     .groupId(0)
-                    .padding(0)
+                    .reserved(publishLength)
                     .payload(publishBuffer, publishOffset, publishLength)
                     .build();
 
@@ -1111,7 +1111,7 @@ public final class MqttServerFactory implements StreamFactory
                         .streamId(initialId)
                         .trace(traceId)
                         .groupId(0)
-                        .padding(0)
+                        .reserved(payload.sizeof())
                         .payload(payload)
                         .extension(extension.buffer(), extension.offset(), extension.sizeof())
                         .build();
@@ -1264,7 +1264,7 @@ public final class MqttServerFactory implements StreamFactory
                         .streamId(initialId)
                         .trace(traceId)
                         .groupId(0)
-                        .padding(0)
+                        .reserved(payload.sizeof())
                         .payload(payload)
                         .extension(extension.buffer(), extension.offset(), extension.sizeof())
                         .build();
