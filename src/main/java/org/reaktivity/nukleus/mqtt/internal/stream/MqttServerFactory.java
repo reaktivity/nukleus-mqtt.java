@@ -285,6 +285,7 @@ public final class MqttServerFactory implements StreamFactory
         private DecoderState decodeState;
         private int slotIndex = NO_SLOT;
         private int slotLimit;
+        private long affinity;
 
         private MqttServer(
             MessageConsumer network,
@@ -346,7 +347,8 @@ public final class MqttServerFactory implements StreamFactory
         private void onBegin(
             BeginFW begin)
         {
-            doBegin(supplyTraceId.getAsLong());
+            affinity = begin.affinity();
+            doBegin(supplyTraceId.getAsLong(), affinity);
         }
 
         private void onData(
@@ -362,7 +364,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 final OctetsFW payload = data.payload();
                 final long streamId = data.streamId();
-                decodeTraceId = data.trace();
+                decodeTraceId = data.traceId();
                 this.authorization = data.authorization();
 
                 DirectBuffer buffer = payload.buffer();
@@ -414,14 +416,14 @@ public final class MqttServerFactory implements StreamFactory
         private void onEnd(
             EndFW end)
         {
-            final long traceId = end.trace();
+            final long traceId = end.traceId();
             doEnd(traceId);
         }
 
         private void onAbort(
             AbortFW abort)
         {
-            final long traceId = abort.trace();
+            final long traceId = abort.traceId();
             doAbort(traceId);
         }
 
@@ -441,14 +443,14 @@ public final class MqttServerFactory implements StreamFactory
         private void onReset(
             ResetFW reset)
         {
-            final long traceId = reset.trace();
+            final long traceId = reset.traceId();
             doReset(traceId);
         }
 
         private void onSignal(
             SignalFW signal)
         {
-            final long traceId = signal.trace();
+            final long traceId = signal.traceId();
             doSignal(traceId);
         }
 
@@ -544,7 +546,7 @@ public final class MqttServerFactory implements StreamFactory
                         final MqttSubscribeStream subscribeStream = new MqttSubscribeStream(newTarget,
                             newRouteId, newInitialId, newReplyId, packetId, subscription);
 
-                        subscribeStream.doMqttBeginEx(decodeTraceId, topicFilter, subscriptionId);
+                        subscribeStream.doMqttBeginEx(decodeTraceId, affinity, topicFilter, subscriptionId);
 
                         correlations.put(newReplyId, subscribeStream);
 
@@ -621,7 +623,7 @@ public final class MqttServerFactory implements StreamFactory
                     final MqttPublishStream serverStream = new MqttPublishStream(newTarget,
                         newRouteId, newInitialId, newReplyId, 0);
 
-                    serverStream.doBegin(decodeTraceId);
+                    serverStream.doBegin(decodeTraceId, affinity);
 
                     serverStream.doMqttDataEx(decodeTraceId, payload, dataEx);
 
@@ -638,12 +640,14 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void doBegin(
-            long traceId)
+            long traceId,
+            long affinity)
         {
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(replyId)
-                .trace(traceId)
+                .traceId(traceId)
+                .affinity(affinity)
                 .build();
 
             network.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
@@ -656,8 +660,8 @@ public final class MqttServerFactory implements StreamFactory
             final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(replyId)
-                .trace(supplyTraceId.getAsLong())
-                .groupId(0)
+                .traceId(supplyTraceId.getAsLong())
+                .budgetId(0L)
                 .reserved(payload.sizeof() + replyPadding)
                 .payload(payload.buffer(), payload.offset(), payload.sizeof())
                 .build();
@@ -671,7 +675,7 @@ public final class MqttServerFactory implements StreamFactory
             final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(replyId)
-                .trace(traceId)
+                .traceId(traceId)
                 .build();
 
             network.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
@@ -683,7 +687,7 @@ public final class MqttServerFactory implements StreamFactory
             final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(replyId)
-                .trace(traceId)
+                .traceId(traceId)
                 .build();
 
             network.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
@@ -700,10 +704,10 @@ public final class MqttServerFactory implements StreamFactory
                 final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                     .routeId(routeId)
                     .streamId(initialId)
-                    .trace(traceId)
+                    .traceId(traceId)
+                    .budgetId(0L)
                     .credit(initialCredit)
                     .padding(initialPadding)
-                    .groupId(0)
                     .build();
 
                 network.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
@@ -715,7 +719,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity()).routeId(routeId)
                 .streamId(initialId)
-                .trace(traceId)
+                .traceId(traceId)
                 .build();
 
             network.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
@@ -726,7 +730,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             final SignalFW signal = signalRW.wrap(writeBuffer, 0, writeBuffer.capacity()).routeId(routeId)
                 .streamId(initialId)
-                .trace(traceId)
+                .traceId(traceId)
                 .build();
 
             network.accept(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
@@ -755,8 +759,8 @@ public final class MqttServerFactory implements StreamFactory
             final DataFW dataFW = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                     .routeId(routeId)
                     .streamId(replyId)
-                    .trace(supplyTraceId.getAsLong())
-                    .groupId(0)
+                    .traceId(supplyTraceId.getAsLong())
+                    .budgetId(0L)
                     .reserved(publishLength)
                     .payload(publishBuffer, publishOffset, publishLength)
                     .build();
@@ -1064,12 +1068,14 @@ public final class MqttServerFactory implements StreamFactory
             }
 
             private void doBegin(
-                long traceId)
+                long traceId,
+                long affinity)
             {
                 final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                         .routeId(routeId)
                         .streamId(initialId)
-                        .trace(traceId)
+                        .traceId(traceId)
+                        .affinity(affinity)
                         .build();
 
                 application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
@@ -1077,6 +1083,7 @@ public final class MqttServerFactory implements StreamFactory
 
             private void doMqttBeginEx(
                 long traceId,
+                long affinity,
                 String topicFilter,
                 int subscriptionId)
             {
@@ -1094,7 +1101,8 @@ public final class MqttServerFactory implements StreamFactory
                 final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                         .routeId(routeId)
                         .streamId(initialId)
-                        .trace(traceId)
+                        .traceId(traceId)
+                        .affinity(affinity)
                         .extension(beginEx.buffer(), beginEx.offset(), beginEx.sizeof())
                         .build();
 
@@ -1109,8 +1117,8 @@ public final class MqttServerFactory implements StreamFactory
                 final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                         .routeId(routeId)
                         .streamId(initialId)
-                        .trace(traceId)
-                        .groupId(0)
+                        .traceId(traceId)
+                        .budgetId(0L)
                         .reserved(payload.sizeof())
                         .payload(payload)
                         .extension(extension.buffer(), extension.offset(), extension.sizeof())
@@ -1217,12 +1225,14 @@ public final class MqttServerFactory implements StreamFactory
             }
 
             private void doBegin(
-                long traceId)
+                long traceId,
+                long affinity)
             {
                 final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                         .routeId(routeId)
                         .streamId(initialId)
-                        .trace(traceId)
+                        .traceId(traceId)
+                        .affinity(affinity)
                         .build();
 
                 application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
@@ -1230,6 +1240,7 @@ public final class MqttServerFactory implements StreamFactory
 
             private void doMqttBeginEx(
                 long traceId,
+                long affinity,
                 String topicFilter,
                 int subscriptionId)
             {
@@ -1247,7 +1258,8 @@ public final class MqttServerFactory implements StreamFactory
                 final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                         .routeId(routeId)
                         .streamId(initialId)
-                        .trace(traceId)
+                        .traceId(traceId)
+                        .affinity(affinity)
                         .extension(beginEx.buffer(), beginEx.offset(), beginEx.sizeof())
                         .build();
 
@@ -1262,8 +1274,8 @@ public final class MqttServerFactory implements StreamFactory
                 final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                         .routeId(routeId)
                         .streamId(initialId)
-                        .trace(traceId)
-                        .groupId(0)
+                        .traceId(traceId)
+                        .budgetId(0L)
                         .reserved(payload.sizeof())
                         .payload(payload)
                         .extension(extension.buffer(), extension.offset(), extension.sizeof())
