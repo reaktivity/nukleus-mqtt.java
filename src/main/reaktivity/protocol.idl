@@ -49,7 +49,7 @@
         struct MqttPacketFixedHeader
         {
             uint8 typeAndFlags;
-            uint8 remainingLength;
+            varbyteuint32 remainingLength;
         }
 
         struct MqttByte
