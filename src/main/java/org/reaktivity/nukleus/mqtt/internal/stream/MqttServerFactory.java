@@ -134,6 +134,9 @@ public final class MqttServerFactory implements StreamFactory
     private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyTraceId;
 
+    private final MqttServerDecoder decodeConnectPacket;
+    private final MqttServerDecoder decodeSession;
+
     private final Long2ObjectHashMap<MqttServer.MqttServerStream> correlations;
     private final MessageFunction<RouteFW> wrapRoute;
     private final int mqttTypeId;
@@ -159,6 +162,8 @@ public final class MqttServerFactory implements StreamFactory
         this.supplyTraceId = requireNonNull(supplyTraceId);
         this.correlations = new Long2ObjectHashMap<>();
         this.wrapRoute = this::wrapRoute;
+        this.decodeConnectPacket = this::decodeConnectPacket;
+        this.decodeSession = this::decodeSession;
         this.mqttTypeId = supplyTypeId.applyAsInt(MqttNukleus.NAME);
     }
 
@@ -265,12 +270,95 @@ public final class MqttServerFactory implements StreamFactory
         return router.resolve(routeId, authorization, filter, this::wrapRoute);
     }
 
+    private int decodeConnectPacket(
+        MqttServer server,
+        final long traceId,
+        final MqttPacketType packetType,
+        final DirectBuffer buffer,
+        final int offset,
+        final int limit)
+    {
+        int progress = offset;
+        switch (packetType)
+        {
+        case CONNECT:
+            MqttConnectFW mqttConnect = mqttConnectRO.wrap(buffer, offset, limit);
+            server.onMqttConnect(mqttConnect);
+            progress = mqttConnect.limit();
+            break;
+        default:
+            server.doEnd(traceId);
+            break;
+        }
+        return progress;
+    }
+
+    private int decodeSession(
+        MqttServer server,
+        final long traceId,
+        final MqttPacketType packetType,
+        final DirectBuffer buffer,
+        final int offset,
+        final int limit)
+    {
+        int progress = 0;
+
+        switch (packetType)
+        {
+        case PINGREQ:
+            final MqttPingReqFW ping = mqttPingReqRO.wrap(buffer, offset, limit);
+            server.onMqttPingReq(ping);
+            progress = ping.limit();
+            break;
+        case SUBSCRIBE:
+            final MqttSubscribeFW subscribe = mqttSubscribeRO.wrap(buffer, offset, limit);
+            server.onMqttSubscribe(subscribe);
+            progress = subscribe.limit();
+            break;
+        case UNSUBSCRIBE:
+            final MqttUnsubscribeFW unsubscribe = mqttUnsubscribeRO.wrap(buffer, offset, limit);
+            server.onMqttUnsubscribe(unsubscribe);
+            progress = unsubscribe.limit();
+            break;
+        case DISCONNECT:
+            final MqttDisconnectFW disconnect = mqttDisconnectRO.wrap(buffer, offset, limit);
+            server.onMqttDisconnect(disconnect);
+            server.doEnd(traceId);
+            progress = disconnect.limit();
+            break;
+        case PUBLISH:
+            final MqttPublishFW publish = mqttPublishRO.wrap(buffer, offset, limit);
+            server.onMqttPublish(publish);
+            progress = publish.limit();
+            break;
+        default:
+            server.doReset(traceId);
+            break;
+        }
+
+        return progress;
+    }
+
+    @FunctionalInterface
+    private interface MqttServerDecoder
+    {
+        int decode(
+            MqttServer server,
+            long traceId,
+            MqttPacketType packetType,
+            DirectBuffer buffer,
+            int offset,
+            int limit);
+    }
+
     private final class MqttServer
     {
         private final MessageConsumer network;
         private final long routeId;
         private final long initialId;
         private final long replyId;
+        private long affinity;
+
         private final Map<String, MqttSubscribeStream> subscribers;
         private final Map<String, MqttPublishStream> publishers;
         private final Int2ObjectHashMap<Subscription> subscriptionsByPacketId;
@@ -282,10 +370,9 @@ public final class MqttServerFactory implements StreamFactory
         private int replyPadding;
 
         private long decodeTraceId;
-        private DecoderState decodeState;
+        private MqttServerDecoder decoder;
         private int slotIndex = NO_SLOT;
         private int slotLimit;
-        private long affinity;
 
         private MqttServer(
             MessageConsumer network,
@@ -297,7 +384,7 @@ public final class MqttServerFactory implements StreamFactory
             this.routeId = routeId;
             this.initialId = initialId;
             this.replyId = replyId;
-            this.decodeState = this::decodeConnectPacket;
+            this.decoder = decodeConnectPacket;
             this.subscribers = new HashMap<>();
             this.publishers = new HashMap<>();
             this.subscriptionsByPacketId = new Int2ObjectHashMap<>();
@@ -391,7 +478,7 @@ public final class MqttServerFactory implements StreamFactory
                     }
 
                     final MqttPacketType packetType = MqttPacketType.valueOf(packet.typeAndFlags() >> 4);
-                    offset += decodeState.decode(packetType, buffer, offset, limit);
+                    offset += decoder.decode(this, decodeTraceId, packetType, buffer, offset, limit);
                 }
 
                 if (offset < limit)
@@ -473,7 +560,7 @@ public final class MqttServerFactory implements StreamFactory
             if (reasonCode == 0)
             {
                 doMqttConnack(reasonCode);
-                this.decodeState = this::decodeSession;
+                this.decoder = decodeSession;
             }
             else
             {
@@ -808,7 +895,7 @@ public final class MqttServerFactory implements StreamFactory
             for (int i = 0; i < ackCount; i++)
             {
                 final int ackIndex = 1 << i;
-                subscriptions[i] = (byte) ((successMask & ackIndex) > 0 ? 0x00 : 0x8f);
+                subscriptions[i] = (byte) ((successMask & ackIndex) > 0 ? 0x00 : 0x8F);
             }
 
             OctetsFW reasonCodes = octetsRW
@@ -863,72 +950,6 @@ public final class MqttServerFactory implements StreamFactory
 
             doData(disconnect);
         }
-
-        private int decodeConnectPacket(
-            final MqttPacketType packetType,
-            final DirectBuffer buffer,
-            final int offset,
-            final int limit)
-        {
-            int progress = offset;
-            switch (packetType)
-            {
-            case CONNECT:
-                MqttConnectFW mqttConnect = mqttConnectRO.wrap(buffer, offset, limit);
-                onMqttConnect(mqttConnect);
-                progress = mqttConnect.limit();
-                break;
-            default:
-                doEnd(decodeTraceId);
-                break;
-            }
-            return progress;
-        }
-
-        private int decodeSession(
-            final MqttPacketType packetType,
-            final DirectBuffer buffer,
-            final int offset,
-            final int limit)
-        {
-            int progress = 0;
-
-            switch (packetType)
-            {
-            case PINGREQ:
-                final MqttPingReqFW ping = mqttPingReqRO.wrap(buffer, offset, limit);
-                onMqttPingReq(ping);
-                progress = ping.limit();
-                break;
-            case SUBSCRIBE:
-                final MqttSubscribeFW subscribe = mqttSubscribeRO.wrap(buffer, offset, limit);
-                onMqttSubscribe(subscribe);
-                progress = subscribe.limit();
-                break;
-            case UNSUBSCRIBE:
-                final MqttUnsubscribeFW unsubscribe = mqttUnsubscribeRO.wrap(buffer, offset, limit);
-                onMqttUnsubscribe(unsubscribe);
-                progress = unsubscribe.limit();
-                break;
-            case DISCONNECT:
-                final MqttDisconnectFW disconnect = mqttDisconnectRO.wrap(buffer, offset, limit);
-                onMqttDisconnect(disconnect);
-                doEnd(decodeTraceId);
-                progress = disconnect.limit();
-                break;
-            case PUBLISH:
-                final MqttPublishFW publish = mqttPublishRO.wrap(buffer, offset, limit);
-                onMqttPublish(publish);
-                progress = publish.limit();
-                break;
-            default:
-                doReset(decodeTraceId);
-                break;
-            }
-
-            return progress;
-        }
-
 
         private final class Subscription
         {
@@ -1077,34 +1098,6 @@ public final class MqttServerFactory implements StreamFactory
                         .streamId(initialId)
                         .traceId(traceId)
                         .affinity(affinity)
-                        .build();
-
-                application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
-            }
-
-            private void doMqttBeginEx(
-                long traceId,
-                long affinity,
-                String topicFilter,
-                int subscriptionId)
-            {
-                router.setThrottle(initialId, this::onApplication);
-
-                final MqttBeginExFW beginEx = mqttBeginExRW
-                        .wrap(extBuffer, 0, extBuffer.capacity())
-                        .typeId(mqttTypeId)
-                        .role(r -> r.set(MqttRole.RECEIVER))
-                        .clientId("client")
-                        .topic(topicFilter)
-                        .subscriptionId(subscriptionId)
-                        .build();
-
-                final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                        .routeId(routeId)
-                        .streamId(initialId)
-                        .traceId(traceId)
-                        .affinity(affinity)
-                        .extension(beginEx.buffer(), beginEx.offset(), beginEx.sizeof())
                         .build();
 
                 application.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
@@ -1285,11 +1278,5 @@ public final class MqttServerFactory implements StreamFactory
                 application.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
             }
         }
-    }
-
-    @FunctionalInterface
-    private interface DecoderState
-    {
-        int decode(MqttPacketType packetType, DirectBuffer buffer, int offset, int limit);
     }
 }
