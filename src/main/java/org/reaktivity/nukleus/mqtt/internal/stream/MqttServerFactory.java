@@ -458,6 +458,7 @@ public final class MqttServerFactory implements StreamFactory
             MqttConnectFW packet)
         {
             int reasonCode = 0x00;
+            // TODO: Must process multiple CONNECT from client as protocol errors and close network connection: 0x82
 
             final String protocolName = packet.protocolName().asString();
             if (!"MQTT".equals(protocolName) || packet.protocolVersion() != 5)

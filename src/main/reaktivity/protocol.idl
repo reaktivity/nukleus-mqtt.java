@@ -49,7 +49,7 @@
         struct MqttPacketFixedHeader
         {
             uint8 typeAndFlags;
-            uint8 remainingLength;
+            varbyteuint32 remainingLength;
         }
 
         struct MqttByte
@@ -98,7 +98,7 @@
             uint8 protocolVersion;
             uint8 flags;
             uint16 keepAlive;
-            uint8 propertiesLength;
+            varbyteuint32 propertiesLength;
             string16 clientId;
             octets[propertiesLength] properties;
         }
@@ -107,7 +107,7 @@
         {
             uint8 flags;
             uint8 reasonCode;
-            varint32 propertiesLength;
+            varbyteuint32 propertiesLength;
             octets[propertiesLength] properties;
         }
 
@@ -125,7 +125,7 @@
         struct MqttSubscribe extends MqttPacketFixedHeader
         {
             uint16 packetId;
-            uint8 propertiesLength;
+            varbyteuint32 propertiesLength;
             octets[propertiesLength] properties;
             octets topicFilters;
         }
@@ -133,28 +133,28 @@
         struct MqttSuback extends MqttPacketFixedHeader
         {
             uint16 packetId;
-            varint32 propertiesLength;
+            varbyteuint32 propertiesLength;
             octets reasonCodes;
         }
 
         struct MqttUnsubscribe extends MqttPacketFixedHeader
         {
             uint16 packetId;
-            uint8 propertiesLength;
+            varbyteuint32 propertiesLength;
             octets[propertiesLength] properties;
             octets topicFilters;
         }
 
         struct MqttUnsuback extends MqttPacketFixedHeader
         {
-            varint32 propertiesLength;
+            varbyteuint32 propertiesLength;
             octets reasonCodes;
         }
 
         struct MqttPublish extends MqttPacketFixedHeader
         {
             string16 topicName;
-            uint8 propertiesLength;
+            varbyteuint32 propertiesLength;
             octets[propertiesLength] properties;
             octets payload;
         }
@@ -163,7 +163,7 @@
         {
             uint16 packetId;
             uint8 reasonCode;
-            varint32 propertiesLength;
+            varbyteuint32 propertiesLength;
             octets[propertiesLength] properties;
         }
 
@@ -171,7 +171,7 @@
         {
             uint16 packetId;
             uint8 reasonCode;
-            varint32 propertiesLength;
+            varbyteuint32 propertiesLength;
             octets[propertiesLength] properties;
         }
 
@@ -179,7 +179,7 @@
         {
             uint16 packetId;
             uint8 reasonCode;
-            varint32 propertiesLength;
+            varbyteuint32 propertiesLength;
             octets[propertiesLength] properties;
         }
 
@@ -187,14 +187,14 @@
         {
             uint16 packetId;
             uint8 reasonCode;
-            varint32 propertiesLength;
+            varbyteuint32 propertiesLength;
             octets[propertiesLength] properties;
         }
 
         struct MqttDisconnect extends MqttPacketFixedHeader
         {
             uint8 reasonCode;
-            varint32 propertiesLength;
+            varbyteuint32 propertiesLength;
             octets[propertiesLength] properties;
         }
     }
