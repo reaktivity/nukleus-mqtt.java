@@ -120,6 +120,15 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/connect/invalid.duplicate.connect/client"})
+    public void shouldRejectDuplicateConnectPacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/connect/successful.fragmented/client"})
     public void shouldProcessFragmentedConnectPacket() throws Exception
     {

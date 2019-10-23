@@ -30,6 +30,7 @@ import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
+import org.agrona.collections.LongHashSet;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
@@ -139,6 +140,7 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttServerDecoder decodeConnectPacket;
     private final MqttServerDecoder decodeSession;
 
+    private final LongHashSet connectionSet;
     private final Long2ObjectHashMap<MqttServer.MqttServerStream> correlations;
     private final MessageFunction<RouteFW> wrapRoute;
     private final int mqttTypeId;
@@ -167,6 +169,7 @@ public final class MqttServerFactory implements StreamFactory
         this.decodeConnectPacket = this::decodeConnectPacket;
         this.decodeSession = this::decodeSession;
         this.mqttTypeId = supplyTypeId.applyAsInt(MqttNukleus.NAME);
+        this.connectionSet = new LongHashSet();
     }
 
     @Override
@@ -199,6 +202,7 @@ public final class MqttServerFactory implements StreamFactory
     {
         final long routeId = begin.routeId();
         final long initialId = begin.streamId();
+        final long affinity = begin.affinity();
         final long replyId = supplyReplyId.applyAsLong(initialId);
 
         final MessagePredicate filter = (t, b, o, l) ->
@@ -222,7 +226,11 @@ public final class MqttServerFactory implements StreamFactory
 
         if (route != null)
         {
-            final MqttServer connection = new MqttServer(sender, routeId, initialId, replyId);
+            // TODO - make sure that CONNECT is only sent one time. Extra CONNECT packets will be processed as Protocol Errors
+            //        and close the network connection.
+            //      - via streamId/initialId?
+            //          - Long2ObjectHashMap<MqttServer.MqttServerStream> connections
+            final MqttServer connection = new MqttServer(sender, routeId, initialId, replyId, affinity);
             newStream = connection::onNetwork;
         }
         return newStream;
@@ -508,12 +516,14 @@ public final class MqttServerFactory implements StreamFactory
             MessageConsumer network,
             long routeId,
             long initialId,
-            long replyId)
+            long replyId,
+            long affinity)
         {
             this.network = network;
             this.routeId = routeId;
             this.initialId = initialId;
             this.replyId = replyId;
+            this.affinity = affinity;
             this.decoder = decodeConnectPacket;
             this.subscribers = new HashMap<>();
             this.publishers = new HashMap<>();
@@ -564,7 +574,8 @@ public final class MqttServerFactory implements StreamFactory
         private void onBegin(
             BeginFW begin)
         {
-            affinity = begin.affinity();
+            // affinity = begin.affinity();
+            // TODO - begin.traceID() vs supplyTradeId.getAsLong()
             doNetworkBegin(supplyTraceId.getAsLong(), affinity);
         }
 
@@ -676,16 +687,25 @@ public final class MqttServerFactory implements StreamFactory
             MqttConnectFW packet)
         {
             int reasonCode = 0x00;
-            // TODO: Must process multiple CONNECT from client as protocol errors and close network connection: 0x82
+            // TODO - Must process multiple CONNECT from client as protocol errors and close network connection: 0x82
+            //      - check via streamId/initialId
 
             final String protocolName = packet.protocolName().asString();
-            if (!"MQTT".equals(protocolName) || packet.protocolVersion() != 5)
+            if (connectionSet.contains(initialId))
             {
-                reasonCode = 0x84; // unsupported protocol version
+                reasonCode = 0x82; // protocol error
             }
-            else if ((packet.flags() & 0b0000_0001) != 0b0000_0000)
+            else
             {
-                reasonCode = 0x81; // malformed packet
+                connectionSet.add(initialId);
+                if (!"MQTT".equals(protocolName) || packet.protocolVersion() != 5)
+                {
+                    reasonCode = 0x84; // unsupported protocol version
+                }
+                else if ((packet.flags() & 0b0000_0001) != 0b0000_0000)
+                {
+                    reasonCode = 0x81; // malformed packet
+                }
             }
 
             if (reasonCode == 0)
@@ -843,15 +863,15 @@ public final class MqttServerFactory implements StreamFactory
                 }
                 else
                 {
-                    final MqttPublishStream serverStream = new MqttPublishStream(newTarget,
+                    final MqttPublishStream newPublishStream = new MqttPublishStream(newTarget,
                         newRouteId, newInitialId, newReplyId, 0);
 
-                    serverStream.doApplicationBegin(decodeTraceId, affinity);
+                    newPublishStream.doApplicationBegin(decodeTraceId, affinity);
 
-                    serverStream.doMqttDataEx(decodeTraceId, authorization, payload, dataEx);
+                    newPublishStream.doMqttDataEx(decodeTraceId, authorization, payload, dataEx);
 
-                    correlations.put(newReplyId, serverStream);
-                    publishers.put(topicName, serverStream);
+                    correlations.put(newReplyId, newPublishStream);
+                    publishers.put(topicName, newPublishStream);
                 }
             }
         }
