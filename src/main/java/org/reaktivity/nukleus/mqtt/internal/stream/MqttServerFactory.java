@@ -1153,14 +1153,6 @@ public final class MqttServerFactory implements StreamFactory
             int progress = offset;
             while (progress <= limit && previous != decoder)
             {
-                // final MqttPacketFixedHeaderFW packet = mqttPacketFixedHeaderRO.tryWrap(buffer, progress, limit);
-                //
-                // if (packet == null || packet.limit() + packet.remainingLength() > limit)
-                // {
-                //     break;
-                // }
-                //
-                // final MqttPacketType packetType = MqttPacketType.valueOf(packet.typeAndFlags() >> 4);
                 previous = decoder;
                 progress = decoder.decode(this, traceId, authorization, budgetId, buffer, progress, limit);
             }
