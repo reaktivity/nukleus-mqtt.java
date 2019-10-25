@@ -143,13 +143,11 @@ public final class MqttServerFactory implements StreamFactory
 
     private final BufferPool bufferPool;
 
-    // private final MqttServerDecoder decodePreface = this::decodePreface;
     private final MqttServerDecoder decodePacketType = this::decodePacketType;
     private final MqttServerDecoder decodeConnect = this::decodeConnect;
     private final MqttServerDecoder decodePublish = this::decodePublish;
     private final MqttServerDecoder decodeSubscribe = this::decodeSubscribe;
     private final MqttServerDecoder decodeUnsubscribe = this::decodeUnsubscribe;
-    // private final MqttServerDecoder decodeUnsuback = this::decodeUnsuback;
     private final MqttServerDecoder decodePingreq = this::decodePingreq;
     private final MqttServerDecoder decodeDisconnect = this::decodeDisconnect;
     private final MqttServerDecoder decodeIgnoreOne = this::decodeIgnoreOne;
@@ -448,7 +446,6 @@ public final class MqttServerFactory implements StreamFactory
             final MqttPacketType packetType = MqttPacketType.valueOf(packet.typeAndFlags() >> 4);
             final MqttServerDecoder decoder = decodersByPacketType.getOrDefault(packetType, decodeIgnoreOne);
 
-            // if (packet.limit() + packet.remainingLength() <= limit)
             if (limit - packet.limit() >= length)
             {
                 server.decoder = decoder;
@@ -467,11 +464,7 @@ public final class MqttServerFactory implements StreamFactory
         final int limit)
     {
         MqttConnectFW mqttConnect = mqttConnectRO.wrap(buffer, offset, limit);
-        final boolean success = server.onMqttConnect(authorization, mqttConnect);
-        if (success)
-        {
-            server.decoder = decodePacketType;
-        }
+        server.onMqttConnect(authorization, mqttConnect);
         return mqttConnect.limit();
     }
 
@@ -520,23 +513,6 @@ public final class MqttServerFactory implements StreamFactory
         return unsubscribe.limit();
     }
 
-    // private int decodeUnsuback(
-    //     MqttServer server,
-    //     final long traceId,
-    //     final long authorization,
-    //     final long budgetId,
-    //     final DirectBuffer buffer,
-    //     final int offset,
-    //     final int limit)
-    // {
-    //     // server.doMqttUnsuback(authorization, );
-    //     // final MqttUnsubscribeFW unsubscribe = mqttUnsubscribeRO.wrap(buffer, offset, limit);
-    //     // server.onMqttUnsubscribe(authorization, unsubscribe);
-    //     // return unsubscribe.limit();
-    //     server.decoder = decodePacketType;
-    //     return offset;
-    // }
-
     private int decodePingreq(
         MqttServer server,
         final long traceId,
@@ -567,59 +543,6 @@ public final class MqttServerFactory implements StreamFactory
         server.doNetworkEnd(traceId);
         return disconnect.limit();
     }
-
-    // private int decodeSession(
-    //     MqttServer server,
-    //     final long traceId,
-    //     final long authorization,
-    //     final long budgetId,
-    //     final DirectBuffer buffer,
-    //     final int offset,
-    //     final int limit)
-    // {
-    //     int progress = 0;
-    //
-    //     final MqttPacketFixedHeaderFW packet = mqttPacketFixedHeaderRO.tryWrap(buffer, offset, limit);
-    //
-    //     if (packet != null && packet.limit() + packet.remainingLength() <= limit)
-    //     {
-    //         final MqttPacketType packetType = MqttPacketType.valueOf(packet.typeAndFlags() >> 4);
-    //         switch (packetType)
-    //         {
-    //             case PUBLISH:
-    //                 final MqttPublishFW publish = mqttPublishRO.wrap(buffer, offset, limit);
-    //                 server.onMqttPublish(authorization, publish);
-    //                 progress = publish.limit();
-    //                 break;
-    //             case SUBSCRIBE:
-    //                 final MqttSubscribeFW subscribe = mqttSubscribeRO.wrap(buffer, offset, limit);
-    //                 server.onMqttSubscribe(authorization, subscribe);
-    //                 progress = subscribe.limit();
-    //                 break;
-    //             case UNSUBSCRIBE:
-    //                 final MqttUnsubscribeFW unsubscribe = mqttUnsubscribeRO.wrap(buffer, offset, limit);
-    //                 server.onMqttUnsubscribe(authorization, unsubscribe);
-    //                 progress = unsubscribe.limit();
-    //                 break;
-    //             case PINGREQ:
-    //                 final MqttPingReqFW ping = mqttPingReqRO.wrap(buffer, offset, limit);
-    //                 server.onMqttPingReq(authorization, ping);
-    //                 progress = ping.limit();
-    //                 break;
-    //             case DISCONNECT:
-    //                 final MqttDisconnectFW disconnect = mqttDisconnectRO.wrap(buffer, offset, limit);
-    //                 server.onMqttDisconnect(disconnect);
-    //                 server.doNetworkEnd(traceId);
-    //                 progress = disconnect.limit();
-    //                 break;
-    //             default:
-    //                 server.doNetworkReset(traceId);
-    //                 break;
-    //         }
-    //     }
-    //
-    //     return progress;
-    // }
 
     private int decodeIgnoreOne(
         MqttServer server,
@@ -789,36 +712,6 @@ public final class MqttServerFactory implements StreamFactory
                 }
 
                 decodeNetwork(traceId, authorization, budgetId, buffer, offset, limit);
-
-                // while (offset < limit)
-                // {
-                //     // final MqttPacketFixedHeaderFW packet = mqttPacketFixedHeaderRO.tryWrap(buffer, offset, limit);
-                //     //
-                //     // if (packet == null || packet.limit() + packet.remainingLength() > limit)
-                //     // {
-                //     //     break;
-                //     // }
-                //     //
-                //     // final MqttPacketType packetType = MqttPacketType.valueOf(packet.typeAndFlags() >> 4);
-                //     offset += decoder.decode(this, authorization, decodeTraceId, buffer, offset, limit);
-                // }
-                //
-                // if (offset < limit)
-                // {
-                //     if (slotIndex == NO_SLOT)
-                //     {
-                //         slotIndex = bufferPool.acquire(streamId);
-                //     }
-                //     final MutableDirectBuffer slotBuffer = bufferPool.buffer(slotIndex);
-                //     slotLimit = limit - offset;
-                //     slotBuffer.putBytes(0, buffer, offset, slotLimit);
-                // }
-                // else if (slotIndex != NO_SLOT)
-                // {
-                //     bufferPool.release(slotIndex);
-                //     slotIndex = NO_SLOT;
-                //     slotLimit = 0;
-                // }
             }
         }
 
@@ -873,13 +766,13 @@ public final class MqttServerFactory implements StreamFactory
             doNetworkSignal(traceId);
         }
 
-        private boolean onMqttConnect(
+        private void onMqttConnect(
             long authorization,
             MqttConnectFW packet)
         {
-            int reasonCode = 0x00;
-
             final String protocolName = packet.protocolName().asString();
+
+            int reasonCode = 0x00;
             if (receivedConnect)
             {
                 reasonCode = 0x82; // protocol error
@@ -892,19 +785,17 @@ public final class MqttServerFactory implements StreamFactory
             {
                 reasonCode = 0x81; // malformed packet
             }
-            receivedConnect = true;
 
-            boolean success = reasonCode == 0;
-            if (success)
+            if (reasonCode == 0)
             {
                 doMqttConnack(authorization, reasonCode);
+                decoder = decodePacketType;
             }
             else
             {
                 doMqttConnack(authorization, reasonCode);
                 doNetworkEnd(decodeTraceId);
             }
-            return success;
         }
 
         private void onMqttPingReq(
@@ -1164,6 +1055,8 @@ public final class MqttServerFactory implements StreamFactory
                 .propertiesLength(properties.sizeof())
                 .properties(properties)
                 .build();
+
+            receivedConnect = true;
 
             doNetworkData(authorization, 0L, connack);
         }
