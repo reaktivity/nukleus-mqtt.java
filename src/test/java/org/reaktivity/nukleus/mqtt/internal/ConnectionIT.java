@@ -120,7 +120,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/connect/invalid.duplicate.connect/client"})
+        "${client}/connect/reject.second.connect/client"})
     public void shouldRejectDuplicateConnectPacket() throws Exception
     {
         k3po.finish();
