@@ -121,7 +121,7 @@ public class ConnectionIT
     @Specification({
         "${route}/server/controller",
         "${client}/connect/reject.second.connect/client"})
-    public void shouldRejectDuplicateConnectPacket() throws Exception
+    public void shouldRejectSecondConnectPacket() throws Exception
     {
         k3po.finish();
     }
