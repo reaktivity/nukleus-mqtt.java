@@ -820,6 +820,7 @@ public final class MqttServerFactory implements StreamFactory
             BeginFW begin)
         {
             final long traceId = begin.traceId();
+            final long authorization = begin.authorization();
             affinity = begin.affinity();
             // TODO - begin.traceID() vs supplyTradeId.getAsLong()
             doNetworkBegin(traceId, authorization, affinity);
