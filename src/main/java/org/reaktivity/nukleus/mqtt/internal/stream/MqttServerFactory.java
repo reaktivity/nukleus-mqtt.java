@@ -298,6 +298,7 @@ public final class MqttServerFactory implements StreamFactory
         long routeId,
         long replyId,
         long traceId,
+        long authorization,
         long affinity,
         Flyweight extension)
     {
@@ -305,6 +306,7 @@ public final class MqttServerFactory implements StreamFactory
                                      .routeId(routeId)
                                      .streamId(replyId)
                                      .traceId(traceId)
+                                     .authorization(authorization)
                                      .affinity(affinity)
                                      .extension(extension.buffer(), extension.offset(), extension.sizeof())
                                      .build();
@@ -817,9 +819,10 @@ public final class MqttServerFactory implements StreamFactory
         private void onNetworkBegin(
             BeginFW begin)
         {
-            // affinity = begin.affinity();
+            final long traceId = begin.traceId();
+            affinity = begin.affinity();
             // TODO - begin.traceID() vs supplyTradeId.getAsLong()
-            doNetworkBegin(supplyTraceId.getAsLong(), affinity);
+            doNetworkBegin(traceId, authorization, affinity);
         }
 
         private void onNetworkData(
@@ -985,7 +988,7 @@ public final class MqttServerFactory implements StreamFactory
                     final MqttSubscribeStream subscribeStream = new MqttSubscribeStream(newTarget,
                         newRouteId, newInitialId, newReplyId, packetId, topicFilter, subscription);
 
-                    subscribeStream.doMqttBeginEx(decodeTraceId, affinity, topicFilter, subscriptionId);
+                    subscribeStream.doMqttBeginEx(decodeTraceId, authorization, affinity, topicFilter, subscriptionId);
 
                     correlations.put(newReplyId, subscribeStream);
 
@@ -1047,7 +1050,7 @@ public final class MqttServerFactory implements StreamFactory
                 final MqttPublishStream newPublishStream = new MqttPublishStream(newTarget,
                     newRouteId, newInitialId, newReplyId, 0);
 
-                newPublishStream.doApplicationBegin(decodeTraceId, affinity);
+                newPublishStream.doApplicationBegin(decodeTraceId, authorization, affinity);
 
                 newPublishStream.doMqttDataEx(decodeTraceId, authorization, payload, dataEx);
 
@@ -1076,9 +1079,10 @@ public final class MqttServerFactory implements StreamFactory
 
         private void doNetworkBegin(
             long traceId,
+            long authorization,
             long affinity)
         {
-            doBegin(network, routeId, replyId, traceId, affinity, EMPTY_OCTETS);
+            doBegin(network, routeId, replyId, traceId, authorization, affinity, EMPTY_OCTETS);
             router.setThrottle(replyId, this::onNetwork);
         }
 
@@ -1597,9 +1601,10 @@ public final class MqttServerFactory implements StreamFactory
 
             private void doApplicationBegin(
                 long traceId,
+                long authorization,
                 long affinity)
             {
-                doBegin(application, routeId, initialId, traceId, affinity, EMPTY_OCTETS);
+                doBegin(application, routeId, initialId, traceId, authorization, affinity, EMPTY_OCTETS);
             }
 
             private void doMqttDataEx(
@@ -1722,13 +1727,15 @@ public final class MqttServerFactory implements StreamFactory
 
             private void doApplicationBegin(
                 long traceId,
+                long authorization,
                 long affinity)
             {
-                doBegin(application, routeId, initialId, traceId, affinity, EMPTY_OCTETS);
+                doBegin(application, routeId, initialId, traceId, authorization, affinity, EMPTY_OCTETS);
             }
 
             private void doMqttBeginEx(
                 long traceId,
+                long authorization,
                 long affinity,
                 String topicFilter,
                 int subscriptionId)
@@ -1744,7 +1751,7 @@ public final class MqttServerFactory implements StreamFactory
                         .subscriptionId(subscriptionId)
                         .build();
 
-                doBegin(application, routeId, initialId, traceId, affinity, beginEx);
+                doBegin(application, routeId, initialId, traceId, authorization, affinity, beginEx);
             }
 
             private void doMqttDataEx(
