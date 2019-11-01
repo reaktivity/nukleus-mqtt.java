@@ -711,7 +711,6 @@ public final class MqttServerFactory implements StreamFactory
             this.subscribers = new HashMap<>();
             this.publishers = new HashMap<>();
             this.subscriptionsByPacketId = new Int2ObjectHashMap<>();
-            this.connected = false;
         }
 
         private void onNetwork(
@@ -838,6 +837,35 @@ public final class MqttServerFactory implements StreamFactory
             doNetworkWindow(supplyTraceId.getAsLong(), initialCredit);
         }
 
+        // private void onNetworkWindow(
+        //     WindowFW window)
+        // {
+        //     final long traceId = window.traceId();
+        //     final long authorization = window.authorization();
+        //     final long budgetId = window.budgetId();
+        //     final int credit = window.credit();
+        //     final int padding = window.padding();
+        //
+        //     // TODO: restore shared budget if limited by reply budget
+        //     replyBudget += credit;
+        //     replyPadding = padding;
+        //
+        //     if (encodeSlot != NO_SLOT)
+        //     {
+        //         final MutableDirectBuffer buffer = bufferPool.buffer(encodeSlot);
+        //         final int limit = Math.min(encodeSlotOffset, encodeSlotMaxLimit);
+        //         final int maxLimit = encodeSlotOffset;
+        //
+        //         encodeNetwork(encodeSlotTraceId, authorization, budgetId, buffer, 0, limit, maxLimit);
+        //     }
+        //
+        //     if (encodeSlot == NO_SLOT)
+        //     {
+        //         // subscribers.values().forEach(sub -> sub.flushResponseWindow(traceId, authorization));
+        //         // publishers.values().forEach(pub -> pub.flushResponseWindow(traceId, authorization));
+        //     }
+        // }
+
         private void onNetworkReset(
             ResetFW reset)
         {
@@ -866,7 +894,11 @@ public final class MqttServerFactory implements StreamFactory
 
             doEncodeConnack(traceId, authorization, reasonCode);
 
-            if (reasonCode != 0)
+            if (reasonCode == 0)
+            {
+                connected = true;
+            }
+            else
             {
                 doNetworkEnd(traceId, authorization);
             }
@@ -1175,8 +1207,6 @@ public final class MqttServerFactory implements StreamFactory
                 .propertiesLength(properties.sizeof())
                 .properties(properties)
                 .build();
-
-            connected = true;
 
             doNetworkData(traceId, authorization, 0L, connack);
         }
