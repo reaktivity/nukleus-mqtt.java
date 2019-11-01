@@ -138,8 +138,7 @@ public final class MqttServerFactory implements StreamFactory
     private final LongSupplier supplyTraceId;
 
     private final Long2ObjectHashMap<MqttServer.MqttServerStream> correlations;
-    private final MessageFunction<RouteFW> wrapRoute = (msgTypeId, buffer, index, length) ->
-            routeRO.wrap(buffer, index, index + length);
+    private final MessageFunction<RouteFW> wrapRoute = (t, b, i, l) -> routeRO.wrap(b, i, i + l);
     private final int mqttTypeId;
 
     private final BufferPool bufferPool;
@@ -151,9 +150,8 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttServerDecoder decodeUnsubscribe = this::decodeUnsubscribe;
     private final MqttServerDecoder decodePingreq = this::decodePingreq;
     private final MqttServerDecoder decodeDisconnect = this::decodeDisconnect;
-    private final MqttServerDecoder decodeIgnoreOne = this::decodeIgnoreOne;
     private final MqttServerDecoder decodeIgnoreAll = this::decodeIgnoreAll;
-    private final MqttServerDecoder decodeError = this::decodeError;
+    private final MqttServerDecoder decodeUnknownType = this::decodeUnknownType;
 
     private final Map<MqttPacketType, MqttServerDecoder> decodersByPacketType;
 
@@ -443,7 +441,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             final int length = packet.remainingLength();
             final MqttPacketType packetType = MqttPacketType.valueOf(packet.typeAndFlags() >> 4);
-            final MqttServerDecoder decoder = decodersByPacketType.getOrDefault(packetType, decodeError);
+            final MqttServerDecoder decoder = decodersByPacketType.getOrDefault(packetType, decodeUnknownType);
 
             if (limit - packet.limit() >= length)
             {
@@ -488,8 +486,7 @@ public final class MqttServerFactory implements StreamFactory
         }
         else
         {
-            server.doEncodeConnack(traceId, authorization, reasonCode);
-            server.doNetworkEnd(traceId, authorization);
+            server.onDecodeError(traceId, authorization, reasonCode, true);
             server.decoder = decodeIgnoreAll;
         }
 
@@ -509,60 +506,14 @@ public final class MqttServerFactory implements StreamFactory
         int progress = offset;
         if (publish == null)
         {
-            server.onDecodeError(traceId, authorization, 0x82);
+            server.onDecodeError(traceId, authorization, 0x82, false);
             server.decoder = decodeIgnoreAll;
         }
         else
         {
-            final String topicName = publish.topicName().asString();
-
-            String info = "info";
-
-            final MqttDataExFW dataEx = mqttDataExRW
-                    .wrap(extBuffer, 0, extBuffer.capacity())
-                    .typeId(mqttTypeId)
-                    .topic(topicName)
-                    .expiryInterval(15)
-                    .contentType("message")
-                    .format(f -> f.set(MqttPayloadFormat.TEXT))
-                    .responseTopic(topicName)
-                    .correlationInfo(c -> c.bytes(b -> b.set(info.getBytes(UTF_8))))
-                    .build();
-
-            OctetsFW payload = publish.payload();
-
-            MqttServer.MqttPublishStream publishStream = server.publishers.get(topicName);
-
-            final RouteFW route = resolveTarget(server.routeId, authorization, topicName);
-            if (route != null)
-            {
-                final long newRouteId = route.correlationId();
-                final long newInitialId = supplyInitialId.applyAsLong(newRouteId);
-                final long newReplyId = supplyReplyId.applyAsLong(newInitialId);
-                final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
-
-                server.onDecodePublish(authorization, publishStream, topicName, newRouteId, newInitialId,
-                        newReplyId, newTarget, dataEx, payload, publish);
-                server.decoder = decodePacketType;
-                progress = publish.limit();
-                // if (publishStream != null)
-                // {
-                //     publishStream.doMqttDataEx(traceId, authorization, payload, dataEx);
-                //     correlations.put(newReplyId, publishStream);    // TODO: do we need to clean up correlations onAbort()?
-                // }
-                // else
-                // {
-                //     final MqttServer.MqttPublishStream newPublishStream = new MqttServer.MqttPublishStream(newTarget,
-                //             newRouteId, newInitialId, newReplyId, 0);
-                //
-                //     newPublishStream.doApplicationBegin(traceId, server.affinity);
-                //
-                //     newPublishStream.doMqttDataEx(traceId, authorization, payload, dataEx);
-                //
-                //     correlations.put(newReplyId, newPublishStream);
-                //     server.publishers.put(topicName, newPublishStream);
-                // }
-            }
+            server.onDecodePublish(authorization, publish);
+            server.decoder = decodePacketType;
+            progress = publish.limit();
         }
 
         return progress;
@@ -581,7 +532,7 @@ public final class MqttServerFactory implements StreamFactory
         int progress = offset;
         if (subscribe == null)
         {
-            server.onDecodeError(traceId, authorization, 0x82);
+            server.onDecodeError(traceId, authorization, 0x82, false);
             server.decoder = decodeIgnoreAll;
         }
         else
@@ -607,7 +558,7 @@ public final class MqttServerFactory implements StreamFactory
         int progress = offset;
         if (unsubscribe == null)
         {
-            server.onDecodeError(traceId, authorization, 0x82);
+            server.onDecodeError(traceId, authorization, 0x82, false);
             server.decoder = decodeIgnoreAll;
         }
         else
@@ -633,7 +584,7 @@ public final class MqttServerFactory implements StreamFactory
         int progress = offset;
         if (ping == null)
         {
-            server.onDecodeError(traceId, authorization, 0x82);
+            server.onDecodeError(traceId, authorization, 0x82, false);
             server.decoder = decodeIgnoreAll;
         }
         else
@@ -659,7 +610,7 @@ public final class MqttServerFactory implements StreamFactory
         int progress = offset;
         if (disconnect == null)
         {
-            server.onDecodeError(traceId, authorization, 0x82);
+            server.onDecodeError(traceId, authorization, 0x82, false);
             server.decoder = decodeIgnoreAll;
         }
         else
@@ -670,20 +621,6 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         return progress;
-    }
-
-    private int decodeIgnoreOne(
-        MqttServer server,
-        long traceId,
-        long authorization,
-        long budgetId,
-        DirectBuffer buffer,
-        int offset,
-        int limit)
-    {
-        final MqttPacketFixedHeaderFW packet = mqttPacketFixedHeaderRO.wrap(buffer, offset, limit);
-        server.decoder = decodePacketType;
-        return packet.limit();
     }
 
     private int decodeIgnoreAll(
@@ -698,7 +635,7 @@ public final class MqttServerFactory implements StreamFactory
         return limit;
     }
 
-    private int decodeError(
+    private int decodeUnknownType(
         MqttServer server,
         long traceId,
         long authorization,
@@ -707,7 +644,7 @@ public final class MqttServerFactory implements StreamFactory
         int offset,
         int limit)
     {
-        server.onDecodeError(traceId, authorization, 0x82);
+        server.onDecodeError(traceId, authorization, 0x82, false);
         server.decoder = decodeIgnoreAll;
         return limit;
     }
@@ -822,7 +759,6 @@ public final class MqttServerFactory implements StreamFactory
             final long traceId = begin.traceId();
             final long authorization = begin.authorization();
             affinity = begin.affinity();
-            // TODO - begin.traceID() vs supplyTradeId.getAsLong()
             doNetworkBegin(traceId, authorization, affinity);
         }
 
@@ -1031,32 +967,51 @@ public final class MqttServerFactory implements StreamFactory
 
         private void onDecodePublish(
             long authorization,
-            MqttPublishStream publishStream,
-            String topicName,
-            long newRouteId,
-            long newInitialId,
-            long newReplyId,
-            MessageConsumer newTarget,
-            MqttDataExFW dataEx,
-            OctetsFW payload,
             MqttPublishFW publish)
         {
-            if (publishStream != null)
+            final String topicName = publish.topicName().asString();
+
+            String info = "info";
+
+            final MqttDataExFW dataEx = mqttDataExRW
+                    .wrap(extBuffer, 0, extBuffer.capacity())
+                    .typeId(mqttTypeId)
+                    .topic(topicName)
+                    .expiryInterval(15)
+                    .contentType("message")
+                    .format(f -> f.set(MqttPayloadFormat.TEXT))
+                    .responseTopic(topicName)
+                    .correlationInfo(c -> c.bytes(b -> b.set(info.getBytes(UTF_8))))
+                    .build();
+
+            OctetsFW payload = publish.payload();
+
+            MqttServer.MqttPublishStream publishStream = publishers.get(topicName);
+
+            final RouteFW route = resolveTarget(routeId, authorization, topicName);
+            if (route != null)
             {
-                publishStream.doMqttDataEx(decodeTraceId, authorization, payload, dataEx);
-                correlations.put(newReplyId, publishStream);    // TODO: do we need to clean up correlations onAbort()?
-            }
-            else
-            {
-                final MqttPublishStream newPublishStream = new MqttPublishStream(newTarget,
-                    newRouteId, newInitialId, newReplyId, 0);
+                final long newRouteId = route.correlationId();
+                final long newInitialId = supplyInitialId.applyAsLong(newRouteId);
+                final long newReplyId = supplyReplyId.applyAsLong(newInitialId);
+                final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
+                if (publishStream != null)
+                {
+                    publishStream.doMqttDataEx(decodeTraceId, authorization, payload, dataEx);
+                    correlations.put(newReplyId, publishStream);    // TODO: do we need to clean up correlations onAbort()?
+                }
+                else
+                {
+                    final MqttPublishStream newPublishStream = new MqttPublishStream(newTarget,
+                            newRouteId, newInitialId, newReplyId, 0);
 
-                newPublishStream.doApplicationBegin(decodeTraceId, authorization, affinity);
+                    newPublishStream.doApplicationBegin(decodeTraceId, authorization, affinity);
 
-                newPublishStream.doMqttDataEx(decodeTraceId, authorization, payload, dataEx);
+                    newPublishStream.doMqttDataEx(decodeTraceId, authorization, payload, dataEx);
 
-                correlations.put(newReplyId, newPublishStream);
-                publishers.put(topicName, newPublishStream);
+                    correlations.put(newReplyId, newPublishStream);
+                    publishers.put(topicName, newPublishStream);
+                }
             }
         }
 
@@ -1071,10 +1026,18 @@ public final class MqttServerFactory implements StreamFactory
         private void onDecodeError(
             long traceId,
             long authorization,
-            int reasonCode)
+            int reasonCode,
+            boolean isConnectError)
         {
             cleanupStreams();
-            doEncodeDisconnect(traceId, authorization, reasonCode);
+            if (isConnectError)
+            {
+                doEncodeConnack(traceId, authorization, reasonCode);
+            }
+            else
+            {
+                doEncodeDisconnect(traceId, authorization, reasonCode);
+            }
             doNetworkEnd(traceId, authorization);
         }
 
