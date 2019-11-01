@@ -36,6 +36,7 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
     private MutableDirectBuffer writeBuffer;
     private LongUnaryOperator supplyInitialId;
     private LongUnaryOperator supplyReplyId;
+    private LongSupplier supplyBudgetId;
     private LongSupplier supplyTraceId;
     private Supplier<BufferPool> supplyBufferPool;
     private ToIntFunction<String> supplyTypeId;
@@ -95,6 +96,14 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
+    public StreamFactoryBuilder setBudgetIdSupplier(
+            LongSupplier supplyBudgetId)
+    {
+        this.supplyBudgetId = supplyBudgetId;
+        return this;
+    }
+
+    @Override
     public StreamFactoryBuilder setTypeIdSupplier(
         ToIntFunction<String> supplyTypeId)
     {
@@ -114,6 +123,7 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
                 bufferPool,
                 supplyInitialId,
                 supplyReplyId,
+                supplyBudgetId,
                 supplyTraceId,
                 supplyTypeId);
     }
