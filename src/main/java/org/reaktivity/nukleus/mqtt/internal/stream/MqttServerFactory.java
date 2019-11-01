@@ -1051,6 +1051,14 @@ public final class MqttServerFactory implements StreamFactory
             doEncodeUnsuback(traceId, authorization, topics);
         }
 
+        private void onDecodePingReq(
+            long traceId,
+            long authorization,
+            MqttPingReqFW ping)
+        {
+            doEncodePingResp(traceId, authorization);
+        }
+
         private void onDecodeDisconnect(
             long traceId,
             long authorization,
@@ -1058,14 +1066,6 @@ public final class MqttServerFactory implements StreamFactory
         {
             /* process reason code */
             doNetworkEnd(traceId, authorization);
-        }
-
-        private void onDecodePingReq(
-            long traceId,
-            long authorization,
-            MqttPingReqFW ping)
-        {
-            doEncodePingResp(traceId, authorization);
         }
 
         private void onDecodeError(
@@ -1211,18 +1211,6 @@ public final class MqttServerFactory implements StreamFactory
             doNetworkData(traceId, authorization, 0L, connack);
         }
 
-        private void doEncodePingResp(
-            long traceId,
-            long authorization)
-        {
-            final MqttPingRespFW ping = mqttPingRespRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                .typeAndFlags(0xd0)
-                .remainingLength(0x00)
-                .build();
-
-            doNetworkData(traceId, authorization, 0L, ping);
-        }
-
         private void doEncodeSuback(
             long traceId,
             long authorization,
@@ -1272,6 +1260,18 @@ public final class MqttServerFactory implements StreamFactory
                 .build();
 
             doNetworkData(traceId, authorization, 0L, unsuback);
+        }
+
+        private void doEncodePingResp(
+            long traceId,
+            long authorization)
+        {
+            final MqttPingRespFW ping = mqttPingRespRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                    .typeAndFlags(0xd0)
+                    .remainingLength(0x00)
+                    .build();
+
+            doNetworkData(traceId, authorization, 0L, ping);
         }
 
         private void doEncodeDisconnect(
