@@ -470,13 +470,17 @@ public final class MqttServerFactory implements StreamFactory
 
         int progress = offset;
         int reasonCode = 0x00;
-        if (mqttConnect == null || (mqttConnect.flags() & 0b0000_0001) != 0b0000_0000)
+        if (mqttConnect == null)
         {
-            reasonCode = 0x81; // malformed packet
+            reasonCode = 0x82; // Protocol Error
+        }
+        else if ((mqttConnect.flags() & 0b0000_0001) != 0b0000_0000)
+        {
+            reasonCode = 0x81; // Malformed Packet
         }
         else if (!"MQTT".equals(mqttConnect.protocolName().asString()) || mqttConnect.protocolVersion() != 5)
         {
-            reasonCode = 0x84; // unsupported protocol version
+            reasonCode = 0x84; // Unsupported Protocol Version
         }
 
         if (reasonCode == 0)
@@ -504,17 +508,28 @@ public final class MqttServerFactory implements StreamFactory
         final int limit)
     {
         final MqttPublishFW publish = mqttPublishRO.tryWrap(buffer, offset, limit);
+
         int progress = offset;
+        int reasonCode = 0x00;
         if (publish == null)
         {
-            server.onDecodeError(traceId, authorization, 0x82);
-            server.decoder = decodeIgnoreAll;
+            reasonCode = 0x82; // Protocol Error
         }
-        else
+        else if ((publish.typeAndFlags() & 0b1111_0000) != 0b0011_0000)
+        {
+            reasonCode = 0x81; // Malformed Packet
+        }
+
+        if (reasonCode == 0)
         {
             server.onDecodePublish(traceId, authorization, publish);
             server.decoder = decodePacketType;
             progress = publish.limit();
+        }
+        else
+        {
+            server.onDecodeError(traceId, authorization, 0x82);
+            server.decoder = decodeIgnoreAll;
         }
 
         return progress;
@@ -530,17 +545,28 @@ public final class MqttServerFactory implements StreamFactory
         final int limit)
     {
         final MqttSubscribeFW subscribe = mqttSubscribeRO.tryWrap(buffer, offset, limit);
+
         int progress = offset;
+        int reasonCode = 0x00;
         if (subscribe == null)
         {
-            server.onDecodeError(traceId, authorization, 0x82);
-            server.decoder = decodeIgnoreAll;
+            reasonCode = 0x82; // Protocol Error
         }
-        else
+        else if ((subscribe.typeAndFlags() & 0b1111_1111) != 0b1000_0010)
+        {
+            reasonCode = 0x81;  // Malformed Packet
+        }
+
+        if (reasonCode == 0)
         {
             server.onDecodeSubscribe(traceId, authorization, subscribe);
             server.decoder = decodePacketType;
             progress = subscribe.limit();
+        }
+        else
+        {
+            server.onDecodeError(traceId, authorization, 0x82);
+            server.decoder = decodeIgnoreAll;
         }
 
         return progress;
@@ -1037,7 +1063,7 @@ public final class MqttServerFactory implements StreamFactory
 
                     correlations.put(newReplyId, subscribeStream);
 
-                    subscribers.put(topicFilter, subscribeStream);
+                    subscribers.put(topicFilter, subscribeStream);  // TODO - what about multiple subscribers to same topic???
                 }
                 else
                 {
@@ -1057,8 +1083,28 @@ public final class MqttServerFactory implements StreamFactory
             final DirectBuffer buffer = topicFilters.buffer();
             final int limit = topicFilters.limit();
             final int offset = topicFilters.offset();
+            final int packetId = unsubscribe.packetId();
 
-            int topics = 0; // TODO - rename to more clearly define the use of variable. ie. used in # reason codes for UNSUBACK
+            /* TODO
+                When a Server receives UNSUBSCRIBE :
+                -
+                 The Topic Filters (whether they contain wildcards or not) supplied in an UNSUBSCRIBE packet MUST be compared
+                 character-by-character with the current set of Topic Filters held by the Server for the Client. If any filter
+                 matches exactly then its owning Subscription MUST be deleted
+                -
+                 It MUST stop adding any new messages which match the Topic Filters, for delivery to the Client [MQTT-3.10.4-2].
+                 It MUST complete the delivery of any QoS 1 or QoS 2 messages which match the Topic Filters and it has started to
+                 send to the Client [MQTT-3.10.4-3].
+                 It MAY continue to deliver any existing messages buffered for delivery to the Client.
+                -
+                 The Server MUST respond to an UNSUBSCRIBE request by sending an UNSUBACK packet [MQTT-3.10.4-4].
+                 The UNSUBACK packet MUST have the same Packet Identifier as the UNSUBSCRIBE packet. Even where no Topic
+                 Subscriptions are deleted, the Server MUST respond with an UNSUBACK [MQTT-3.10.4-5].
+                -
+                 If a Server receives an UNSUBSCRIBE packet that contains multiple Topic Filters, it MUST process that packet as
+                 if it had received a sequence of multiple UNSUBSCRIBE packets, except that it sends just one UNSUBACK response
+             */
+            int topicCount = 0;
             MqttTopicFW topic;
             for (int progress = offset; progress < limit; progress = topic.limit())
             {
@@ -1067,12 +1113,17 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     break;
                 }
-                topics++;
+                final String topicFilter = topic.filter().asString();
+                if (subscribers.containsKey(topicFilter))
+                {
+                    subscribers.remove(topicFilter);
+                }
+                topicCount++;
             }
             // TODO - topics count goes unused (as subscriptions) in doEncodeUnsuback.
             //        UNSUBACK must have same packetId as UNSUBSCRIBE
 
-            doEncodeUnsuback(traceId, authorization, topics);
+            doEncodeUnsuback(traceId, authorization, packetId, topicCount);
         }
 
         private void onDecodePingReq(
@@ -1241,9 +1292,9 @@ public final class MqttServerFactory implements StreamFactory
         private void doEncodeSuback(
             long traceId,
             long authorization,
+            int packetId,
             int ackMask,
-            int successMask,
-            int packetId)
+            int successMask)
         {
             final int ackCount = Integer.bitCount(ackMask);
             final byte[] subscriptions = new byte[ackCount];
@@ -1272,7 +1323,8 @@ public final class MqttServerFactory implements StreamFactory
         private void doEncodeUnsuback(
             long traceId,
             long authorization,
-            int subscriptions)
+            int packetId,
+            int topicCount)
         {
             OctetsFW reasonCodes = octetsRW
                 .wrap(writeBuffer, 0, writeBuffer.capacity())
@@ -1282,6 +1334,7 @@ public final class MqttServerFactory implements StreamFactory
             final MqttUnsubackFW unsuback = mqttUnsubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                 .typeAndFlags(0xa0)
                 .remainingLength(reasonCodes.sizeof() + 1)
+                .packetId(packetId)
                 .propertiesLength(0x00)
                 .reasonCodes(reasonCodes)
                 .build();
@@ -1518,7 +1571,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 if (Integer.bitCount(ackMask) == ackCount)
                 {
-                    doEncodeSuback(traceId, authorization, ackMask, successMask, packetId);
+                    doEncodeSuback(traceId, authorization, packetId, ackMask, successMask);
                 }
             }
         }

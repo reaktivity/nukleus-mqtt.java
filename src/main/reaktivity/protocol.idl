@@ -147,6 +147,7 @@
 
         struct MqttUnsuback extends MqttPacketFixedHeader
         {
+            uint16 packetId;
             varbyteuint32 propertiesLength;
             octets reasonCodes;
         }
