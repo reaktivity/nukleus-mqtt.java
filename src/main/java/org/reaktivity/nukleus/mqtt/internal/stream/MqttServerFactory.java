@@ -556,17 +556,28 @@ public final class MqttServerFactory implements StreamFactory
         final int limit)
     {
         final MqttUnsubscribeFW unsubscribe = mqttUnsubscribeRO.tryWrap(buffer, offset, limit);
+
         int progress = offset;
+        int reasonCode = 0x00;
         if (unsubscribe == null)
         {
-            server.onDecodeError(traceId, authorization, 0x82);
-            server.decoder = decodeIgnoreAll;
+            reasonCode = 0x82; // Protocol Error
         }
-        else
+        else if ((unsubscribe.typeAndFlags() & 0b1111_1111) != 0b1010_0010)
+        {
+            reasonCode = 0x81;  // Malformed Packet
+        }
+
+        if (reasonCode == 0)
         {
             server.onDecodeUnsubscribe(traceId, authorization, unsubscribe);
             server.decoder = decodePacketType;
             progress = unsubscribe.limit();
+        }
+        else
+        {
+            server.onDecodeError(traceId, authorization, 0x82);
+            server.decoder = decodeIgnoreAll;
         }
 
         return progress;
@@ -608,9 +619,9 @@ public final class MqttServerFactory implements StreamFactory
         final int limit)
     {
         final MqttDisconnectFW disconnect = mqttDisconnectRO.tryWrap(buffer, offset, limit);
+
         int progress = offset;
         int reasonCode = 0x00;
-
         if (disconnect == null)
         {
             reasonCode = 0x82; // Protocol Error
