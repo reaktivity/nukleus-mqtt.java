@@ -611,8 +611,13 @@ public final class MqttServerFactory implements StreamFactory
         int progress = offset;
         int reasonCode = 0x00;
 
-        if (disconnect == null || (disconnect.typeAndFlags() & 0xFF) != 0xE0) {
-            reasonCode = 0x82;
+        if (disconnect == null)
+        {
+            reasonCode = 0x82; // Protocol Error
+        }
+        else if ((disconnect.typeAndFlags() & 0b1111_1111) != 0b1110_0000)
+        {
+            reasonCode = 0x81;  // Malformed Packet
         }
 
         if (reasonCode == 0)
