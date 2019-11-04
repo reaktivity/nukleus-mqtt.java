@@ -609,16 +609,22 @@ public final class MqttServerFactory implements StreamFactory
     {
         final MqttDisconnectFW disconnect = mqttDisconnectRO.tryWrap(buffer, offset, limit);
         int progress = offset;
-        if (disconnect == null)
-        {
-            server.onDecodeError(traceId, authorization, 0x82);
-            server.decoder = decodeIgnoreAll;
+        int reasonCode = 0x00;
+
+        if (disconnect == null || (disconnect.typeAndFlags() & 0xFF) != 0xE0) {
+            reasonCode = 0x82;
         }
-        else
+
+        if (reasonCode == 0)
         {
             server.onDecodeDisconnect(traceId, authorization, disconnect);
             server.decoder = decodePacketType;
             progress = disconnect.limit();
+        }
+        else
+        {
+            server.onDecodeError(traceId, authorization, reasonCode);
+            server.decoder = decodeIgnoreAll;
         }
 
         return progress;
@@ -1036,7 +1042,7 @@ public final class MqttServerFactory implements StreamFactory
             final int limit = topicFilters.limit();
             final int offset = topicFilters.offset();
 
-            int topics = 0;
+            int topics = 0; // TODO - rename to more clearly define the use of variable. ie. used in # reason codes for UNSUBACK
             MqttTopicFW topic;
             for (int progress = offset; progress < limit; progress = topic.limit())
             {
@@ -1047,6 +1053,8 @@ public final class MqttServerFactory implements StreamFactory
                 }
                 topics++;
             }
+            // TODO - topics count goes unused (as subscriptions) in doEncodeUnsuback.
+            //        UNSUBACK must have same packetId as UNSUBSCRIBE
 
             doEncodeUnsuback(traceId, authorization, topics);
         }
@@ -1064,7 +1072,9 @@ public final class MqttServerFactory implements StreamFactory
             long authorization,
             MqttDisconnectFW disconnect)
         {
-            /* process reason code */
+            // TODO - process reason code here
+            //          - ex. 0x00: must discard any Will message w/o publishing it
+            //                0x04: server publishes Will message before disconnecting
             doNetworkEnd(traceId, authorization);
         }
 
@@ -1178,6 +1188,8 @@ public final class MqttServerFactory implements StreamFactory
                     .wrap(writeBuffer, 0, 0)
                     .build();
 
+            // TODO - calculating remaining length; currently hardcoded
+            //      - maybe change way FW is laid out?
             final MqttPublishFW publish = mqttPublishRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                     .typeAndFlags(0x30)
                     .remainingLength(0x14)
@@ -1186,7 +1198,6 @@ public final class MqttServerFactory implements StreamFactory
                     .payload(payload)
                     .build();
 
-            // doNetworkData(authorization, 0L, publish);
             doNetworkData(traceId, authorization, 0L, publish);
         }
 
