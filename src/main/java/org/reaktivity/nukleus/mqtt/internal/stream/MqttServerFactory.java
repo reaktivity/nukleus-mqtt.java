@@ -528,7 +528,7 @@ public final class MqttServerFactory implements StreamFactory
         }
         else
         {
-            server.onDecodeError(traceId, authorization, 0x82);
+            server.onDecodeError(traceId, authorization, reasonCode);
             server.decoder = decodeIgnoreAll;
         }
 
@@ -565,7 +565,7 @@ public final class MqttServerFactory implements StreamFactory
         }
         else
         {
-            server.onDecodeError(traceId, authorization, 0x82);
+            server.onDecodeError(traceId, authorization, reasonCode);
             server.decoder = decodeIgnoreAll;
         }
 
@@ -602,7 +602,7 @@ public final class MqttServerFactory implements StreamFactory
         }
         else
         {
-            server.onDecodeError(traceId, authorization, 0x82);
+            server.onDecodeError(traceId, authorization, reasonCode);
             server.decoder = decodeIgnoreAll;
         }
 
@@ -1051,7 +1051,6 @@ public final class MqttServerFactory implements StreamFactory
                     final long newRouteId = route.correlationId();
                     final long newInitialId = supplyInitialId.applyAsLong(newRouteId);
                     final long newReplyId = supplyReplyId.applyAsLong(newInitialId);
-
                     final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
 
                     // TODO - initially assuming only one topicFilter per subscribe. will need to be able to support
@@ -1114,16 +1113,16 @@ public final class MqttServerFactory implements StreamFactory
                     break;
                 }
                 final String topicFilter = topic.filter().asString();
-                if (subscribers.containsKey(topicFilter))
-                {
-                    subscribers.remove(topicFilter);
-                }
+                // TODO - change so that multiple streams can be subscribed to a topic, and only remove appropriate one
+                //      - client should no longer receive published messages.
+                subscribers.remove(topicFilter);
+                System.out.printf("subscribers has topic[%s]=%b\n", topicFilter, subscribers.containsKey(topicFilter));
                 topicCount++;
             }
             // TODO - topics count goes unused (as subscriptions) in doEncodeUnsuback.
             //        UNSUBACK must have same packetId as UNSUBSCRIBE
 
-            doEncodeUnsuback(traceId, authorization, packetId, topicCount);
+            doEncodeUnsuback(traceId, authorization, packetId);
         }
 
         private void onDecodePingReq(
@@ -1323,8 +1322,7 @@ public final class MqttServerFactory implements StreamFactory
         private void doEncodeUnsuback(
             long traceId,
             long authorization,
-            int packetId,
-            int topicCount)
+            int packetId)
         {
             OctetsFW reasonCodes = octetsRW
                 .wrap(writeBuffer, 0, writeBuffer.capacity())
@@ -1588,6 +1586,7 @@ public final class MqttServerFactory implements StreamFactory
         private final class MqttPublishStream extends MqttServerStream
         {
             private final MessageConsumer application;
+
             private long routeId;
             private long initialId;
             private long replyId;
@@ -1697,7 +1696,7 @@ public final class MqttServerFactory implements StreamFactory
 
             private void cleanup()
             {
-                publishers.remove(topicFilter);
+                // publishers.remove(topicFilter);
             }
         }
 
@@ -1705,6 +1704,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             private final MessageConsumer application;
             private final int ackIndex;
+
             private long routeId;
             private long initialId;
             private long replyId;
@@ -1847,7 +1847,7 @@ public final class MqttServerFactory implements StreamFactory
 
             private void cleanup()
             {
-                subscribers.remove(topicFilter);
+                // subscribers.remove(topicFilter);
             }
         }
     }
