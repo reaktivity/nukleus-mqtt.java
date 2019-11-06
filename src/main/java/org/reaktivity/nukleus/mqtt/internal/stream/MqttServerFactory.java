@@ -1117,7 +1117,6 @@ public final class MqttServerFactory implements StreamFactory
                 // TODO - change so that multiple streams can be subscribed to a topic, and only remove appropriate one
                 //      - client should no longer receive published messages.
                 subscribers.remove(topicFilter);
-                System.out.printf("subscribers has topic[%s]=%b\n", topicFilter, subscribers.containsKey(topicFilter));
                 topicCount++;
             }
             // TODO - topics count goes unused (as subscriptions) in doEncodeUnsuback.
