@@ -515,10 +515,11 @@ public final class MqttServerFactory implements StreamFactory
         {
             reasonCode = 0x82; // Protocol Error
         }
-        else if ((publish.typeAndFlags() & 0b1111_0000) != 0b0011_0000)
-        {
-            reasonCode = 0x81; // Malformed Packet
-        }
+        // may not need, as decoder is chosen by the first 4 bits (packet type)
+        // else if ((publish.typeAndFlags() & 0b1111_0000) != 0b0011_0000)
+        // {
+        //     reasonCode = 0x81; // Malformed Packet
+        // }
 
         if (reasonCode == 0)
         {
@@ -1495,8 +1496,10 @@ public final class MqttServerFactory implements StreamFactory
 
         private void cleanupStreams()
         {
-            subscribers.values().forEach(MqttSubscribeStream::cleanup);
-            publishers.values().forEach(MqttPublishStream::cleanup);
+            subscribers.clear();
+            publishers.clear();
+            // subscribers.values().forEach(MqttSubscribeStream::cleanup);
+            // publishers.values().forEach(MqttPublishStream::cleanup);
         }
 
         private void cleanupDecodeSlotIfNecessary()

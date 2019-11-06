@@ -120,6 +120,15 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/subscribe/invalid.fixed.header.flags/client"})
+    public void shouldRejectMalformedSubscribePacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/unsubscribe/invalid.fixed.header.flags/client",
         "${server}/connect.as.receiver.with.exact.topic.filter/server"})
     public void shouldExchangeConnectionPacketsThenRejectMalformedUnsubscribePacket() throws Exception
