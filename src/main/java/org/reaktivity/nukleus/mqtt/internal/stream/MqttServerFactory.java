@@ -21,8 +21,9 @@ import static java.util.Objects.requireNonNull;
 import static org.reaktivity.nukleus.buffer.BufferPool.NO_SLOT;
 
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.ToIntFunction;
@@ -159,18 +160,13 @@ public final class MqttServerFactory implements StreamFactory
     {
         final Map<MqttPacketType, MqttServerDecoder> decodersByPacketType = new EnumMap<>(MqttPacketType.class);
         decodersByPacketType.put(MqttPacketType.CONNECT, decodeConnect);
-        // decodersByPacketType.put(MqttPacketType.CONNACK, decodeConnack);
         decodersByPacketType.put(MqttPacketType.PUBLISH, decodePublish);
-        // decodersByPacketType.put(MqttPacketType.PUBACK, decodePuback);
         // decodersByPacketType.put(MqttPacketType.PUBREC, decodePubrec);
         // decodersByPacketType.put(MqttPacketType.PUBREL, decodePubrel);
         // decodersByPacketType.put(MqttPacketType.PUBCOMP, decodePubcomp);
         decodersByPacketType.put(MqttPacketType.SUBSCRIBE, decodeSubscribe);
-        // decodersByPacketType.put(MqttPacketType.SUBACK, decodeSuback);
         decodersByPacketType.put(MqttPacketType.UNSUBSCRIBE, decodeUnsubscribe);
-        // decodersByPacketType.put(MqttPacketType.UNSUBACK, decodeUnsuback);
         decodersByPacketType.put(MqttPacketType.PINGREQ, decodePingreq);
-        // decodersByPacketType.put(MqttPacketType.PINGRESP, decodePingresp);
         decodersByPacketType.put(MqttPacketType.DISCONNECT, decodeDisconnect);
         // decodersByPacketType.put(MqttPacketType.AUTH, decodeAuth);
         this.decodersByPacketType = decodersByPacketType;
@@ -515,11 +511,6 @@ public final class MqttServerFactory implements StreamFactory
         {
             reasonCode = 0x82; // Protocol Error
         }
-        // may not need, as decoder is chosen by the first 4 bits (packet type)
-        // else if ((publish.typeAndFlags() & 0b1111_0000) != 0b0011_0000)
-        // {
-        //     reasonCode = 0x81; // Malformed Packet
-        // }
 
         if (reasonCode == 0)
         {
@@ -757,8 +748,8 @@ public final class MqttServerFactory implements StreamFactory
             this.affinity = affinity;
             this.budgetId = budgetId;
             this.decoder = decodePacketType;
-            this.subscribers = new HashMap<>();
-            this.publishers = new HashMap<>();
+            this.subscribers = new ConcurrentHashMap<>();
+            this.publishers = new ConcurrentHashMap<>();
             this.subscriptionsByPacketId = new Int2ObjectHashMap<>();
         }
 
@@ -851,14 +842,12 @@ public final class MqttServerFactory implements StreamFactory
             EndFW end)
         {
             final long authorization = end.authorization();
-            // TODO - let the inbound complete normally and then let the outbound close on flush, but we don’t have that in
-            //        place just yet and right now forcibly cleanup the application streams
             if (decodeSlot == NO_SLOT)
             {
                 final long traceId = end.traceId();
 
                 cleanupDecodeSlotIfNecessary();
-                // cleanupSubscribersIfNecessary();
+                cleanupSubscribersIfNecessary();
 
                 doNetworkEnd(traceId, authorization);
             }
@@ -885,35 +874,6 @@ public final class MqttServerFactory implements StreamFactory
 
             doNetworkWindow(supplyTraceId.getAsLong(), initialCredit);
         }
-
-        // private void onNetworkWindow(
-        //     WindowFW window)
-        // {
-        //     final long traceId = window.traceId();
-        //     final long authorization = window.authorization();
-        //     final long budgetId = window.budgetId();
-        //     final int credit = window.credit();
-        //     final int padding = window.padding();
-        //
-        //     // TODO: restore shared budget if limited by reply budget
-        //     replyBudget += credit;
-        //     replyPadding = padding;
-        //
-        //     if (encodeSlot != NO_SLOT)
-        //     {
-        //         final MutableDirectBuffer buffer = bufferPool.buffer(encodeSlot);
-        //         final int limit = Math.min(encodeSlotOffset, encodeSlotMaxLimit);
-        //         final int maxLimit = encodeSlotOffset;
-        //
-        //         encodeNetwork(encodeSlotTraceId, authorization, budgetId, buffer, 0, limit, maxLimit);
-        //     }
-        //
-        //     if (encodeSlot == NO_SLOT)
-        //     {
-        //         // subscribers.values().forEach(sub -> sub.flushResponseWindow(traceId, authorization));
-        //         // publishers.values().forEach(pub -> pub.flushResponseWindow(traceId, authorization));
-        //     }
-        // }
 
         private void onNetworkReset(
             ResetFW reset)
@@ -992,7 +952,7 @@ public final class MqttServerFactory implements StreamFactory
                 else
                 {
                     final MqttPublishStream newPublishStream = new MqttPublishStream(newTarget,
-                            newRouteId, newInitialId, newReplyId, 0);
+                            newRouteId, newInitialId, newReplyId, 0, topicName, publishers::remove);
 
                     newPublishStream.doApplicationBegin(traceId, authorization, affinity);
 
@@ -1054,16 +1014,14 @@ public final class MqttServerFactory implements StreamFactory
                     final long newReplyId = supplyReplyId.applyAsLong(newInitialId);
                     final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
 
-                    // TODO - initially assuming only one topicFilter per subscribe. will need to be able to support
-                    //        multiple topic filters in the future
                     final MqttSubscribeStream subscribeStream = new MqttSubscribeStream(newTarget,
-                        newRouteId, newInitialId, newReplyId, packetId, topicFilter, subscription);
+                        newRouteId, newInitialId, newReplyId, packetId, topicFilter, subscribers::remove, subscription);
 
                     subscribeStream.doMqttBeginEx(traceId, authorization, affinity, topicFilter, subscriptionId);
 
                     correlations.put(newReplyId, subscribeStream);
 
-                    subscribers.put(topicFilter, subscribeStream);  // TODO - what about multiple subscribers to same topic???
+                    subscribers.put(topicFilter, subscribeStream);
                 }
                 else
                 {
@@ -1085,26 +1043,6 @@ public final class MqttServerFactory implements StreamFactory
             final int offset = topicFilters.offset();
             final int packetId = unsubscribe.packetId();
 
-            /* TODO
-                When a Server receives UNSUBSCRIBE :
-                -
-                 The Topic Filters (whether they contain wildcards or not) supplied in an UNSUBSCRIBE packet MUST be compared
-                 character-by-character with the current set of Topic Filters held by the Server for the Client. If any filter
-                 matches exactly then its owning Subscription MUST be deleted
-                -
-                 It MUST stop adding any new messages which match the Topic Filters, for delivery to the Client [MQTT-3.10.4-2].
-                 It MUST complete the delivery of any QoS 1 or QoS 2 messages which match the Topic Filters and it has started to
-                 send to the Client [MQTT-3.10.4-3].
-                 It MAY continue to deliver any existing messages buffered for delivery to the Client.
-                -
-                 The Server MUST respond to an UNSUBSCRIBE request by sending an UNSUBACK packet [MQTT-3.10.4-4].
-                 The UNSUBACK packet MUST have the same Packet Identifier as the UNSUBSCRIBE packet. Even where no Topic
-                 Subscriptions are deleted, the Server MUST respond with an UNSUBACK [MQTT-3.10.4-5].
-                -
-                 If a Server receives an UNSUBSCRIBE packet that contains multiple Topic Filters, it MUST process that packet as
-                 if it had received a sequence of multiple UNSUBSCRIBE packets, except that it sends just one UNSUBACK response
-             */
-            int topicCount = 0;
             MqttTopicFW topic;
             for (int progress = offset; progress < limit; progress = topic.limit())
             {
@@ -1114,14 +1052,8 @@ public final class MqttServerFactory implements StreamFactory
                     break;
                 }
                 final String topicFilter = topic.filter().asString();
-                // TODO - change so that multiple streams can be subscribed to a topic, and only remove appropriate one
-                //      - client should no longer receive published messages.
                 subscribers.remove(topicFilter);
-                topicCount++;
             }
-            // TODO - topics count goes unused (as subscriptions) in doEncodeUnsuback.
-            //        UNSUBACK must have same packetId as UNSUBSCRIBE
-
             doEncodeUnsuback(traceId, authorization, packetId);
         }
 
@@ -1138,9 +1070,6 @@ public final class MqttServerFactory implements StreamFactory
             long authorization,
             MqttDisconnectFW disconnect)
         {
-            // TODO - process reason code here
-            //          - ex. 0x00: must discard any Will message w/o publishing it
-            //                0x04: server publishes Will message before disconnecting
             doNetworkEnd(traceId, authorization);
         }
 
@@ -1254,8 +1183,6 @@ public final class MqttServerFactory implements StreamFactory
                     .wrap(writeBuffer, 0, 0)
                     .build();
 
-            // TODO - calculating remaining length; currently hardcoded
-            //      - maybe change way FW is laid out?
             final MqttPublishFW publish = mqttPublishRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                     .typeAndFlags(0x30)
                     .remainingLength(0x14)
@@ -1495,10 +1422,8 @@ public final class MqttServerFactory implements StreamFactory
 
         private void cleanupStreams()
         {
-            subscribers.clear();
-            publishers.clear();
-            // subscribers.values().forEach(MqttSubscribeStream::cleanup);
-            // publishers.values().forEach(MqttPublishStream::cleanup);
+            subscribers.values().forEach(MqttSubscribeStream::cleanup);
+            publishers.values().forEach(MqttPublishStream::cleanup);
         }
 
         private void cleanupDecodeSlotIfNecessary()
@@ -1522,13 +1447,13 @@ public final class MqttServerFactory implements StreamFactory
             }
         }
 
-        // private void cleanupSubscribersIfNecessary()
-        // {
-        //     if (!subscribers.isEmpty())
-        //     {
-        //         subscribers.values().forEach(MqttSubscribeStream::cleanup);
-        //     }
-        // }
+        private void cleanupSubscribersIfNecessary()
+        {
+            if (!subscribers.isEmpty())
+            {
+                subscribers.values().forEach(MqttSubscribeStream::cleanup);
+            }
+        }
 
         private final class Subscription
         {
@@ -1594,19 +1519,24 @@ public final class MqttServerFactory implements StreamFactory
             private long replyId;
             private int packetId;
             private String topicFilter;
+            private Consumer<String> cleaner;
 
             MqttPublishStream(
                 MessageConsumer application,
                 long routeId,
                 long initialId,
                 long replyId,
-                int packetId)
+                int packetId,
+                String topicFilter,
+                Consumer<String> cleaner)
             {
                 this.application = application;
                 this.routeId = routeId;
                 this.initialId = initialId;
                 this.replyId = replyId;
                 this.packetId = packetId;
+                this.topicFilter = topicFilter;
+                this.cleaner = cleaner;
             }
 
             @Override
@@ -1698,7 +1628,12 @@ public final class MqttServerFactory implements StreamFactory
 
             private void cleanup()
             {
-                // publishers.remove(topicFilter);
+                assert cleaner != null;
+                if (topicFilter != null)
+                {
+                    cleaner.accept(topicFilter);
+                }
+                cleaner = null;
             }
         }
 
@@ -1713,6 +1648,7 @@ public final class MqttServerFactory implements StreamFactory
             private Subscription subscription;
             private int packetId;
             private String topicFilter;
+            private Consumer<String> cleaner;
 
             MqttSubscribeStream(
                 MessageConsumer application,
@@ -1721,6 +1657,7 @@ public final class MqttServerFactory implements StreamFactory
                 long replyId,
                 int packetId,
                 String topicFilter,
+                Consumer<String> cleaner,
                 Subscription subscription)
             {
                 this.application = application;
@@ -1728,9 +1665,10 @@ public final class MqttServerFactory implements StreamFactory
                 this.initialId = initialId;
                 this.replyId = replyId;
                 this.packetId = packetId;
+                this.topicFilter = topicFilter;
+                this.cleaner = cleaner;
                 this.subscription = subscription;
                 this.ackIndex = subscription != null ? subscription.ackCount : -1;
-                this.topicFilter = topicFilter;
             }
 
             @Override
@@ -1849,7 +1787,12 @@ public final class MqttServerFactory implements StreamFactory
 
             private void cleanup()
             {
-                // subscribers.remove(topicFilter);
+                assert cleaner != null;
+                if (topicFilter != null)
+                {
+                    cleaner.accept(topicFilter);
+                }
+                cleaner = null;
             }
         }
     }
