@@ -101,6 +101,27 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/publish/send.multiple.messages/client",
+        "${server}/send.multiple.messages/server"})
+    public void shouldExchangeConnectionPacketsThenPublishMultipleMessages() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Ignore
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish/receive.at.most.once/client",
+        "${server}/receive.at.most.once/server"})
+    public void shouldReceivePublishAfterSubscribe() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/connect/invalid.protocol.version/client"})
     public void shouldRejectInvalidMqttProtocolVersion() throws Exception
     {
@@ -238,17 +259,6 @@ public class ConnectionIT
         "${client}/subscribe/isolated.topic.filters.exact.and.wildcard/client",
         "${server}/connect.as.receiver.with.isolated.topic.filters.exact.and.wildcard/server"})
     public void shouldSubscribeWithTwoTopicsOneExactTwoSubscribePackets() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Ignore
-    @Test
-    @Specification({
-        "${route}/server/controller",
-        "${client}/publish/receive.at.most.once/client",
-        "${server}/receive.at.most.once/server"})
-    public void shouldReceivePublishAfterSubscribe() throws Exception
     {
         k3po.finish();
     }

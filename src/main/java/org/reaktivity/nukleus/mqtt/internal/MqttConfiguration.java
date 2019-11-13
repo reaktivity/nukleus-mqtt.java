@@ -20,11 +20,15 @@ import org.reaktivity.nukleus.Configuration;
 
 public class MqttConfiguration extends Configuration
 {
+    public static final String PUBLISH_TIMEOUT_NAME = "nukleus.mqtt.publish.timeout";
+
     private static final ConfigurationDef MQTT_CONFIG;
+    public static final IntPropertyDef PUBLISH_TIMEOUT;
 
     static
     {
         final ConfigurationDef config = new ConfigurationDef("nukleus.mqtt");
+        PUBLISH_TIMEOUT = config.property("publish.timeout", 30);
         MQTT_CONFIG = config;
     }
 
@@ -32,5 +36,10 @@ public class MqttConfiguration extends Configuration
         Configuration config)
     {
         super(MQTT_CONFIG, config);
+    }
+
+    public int getPublishTimeout()
+    {
+        return PUBLISH_TIMEOUT.get(this);
     }
 }
