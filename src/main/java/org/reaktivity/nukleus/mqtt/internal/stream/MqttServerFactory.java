@@ -741,8 +741,8 @@ public final class MqttServerFactory implements StreamFactory
         private final long affinity;
         private final long budgetId;
 
-        private final Map<String, MqttSubscribeStream> subscribers;
-        private final Map<String, MqttPublishStream> publishers;
+        private final Int2ObjectHashMap<MqttSubscribeStream> subscribers;
+        private final Int2ObjectHashMap<MqttPublishStream> publishers;
         private final Map<String, Integer> activeSubscribers;
         private final Map<String, Integer> activePublishers;
         private final Int2ObjectHashMap<Subscription> subscriptionsByPacketId;
@@ -780,8 +780,8 @@ public final class MqttServerFactory implements StreamFactory
             this.affinity = affinity;
             this.budgetId = budgetId;
             this.decoder = decodePacketType;
-            this.subscribers = new HashMap<>();
-            this.publishers = new HashMap<>();
+            this.subscribers = new Int2ObjectHashMap<>();
+            this.publishers = new Int2ObjectHashMap<>();
             this.activeSubscribers = new HashMap<>();
             this.activePublishers = new HashMap<>();
             this.subscriptionsByPacketId = new Int2ObjectHashMap<>();
@@ -978,7 +978,8 @@ public final class MqttServerFactory implements StreamFactory
                 final long newReplyId = supplyReplyId.applyAsLong(newInitialId);
                 final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
 
-                MqttServer.MqttPublishStream publishStream = publishers.computeIfAbsent(topicName, s ->
+                final int key = System.identityHashCode(topicName.intern());
+                MqttServer.MqttPublishStream publishStream = publishers.computeIfAbsent(key, s ->
                 {
                     final MqttPublishStream newPublishStream = new MqttPublishStream(newTarget,
                             newRouteId, newInitialId, newReplyId, 0, topicName);
@@ -1047,7 +1048,13 @@ public final class MqttServerFactory implements StreamFactory
 
                     correlations.put(newReplyId, subscribeStream);
 
-                    subscribers.put(topicFilter, subscribeStream);
+                    if (topicFilter == null) {
+                        onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+                        return;
+                    }
+
+                    final int key = System.identityHashCode(topicFilter.intern());
+                    subscribers.put(key, subscribeStream);
                 }
                 else
                 {
@@ -1077,8 +1084,8 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     break;
                 }
-                final String topicFilter = topic.filter().asString();
-                subscribers.remove(topicFilter);
+                final int topicKey = System.identityHashCode(topic.filter().asString().intern());
+                subscribers.remove(topicKey);
             }
             doEncodeUnsuback(traceId, authorization, packetId);
         }
@@ -1792,7 +1799,8 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (MqttState.closed(state))
                 {
-                    publishers.remove(topicFilter);
+                    final int topicKey = System.identityHashCode(topicFilter.intern());
+                    publishers.remove(topicKey);
                     // activeSubscribers.compute(topicFilter, (key, value) -> value != null ? value-- : 0);
                     activePublishers.computeIfPresent(topicFilter, (key, value) -> value--);
                     // streamsActive[packetId & 0x01]--;
@@ -1959,7 +1967,8 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (MqttState.closed(state))
                 {
-                    subscribers.remove(topicFilter);
+                    final int topicKey = System.identityHashCode(topicFilter.intern());
+                    subscribers.remove(topicKey);
                     // activeSubscribers.compute(topicFilter, (key, value) -> value != null ? value-- : 0);
                     activeSubscribers.computeIfPresent(topicFilter, (key, value) -> value--);
                     // streamsActive[packetId & 0x01]--;
@@ -2115,7 +2124,8 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (MqttState.closed(state))
                 {
-                    subscribers.remove(topicFilter);
+                    final int topicKey = System.identityHashCode(topicFilter.intern());
+                    subscribers.remove(topicKey);
                     // activeSubscribers.compute(topicFilter, (key, value) -> value != null ? value-- : 0);
                     activeSubscribers.computeIfPresent(topicFilter, (key, value) -> value--);
                 }
