@@ -18,6 +18,7 @@ package org.reaktivity.nukleus.mqtt.internal;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
 import org.junit.Ignore;
@@ -41,12 +42,13 @@ public class ConnectionIT
     private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
 
     private final ReaktorRule reaktor = new ReaktorRule()
-        .configure(ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE, false)
         .directory("target/nukleus-itests")
         .commandBufferCapacity(1024)
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(8192)
         .nukleus("mqtt"::equals)
+        .configure(PUBLISH_TIMEOUT, 30)
+        .configure(ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE, false)
         .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
         .clean();
 
