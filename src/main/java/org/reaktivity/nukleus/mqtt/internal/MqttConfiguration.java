@@ -28,7 +28,7 @@ public class MqttConfiguration extends Configuration
     static
     {
         final ConfigurationDef config = new ConfigurationDef("nukleus.mqtt");
-        PUBLISH_TIMEOUT = config.property("publish.timeout", 30);
+        PUBLISH_TIMEOUT = config.property("publish.timeout", 60);
         MQTT_CONFIG = config;
     }
 
