@@ -47,7 +47,6 @@ public class ConnectionIT
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(8192)
         .nukleus("mqtt"::equals)
-        .configure(PUBLISH_TIMEOUT, 5)
         .configure(ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE, false)
         .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
         .clean();
@@ -109,18 +108,6 @@ public class ConnectionIT
         "${server}/send.multiple.messages/server"})
     public void shouldExchangeConnectionPacketsThenPublishMultipleMessages() throws Exception
     {
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
-        "${route}/server/controller",
-        "${client}/publish/send.multiple.messages/client",
-        "${server}/send.multiple.messages.then.timeout/server"})
-    public void shouldExchangeConnectionPacketsThenPublishMultipleMessagesThenTimeout() throws Exception
-    {
-        k3po.start();
-        Thread.sleep(5000); // third message doesn't get delivered if publish stream timesout
         k3po.finish();
     }
 

@@ -16,7 +16,7 @@
 
 package org.reaktivity.nukleus.mqtt.internal;
 
-public final class ReasonCodes
+public final class MqttReasonCodes
 {
     public static final int SUCCESS = 0x00;
 
@@ -57,7 +57,7 @@ public final class ReasonCodes
     public static final int PACKET_IDENTIFIER_IN_USE = 0x91;
     public static final int PACKET_IDENTIFIER_NOT_FOUND = 0x92;
 
-    private ReasonCodes()
+    private MqttReasonCodes()
     {
         // Utility
     }

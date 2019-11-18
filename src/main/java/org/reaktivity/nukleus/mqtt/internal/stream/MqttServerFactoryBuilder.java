@@ -99,7 +99,7 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
 
     @Override
     public StreamFactoryBuilder setBudgetIdSupplier(
-            LongSupplier supplyBudgetId)
+        LongSupplier supplyBudgetId)
     {
         this.supplyBudgetId = supplyBudgetId;
         return this;
@@ -115,7 +115,7 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
 
     @Override
     public StreamFactoryBuilder setExecutor(
-            SignalingExecutor executor)
+        SignalingExecutor executor)
     {
         this.executor = executor;
         return this;
