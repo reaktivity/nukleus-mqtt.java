@@ -47,7 +47,7 @@ public class ConnectionIT
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(8192)
         .nukleus("mqtt"::equals)
-        .configure(PUBLISH_TIMEOUT, 30)
+        .configure(PUBLISH_TIMEOUT, 5L)
         .configure(ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE, false)
         .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
         .clean();
