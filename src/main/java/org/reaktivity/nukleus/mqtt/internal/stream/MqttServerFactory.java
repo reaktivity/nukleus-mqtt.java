@@ -1404,10 +1404,6 @@ public final class MqttServerFactory implements StreamFactory
             {
                 cleanupEncodeSlotIfNecessary();
 
-                final boolean emptyPublishers = publishers.isEmpty();
-                final boolean emptySubscribers = subscribers.isEmpty();
-                final boolean ignoringAll = decoder == decodeIgnoreAll;
-
                 if (publishers.isEmpty() && subscribers.isEmpty() && decoder == decodeIgnoreAll)
                 {
                     doNetworkEnd(traceId, authorization);

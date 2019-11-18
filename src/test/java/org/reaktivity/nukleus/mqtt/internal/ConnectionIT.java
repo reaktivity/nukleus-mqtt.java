@@ -120,7 +120,7 @@ public class ConnectionIT
     public void shouldExchangeConnectionPacketsThenPublishMultipleMessagesThenTimeout() throws Exception
     {
         k3po.start();
-        Thread.sleep(5000); // first token would expire if expiration is not updated.
+        Thread.sleep(5000); // third message doesn't get delivered if publish stream timesout
         k3po.finish();
     }
 
