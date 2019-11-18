@@ -991,7 +991,7 @@ public final class MqttServerFactory implements StreamFactory
                     newPublishStream.doApplicationBegin(traceId, authorization, affinity);
                     return newPublishStream;
                 });
-                publishStream.doMqttDataEx(traceId, authorization, payload, dataEx);
+                publishStream.doApplicationData(traceId, authorization, payload, dataEx);
                 correlations.put(newReplyId, publishStream);    // TODO: do we need to clean up correlations onAbort()?
             }
         }
@@ -1049,7 +1049,7 @@ public final class MqttServerFactory implements StreamFactory
                     final MqttSubscribeStream subscribeStream = new MqttSubscribeStream(newTarget,
                                                     newRouteId, newInitialId, newReplyId, packetId, topicFilter, subscription);
 
-                    subscribeStream.doMqttBeginEx(traceId, authorization, affinity, topicFilter, subscriptionId);
+                    subscribeStream.doApplicationBegin(traceId, authorization, affinity, topicFilter, subscriptionId);
 
                     correlations.put(newReplyId, subscribeStream);
 
@@ -1609,7 +1609,7 @@ public final class MqttServerFactory implements StreamFactory
                 doBegin(application, routeId, initialId, traceId, authorization, affinity, EMPTY_OCTETS);
             }
 
-            private void doMqttDataEx(
+            private void doApplicationData(
                 long traceId,
                 long authorization,
                 OctetsFW payload,
@@ -1634,7 +1634,7 @@ public final class MqttServerFactory implements StreamFactory
                 }
                 else
                 {
-                    flushInitialEnd(traceId, authorization, extension);
+                    flushApplicationEnd(traceId, authorization, extension);
                 }
             }
 
@@ -1658,7 +1658,7 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
-            private void flushInitialEnd(
+            private void flushApplicationEnd(
                 long traceId,
                 long authorization,
                 Flyweight extension)
@@ -1768,7 +1768,7 @@ public final class MqttServerFactory implements StreamFactory
                 {
                 case BeginFW.TYPE_ID:
                     final BeginFW begin = beginRO.wrap(buffer, index, index + length);
-                    onApplicationBeing(begin);
+                    onApplicationBegin(begin);
                     break;
                 case DataFW.TYPE_ID:
                     final DataFW data = dataRO.wrap(buffer, index, index + length);
@@ -1781,7 +1781,7 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
-            private void onApplicationBeing(
+            private void onApplicationBegin(
                 BeginFW begin)
             {
             }
@@ -1935,7 +1935,7 @@ public final class MqttServerFactory implements StreamFactory
                 this.ackIndex = subscription != null ? subscription.ackCount : -1;
             }
 
-            private void doMqttBeginEx(
+            private void doApplicationBegin(
                 long traceId,
                 long authorization,
                 long affinity,
@@ -1961,7 +1961,7 @@ public final class MqttServerFactory implements StreamFactory
                 value.value++;
             }
 
-            private void doMqttDataEx(
+            private void doApplicationData(
                 long traceId,
                 long authorization,
                 OctetsFW payload,
@@ -2068,7 +2068,7 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     if (MqttState.initialClosing(state))
                     {
-                        flushInitialEnd(traceId, authorization, EMPTY_OCTETS);
+                        flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
                     }
                 }
             }
@@ -2096,7 +2096,7 @@ public final class MqttServerFactory implements StreamFactory
                 {
                 case BeginFW.TYPE_ID:
                     final BeginFW begin = beginRO.wrap(buffer, index, index + length);
-                    onApplicationBeing(begin);
+                    onApplicationBegin(begin);
                     break;
                 case DataFW.TYPE_ID:
                     final DataFW data = dataRO.wrap(buffer, index, index + length);
@@ -2109,7 +2109,7 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
-            private void onApplicationBeing(
+            private void onApplicationBegin(
                 BeginFW begin)
             {
                 state = MqttState.openReply(state);
@@ -2157,7 +2157,7 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
-            private void flushInitialEnd(
+            private void flushApplicationEnd(
                 long traceId,
                 long authorization,
                 Flyweight extension)
