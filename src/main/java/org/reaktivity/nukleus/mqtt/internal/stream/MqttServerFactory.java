@@ -788,8 +788,8 @@ public final class MqttServerFactory implements StreamFactory
             this.decoder = decodePacketType;
             this.subscribers = new Int2ObjectHashMap<>();
             this.publishers = new Int2ObjectHashMap<>();
-            this.activeSubscribers = new HashMap<String, org.agrona.collections.MutableInteger>();
-            this.activePublishers = new HashMap<String, MutableInteger>();
+            this.activeSubscribers = new HashMap<>();
+            this.activePublishers = new HashMap<>();
             this.subscriptionsByPacketId = new Int2ObjectHashMap<>();
         }
 
