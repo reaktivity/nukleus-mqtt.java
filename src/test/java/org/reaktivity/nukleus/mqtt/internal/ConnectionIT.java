@@ -18,6 +18,7 @@ package org.reaktivity.nukleus.mqtt.internal;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
 import org.junit.Ignore;
@@ -45,6 +46,7 @@ public class ConnectionIT
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(8192)
         .nukleus("mqtt"::equals)
+        .configure(PUBLISH_TIMEOUT, 5L)
         .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
         .clean();
 
@@ -88,13 +90,33 @@ public class ConnectionIT
         k3po.finish();
     }
 
-    @Ignore
     @Test
     @Specification({
         "${route}/server/controller",
         "${client}/publish/send.at.most.once/client",
         "${server}/send.at.most.once/server"})
     public void shouldExchangeConnectionPacketsThenPublish() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish/send.multiple.messages/client",
+        "${server}/send.multiple.messages/server"})
+    public void shouldExchangeConnectionPacketsThenPublishMultipleMessages() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Ignore
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish/receive.at.most.once/client",
+        "${server}/receive.at.most.once/server"})
+    public void shouldReceivePublishAfterSubscribe() throws Exception
     {
         k3po.finish();
     }
@@ -113,6 +135,34 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/connect/invalid.flags/client"})
     public void shouldRejectMalformedConnectPacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/invalid.fixed.header.flags/client"})
+    public void shouldRejectMalformedSubscribePacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/unsubscribe/invalid.fixed.header.flags/client",
+        "${server}/connect.as.receiver.with.exact.topic.filter/server"})
+    public void shouldExchangeConnectionPacketsThenRejectMalformedUnsubscribePacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/disconnect/invalid.fixed.header.flags/client"})
+    public void shouldRejectMalformedDisconnectPacket() throws Exception
     {
         k3po.finish();
     }
@@ -211,17 +261,6 @@ public class ConnectionIT
         "${client}/subscribe/isolated.topic.filters.exact.and.wildcard/client",
         "${server}/connect.as.receiver.with.isolated.topic.filters.exact.and.wildcard/server"})
     public void shouldSubscribeWithTwoTopicsOneExactTwoSubscribePackets() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Ignore
-    @Test
-    @Specification({
-        "${route}/server/controller",
-        "${client}/publish/receive.at.most.once/client",
-        "${server}/receive.at.most.once/server"})
-    public void shouldReceivePublishAfterSubscribe() throws Exception
     {
         k3po.finish();
     }

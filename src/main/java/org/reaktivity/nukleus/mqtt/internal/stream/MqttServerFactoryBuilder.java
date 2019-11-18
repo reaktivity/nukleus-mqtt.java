@@ -23,6 +23,7 @@ import java.util.function.ToIntFunction;
 
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -40,6 +41,7 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
     private LongSupplier supplyTraceId;
     private Supplier<BufferPool> supplyBufferPool;
     private ToIntFunction<String> supplyTypeId;
+    private SignalingExecutor executor;
 
     public MqttServerFactoryBuilder(
         MqttConfiguration config)
@@ -97,7 +99,7 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
 
     @Override
     public StreamFactoryBuilder setBudgetIdSupplier(
-            LongSupplier supplyBudgetId)
+        LongSupplier supplyBudgetId)
     {
         this.supplyBudgetId = supplyBudgetId;
         return this;
@@ -112,19 +114,28 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
+    public StreamFactoryBuilder setExecutor(
+        SignalingExecutor executor)
+    {
+        this.executor = executor;
+        return this;
+    }
+
+    @Override
     public StreamFactory build()
     {
         final BufferPool bufferPool = supplyBufferPool.get();
 
         return new MqttServerFactory(
-                config,
-                router,
-                writeBuffer,
-                bufferPool,
-                supplyInitialId,
-                supplyReplyId,
-                supplyBudgetId,
-                supplyTraceId,
-                supplyTypeId);
+            config,
+            router,
+            writeBuffer,
+            bufferPool,
+            supplyInitialId,
+            supplyReplyId,
+            supplyBudgetId,
+            supplyTraceId,
+            supplyTypeId,
+            executor);
     }
 }
