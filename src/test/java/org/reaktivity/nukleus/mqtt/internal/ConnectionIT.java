@@ -35,21 +35,22 @@ import org.reaktivity.reaktor.test.ReaktorRule;
 public class ConnectionIT
 {
     private final K3poRule k3po = new K3poRule()
-        .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
-        .addScriptRoot("client", "org/reaktivity/specification/mqtt")
-        .addScriptRoot("server", "org/reaktivity/specification/nukleus/mqtt/streams");
+            .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
+            .addScriptRoot("client", "org/reaktivity/specification/mqtt")
+            .addScriptRoot("server", "org/reaktivity/specification/nukleus/mqtt/streams");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
 
     private final ReaktorRule reaktor = new ReaktorRule()
-        .directory("target/nukleus-itests")
-        .commandBufferCapacity(1024)
-        .responseBufferCapacity(1024)
-        .counterValuesBufferCapacity(8192)
-        .nukleus("mqtt"::equals)
-        .configure(ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE, false)
-        .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
-        .clean();
+            .directory("target/nukleus-itests")
+            .commandBufferCapacity(1024)
+            .responseBufferCapacity(1024)
+            .counterValuesBufferCapacity(8192)
+            .nukleus("mqtt"::equals)
+            .configure(PUBLISH_TIMEOUT, 5L)
+            .configure(ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE, false)
+            .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
+            .clean();
 
     @Rule
     public final TestRule chain = outerRule(reaktor).around(k3po).around(timeout);
@@ -108,6 +109,18 @@ public class ConnectionIT
         "${server}/send.multiple.messages/server"})
     public void shouldExchangeConnectionPacketsThenPublishMultipleMessages() throws Exception
     {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish/send.multiple.messages/client",
+        "${server}/send.multiple.messages.then.timeout/server"})
+    public void shouldExchangeConnectionPacketsThenPublishMultipleMessagesThenTimeout() throws Exception
+    {
+        k3po.start();
+        Thread.sleep(5000); // third message doesn't get delivered if publish stream timesout
         k3po.finish();
     }
 
