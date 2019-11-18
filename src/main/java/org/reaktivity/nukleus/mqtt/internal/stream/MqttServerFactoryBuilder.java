@@ -127,15 +127,15 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
         final BufferPool bufferPool = supplyBufferPool.get();
 
         return new MqttServerFactory(
-                config,
-                router,
-                writeBuffer,
-                bufferPool,
-                supplyInitialId,
-                supplyReplyId,
-                supplyBudgetId,
-                supplyTraceId,
-                supplyTypeId,
-                executor);
+            config,
+            router,
+            writeBuffer,
+            bufferPool,
+            supplyInitialId,
+            supplyReplyId,
+            supplyBudgetId,
+            supplyTraceId,
+            supplyTypeId,
+            executor);
     }
 }

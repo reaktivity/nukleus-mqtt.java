@@ -29,28 +29,26 @@ import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
-import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class ConnectionIT
 {
     private final K3poRule k3po = new K3poRule()
-            .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
-            .addScriptRoot("client", "org/reaktivity/specification/mqtt")
-            .addScriptRoot("server", "org/reaktivity/specification/nukleus/mqtt/streams");
+        .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
+        .addScriptRoot("client", "org/reaktivity/specification/mqtt")
+        .addScriptRoot("server", "org/reaktivity/specification/nukleus/mqtt/streams");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
 
     private final ReaktorRule reaktor = new ReaktorRule()
-            .directory("target/nukleus-itests")
-            .commandBufferCapacity(1024)
-            .responseBufferCapacity(1024)
-            .counterValuesBufferCapacity(8192)
-            .nukleus("mqtt"::equals)
-            .configure(PUBLISH_TIMEOUT, 5L)
-            .configure(ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE, false)
-            .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
-            .clean();
+        .directory("target/nukleus-itests")
+        .commandBufferCapacity(1024)
+        .responseBufferCapacity(1024)
+        .counterValuesBufferCapacity(8192)
+        .nukleus("mqtt"::equals)
+        .configure(PUBLISH_TIMEOUT, 5L)
+        .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
+        .clean();
 
     @Rule
     public final TestRule chain = outerRule(reaktor).around(k3po).around(timeout);
