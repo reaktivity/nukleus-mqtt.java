@@ -153,6 +153,7 @@ public final class MqttServerFactory implements StreamFactory
     private final RouteManager router;
     private final MutableDirectBuffer writeBuffer;
     private final MutableDirectBuffer extBuffer;
+    private final MutableDirectBuffer dataExtBuffer;
     private final LongUnaryOperator supplyInitialId;
     private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyTraceId;
@@ -209,6 +210,7 @@ public final class MqttServerFactory implements StreamFactory
         this.router = requireNonNull(router);
         this.writeBuffer = requireNonNull(writeBuffer);
         this.extBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
+        this.dataExtBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.bufferPool = bufferPool;
         this.supplyInitialId = requireNonNull(supplyInitialId);
         this.supplyReplyId = requireNonNull(supplyReplyId);
@@ -963,7 +965,7 @@ public final class MqttServerFactory implements StreamFactory
             String info = "info";
 
             final MqttDataExFW dataEx = mqttDataExRW
-                                            .wrap(extBuffer, 0, extBuffer.capacity())
+                                            .wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                             .typeId(mqttTypeId)
                                             .topic(topicName)
                                             .expiryInterval(15)
@@ -1602,11 +1604,21 @@ public final class MqttServerFactory implements StreamFactory
                 this.signalFuture = executor.schedule(publishTimeout, SECONDS, routeId, initialId,
                                                       PUBLISH_TIMEOUT_SIGNAL);
 
-                router.setThrottle(initialId, this::onApplicationReply);
+                router.setThrottle(initialId, this::onApplicationInitial);
+
+                final MqttBeginExFW beginEx = mqttBeginExRW
+                                                  .wrap(extBuffer, 0, extBuffer.capacity())
+                                                  .typeId(mqttTypeId)
+                                                  .role(r -> r.set(MqttRole.SENDER))
+                                                  .clientId("client")
+                                                  .topic(topicFilter)
+                                                  .subscriptionId(0)
+                                                  .build();
+
+                doBegin(application, routeId, initialId, traceId, authorization, affinity, beginEx);
+
                 final MutableInteger value = activePublishers.computeIfAbsent(topicFilter, key -> new MutableInteger());
                 value.value++;
-
-                doBegin(application, routeId, initialId, traceId, authorization, affinity, EMPTY_OCTETS);
             }
 
             private void doApplicationData(
