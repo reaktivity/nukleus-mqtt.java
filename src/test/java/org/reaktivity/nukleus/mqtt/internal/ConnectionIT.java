@@ -129,7 +129,7 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/publish/receive.one.message/client",
         "${server}/receive.one.message/server"})
-    public void shouldReceivePublishAfterSubscribe() throws Exception
+    public void shouldReceivePublishAfterSendingPublish() throws Exception
     {
         k3po.finish();
     }
