@@ -2087,7 +2087,7 @@ public final class MqttServerFactory implements StreamFactory
                     final int offset = 0;
                     final int limit = initialSlotOffset;
 
-                    flushApplicationData(traceId, authorization, buffer, offset, limit);
+                    flushApplicationData(initialSlotTraceId, authorization, buffer, offset, limit);
                 }
 
                 if (initialSlot == NO_SLOT)
