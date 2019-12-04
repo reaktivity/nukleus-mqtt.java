@@ -2081,38 +2081,38 @@ public final class MqttServerFactory implements StreamFactory
 
                 subscription.onSubscribeSucceeded(traceId, authorization, packetId, ackIndex);
 
-                // if (initialSlot != NO_SLOT)
-                // {
-                final MutableDirectBuffer buffer = bufferPool.buffer(initialSlot);
-                final int offset = 0;
-                final int limit = initialSlotOffset;
-
-                flushApplicationData(traceId, authorization, buffer, offset, limit);
-                // }
-
-                // if (initialSlot == NO_SLOT)
-                // {
-                //     if (!MqttState.initialClosed(padding))
-                //     {
-                //         if (MqttState.initialClosing(state))
-                //         {
-                //             // TODO: trailers extension?
-                //             flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
-                //         }
-                //         else
-                //         {
-                //             // flushRequestWindowUpdate(traceId, authorization);
-                //         }
-                //     }
-                // }
-
-                if (!MqttState.initialClosed(padding))
+                if (initialSlot != NO_SLOT)
                 {
-                    if (MqttState.initialClosing(state))
+                    final MutableDirectBuffer buffer = bufferPool.buffer(initialSlot);
+                    final int offset = 0;
+                    final int limit = initialSlotOffset;
+
+                    flushApplicationData(traceId, authorization, buffer, offset, limit);
+                }
+
+                if (initialSlot == NO_SLOT)
+                {
+                    if (!MqttState.initialClosed(padding))
                     {
-                        flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
+                        if (MqttState.initialClosing(state))
+                        {
+                            // TODO: trailers extension?
+                            flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
+                        }
+                        else
+                        {
+                            // flushRequestWindowUpdate(traceId, authorization);
+                        }
                     }
                 }
+
+                // if (!MqttState.initialClosed(padding))
+                // {
+                //     if (MqttState.initialClosing(state))
+                //     {
+                //         flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
+                //     }
+                // }
             }
 
             private void onApplicationReset(
@@ -2217,7 +2217,7 @@ public final class MqttServerFactory implements StreamFactory
 
                     assert initialBudget >= 0;
 
-                    doData(application, routeId, replyId, traceId, authorization, budgetId,
+                    doData(application, routeId, initialId, traceId, authorization, budgetId,
                         reserved, buffer, offset, length, EMPTY_OCTETS);
                 }
 
