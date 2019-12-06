@@ -933,10 +933,9 @@ public final class MqttServerFactory implements StreamFactory
 
             if (encodeSlot == NO_SLOT)
             {
-                subscribers.values().forEach(ex -> ex.flushReplyWindow(traceId, authorization));
+                subscribers.values().forEach(sub -> sub.flushReplyWindow(traceId, authorization));
+                publishers.values().forEach(pub -> pub.flushReplyWindow(traceId, authorization));
             }
-
-            // final int initialCredit = bufferPool.slotCapacity() - initialBudget;
 
             doNetworkWindow(traceId, authorization, credit, padding, budgetId);
         }
@@ -1598,6 +1597,8 @@ public final class MqttServerFactory implements StreamFactory
             private int initialPadding;
             private int replyBudget;
 
+            private int remoteBudget;
+
             private int initialSlot = NO_SLOT;
             private int initialSlotOffset;
             private long initialSlotTraceId;
@@ -1796,6 +1797,11 @@ public final class MqttServerFactory implements StreamFactory
                 doApplicationEnd(traceId, authorization, endEx);
             }
 
+            private boolean isReplyOpen()
+            {
+                return MqttState.replyOpened(state);
+            }
+
             @Override
             public void onApplicationReply(
                 int msgTypeId,
@@ -1846,6 +1852,26 @@ public final class MqttServerFactory implements StreamFactory
                 EndFW end)
             {
                 setReplyClosed();
+            }
+
+            private void flushReplyWindow(
+                long traceId,
+                long authorization)
+            {
+                if (isReplyOpen())
+                {
+                    final int paddedBudgetMax = Math.min(connectionBudget, remoteBudget);
+                    final int responseBudgetMax = Math.min(paddedBudgetMax, bufferPool.slotCapacity() - encodeSlotOffset);
+                    final int responseCredit = responseBudgetMax - replyBudget;
+
+                    if (responseCredit > 0)
+                    {
+                        replyBudget += responseCredit;
+
+                        doWindow(application, routeId, replyId, traceId, authorization,
+                            budgetId, responseCredit, 0);
+                    }
+                }
             }
 
             private void doApplicationReset(
