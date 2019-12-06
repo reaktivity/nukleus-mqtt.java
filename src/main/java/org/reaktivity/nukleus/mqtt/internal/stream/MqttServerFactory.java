@@ -1649,7 +1649,6 @@ public final class MqttServerFactory implements StreamFactory
                 value.value++;
             }
 
-            // TODO - when getting application data, must also get onApplicationData
             private void doApplicationData(
                 long traceId,
                 long authorization,
@@ -1829,29 +1828,49 @@ public final class MqttServerFactory implements StreamFactory
             private void onApplicationBegin(
                 BeginFW begin)
             {
+                state = MqttState.openReply(state);
+
+                final long traceId = begin.traceId();
+                final long authorization = begin.authorization();
+
+                onReplyWindowUpdate(traceId, authorization, remoteSettings.initialWindowSize);
             }
 
             private void onApplicationData(
                 DataFW data)
             {
                 final long traceId = data.traceId();
-                final OctetsFW extension = data.extension();
                 final long authorization = data.authorization();
+                final OctetsFW extension = data.extension();
 
-                final DirectBuffer exBuffer = extension.buffer();
-                final int exOffset = extension.offset();
-                final int exLength = extension.sizeof();
-
-                final MqttDataExFW dataEx = mqttDataExRO.wrap(exBuffer, exOffset, exOffset + exLength);
+                final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
 
                 final String topicName = dataEx.topic().asString();
-                doEncodePublish(traceId, authorization, topicName, data.payload());
             }
 
             private void onApplicationEnd(
                 EndFW end)
             {
                 setReplyClosed();
+            }
+
+            private void onReplyWindowUpdate(
+                long traceId,
+                long authorization,
+                int size)
+            {
+                final long newRemoteBudget = (long) remoteBudget + size;
+
+                if (newRemoteBudget > Integer.MAX_VALUE)
+                {
+                    cleanup(traceId, authorization);
+                }
+                else
+                {
+                    remoteBudget = (int) newRemoteBudget;
+
+                    flushReplyWindow(traceId, authorization);
+                }
             }
 
             private void flushReplyWindow(
