@@ -19,7 +19,6 @@ package org.reaktivity.nukleus.mqtt.internal.stream;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.concurrent.TimeUnit.of;
 import static org.reaktivity.nukleus.buffer.BufferPool.NO_SLOT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.MALFORMED_PACKET;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NORMAL_DISCONNECT;
@@ -417,17 +416,19 @@ public final class MqttServerFactory implements StreamFactory
         long routeId,
         long streamId,
         long traceId,
+        long authorization,
         long budgetId,
-        int initialPadding,
-        int initialCredit)
+        int credit,
+        int padding)
     {
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                     .routeId(routeId)
                                     .streamId(streamId)
                                     .traceId(traceId)
+                                    .authorization(authorization)
                                     .budgetId(budgetId)
-                                    .credit(initialCredit)
-                                    .padding(initialPadding)
+                                    .credit(credit)
+                                    .padding(padding)
                                     .build();
 
         receiver.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
@@ -750,6 +751,8 @@ public final class MqttServerFactory implements StreamFactory
         private final long affinity;
         private final long budgetId;
 
+        private MqttSettings remoteSettings;
+
         private final Int2ObjectHashMap<MqttSubscribeStream> subscribers;
         private final Int2ObjectHashMap<MqttPublishStream> publishers;
         private final Map<String, MutableInteger> activeSubscribers;
@@ -760,6 +763,7 @@ public final class MqttServerFactory implements StreamFactory
         private int initialPadding;
         private int replyPadding;
         private int replyBudget;
+        private int connectionBudget;
 
         private int decodeSlot = NO_SLOT;
         private int decodeSlotLimit;
@@ -789,6 +793,8 @@ public final class MqttServerFactory implements StreamFactory
             this.affinity = affinity;
             this.budgetId = budgetId;
             this.decoder = decodePacketType;
+            this.remoteSettings = new MqttSettings();
+            this.connectionBudget = remoteSettings.initialWindowSize;
             this.subscribers = new Int2ObjectHashMap<>();
             this.publishers = new Int2ObjectHashMap<>();
             this.activeSubscribers = new HashMap<>();
@@ -907,14 +913,32 @@ public final class MqttServerFactory implements StreamFactory
         private void onNetworkWindow(
             WindowFW window)
         {
-            final int replyCredit = window.credit();
+            final long traceId = window.traceId();
+            final long authorization = window.authorization();
+            final long budgetId = window.budgetId();
+            final int credit = window.credit();
+            final int padding = window.padding();
 
-            replyBudget += replyCredit;
-            replyPadding += window.padding();
+            replyBudget += credit;
+            replyPadding += padding;
 
-            final int initialCredit = bufferPool.slotCapacity() - initialBudget;
+            if (encodeSlot != NO_SLOT)
+            {
+                final MutableDirectBuffer buffer = bufferPool.buffer(encodeSlot);
+                final int limit = Math.min(encodeSlotOffset, encodeSlotMaxLimit);
+                final int maxLimit = encodeSlotOffset;
 
-            doNetworkWindow(supplyTraceId.getAsLong(), initialCredit);
+                encodeNetwork(encodeSlotTraceId, authorization, budgetId, buffer, 0, limit, maxLimit);
+            }
+
+            if (encodeSlot == NO_SLOT)
+            {
+                subscribers.values().forEach(ex -> ex.flushReplyWindow(traceId, authorization));
+            }
+
+            // final int initialCredit = bufferPool.slotCapacity() - initialBudget;
+
+            doNetworkWindow(traceId, authorization, credit, padding, budgetId);
         }
 
         private void onNetworkReset(
@@ -1065,7 +1089,7 @@ public final class MqttServerFactory implements StreamFactory
                         return;
                     }
 
-                    final int key = System.identityHashCode(topicFilter.intern());
+                    final int key = topicKey(topicFilter);
                     subscribers.put(key, subscribeStream);
                 }
                 else
@@ -1096,7 +1120,7 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     break;
                 }
-                final int topicKey = System.identityHashCode(topic.filter().asString().intern());
+                final int topicKey = topicKey(topic.filter().asString());
                 subscribers.remove(topicKey);
             }
             doEncodeUnsuback(traceId, authorization, packetId);
@@ -1196,14 +1220,15 @@ public final class MqttServerFactory implements StreamFactory
 
         private void doNetworkWindow(
             long traceId,
-            int initialCredit)
+            long authorization,
+            int credit,
+            int padding,
+            long budgetId)
         {
-            if (initialCredit > 0)
-            {
-                initialBudget += initialCredit;
+            assert credit > 0;
 
-                doWindow(network, routeId, initialId, traceId, 0L, initialPadding, initialCredit);
-            }
+            initialBudget += credit;
+            doWindow(network, routeId, initialId, traceId, authorization, budgetId, credit, padding);
         }
 
         private void doNetworkReset(
@@ -1921,14 +1946,13 @@ public final class MqttServerFactory implements StreamFactory
 
             private Subscription subscription;
             private int packetId;
-
-            private int initialBudget;
-            private int initialPadding;
-            private int replyBudget;
+            private boolean isSubscribed;
 
             private int initialSlot = NO_SLOT;
             private int initialSlotOffset;
             private long initialSlotTraceId;
+
+            private int remoteBudget;
 
             MqttSubscribeStream(
                 MessageConsumer application,
@@ -1986,8 +2010,6 @@ public final class MqttServerFactory implements StreamFactory
 
 
                 flushApplicationData(traceId, authorization, buffer, offset, limit);
-                // doData(application, routeId, initialId, traceId, authorization, 0L, payload.sizeof(),
-                //        payload.buffer(), payload.offset(), payload.sizeof(), extension);
             }
 
             private void doApplicationAbort(
@@ -2079,7 +2101,11 @@ public final class MqttServerFactory implements StreamFactory
                 initialBudget += credit;
                 initialPadding = padding;
 
-                subscription.onSubscribeSucceeded(traceId, authorization, packetId, ackIndex);
+                if (!isSubscribed)
+                {
+                    isSubscribed = true;
+                    subscription.onSubscribeSucceeded(traceId, authorization, packetId, ackIndex);
+                }
 
                 if (initialSlot != NO_SLOT)
                 {
@@ -2099,20 +2125,8 @@ public final class MqttServerFactory implements StreamFactory
                             // TODO: trailers extension?
                             flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
                         }
-                        else
-                        {
-                            // flushRequestWindowUpdate(traceId, authorization);
-                        }
                     }
                 }
-
-                // if (!MqttState.initialClosed(padding))
-                // {
-                //     if (MqttState.initialClosing(state))
-                //     {
-                //         flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
-                //     }
-                // }
             }
 
             private void onApplicationReset(
@@ -2125,6 +2139,11 @@ public final class MqttServerFactory implements StreamFactory
                 subscription.onSubscribeFailed(traceId, authorization, packetId, ackIndex);
 
                 cleanup(traceId, authorization);
+            }
+
+            private boolean isReplyOpen()
+            {
+                return MqttState.replyOpened(state);
             }
 
             @Override
@@ -2156,7 +2175,10 @@ public final class MqttServerFactory implements StreamFactory
             {
                 state = MqttState.openReply(state);
 
-                final MqttBeginExFW beginEx = begin.extension().get(mqttBeginExRO::tryWrap);
+                final long traceId = begin.traceId();
+                final long authorization = begin.authorization();
+
+                onReplyWindowUpdate(traceId, authorization, remoteSettings.initialWindowSize);
             }
 
             private void onApplicationData(
@@ -2196,6 +2218,51 @@ public final class MqttServerFactory implements StreamFactory
                 if (!MqttState.replyClosed(state))
                 {
                     doApplicationReset(traceId, authorization);
+                }
+            }
+
+            private void onReplyWindowUpdate(
+                long traceId,
+                long authorization,
+                int size)
+            {
+                final long newRemoteBudget = (long) remoteBudget + size;
+
+                if (newRemoteBudget > Integer.MAX_VALUE)
+                {
+                    // doEncodeRstStream(traceId, authorization, streamId, Http2ErrorCode.FLOW_CONTROL_ERROR);
+                    cleanup(traceId, authorization);
+                }
+                else
+                {
+                    remoteBudget = (int) newRemoteBudget;
+
+                    flushReplyWindow(traceId, authorization);
+                }
+            }
+
+            private void flushReplyWindow(
+                long traceId,
+                long authorization)
+            {
+                if (isReplyOpen())
+                {
+                    // final int maxFrameSize = remoteSettings.maxFrameSize;
+                    // final int connectionPadding = framePadding(connectionBudget, maxFrameSize);
+                    // final int remotePadding = framePadding(remoteBudget, maxFrameSize);
+                    final int paddedBudgetMax = Math.min(connectionBudget, remoteBudget);
+                    final int responseBudgetMax = Math.min(paddedBudgetMax, bufferPool.slotCapacity() - encodeSlotOffset);
+                    final int responseCredit = responseBudgetMax - replyBudget;
+
+                    if (responseCredit > 0)
+                    {
+                        // final int responsePadding = replyPadding + framePadding(responseBudgetMax, maxFrameSize);
+
+                        replyBudget += responseCredit;
+
+                        doWindow(application, routeId, replyId, traceId, authorization,
+                            budgetId, responseCredit, 0);
+                    }
                 }
             }
 
