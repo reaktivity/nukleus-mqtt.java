@@ -93,9 +93,9 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/publish/send.at.most.once/client",
-        "${server}/send.at.most.once/server"})
-    public void shouldExchangeConnectionPacketsThenPublish() throws Exception
+        "${client}/publish/send.one.message/client",
+        "${server}/send.one.message/server"})
+    public void shouldPublishOneMessage() throws Exception
     {
         k3po.finish();
     }
@@ -105,8 +105,21 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/publish/send.multiple.messages/client",
         "${server}/send.multiple.messages/server"})
-    public void shouldExchangeConnectionPacketsThenPublishMultipleMessages() throws Exception
+    public void shouldPublishMultipleMessages() throws Exception
     {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish/send.multiple.messages.with.delay/client",
+        "${server}/send.multiple.messages.with.delay/server"})
+    public void shouldPublishMultipleMessagesWithDelay() throws Exception
+    {
+        k3po.start();
+        Thread.sleep(6000);
+        k3po.notifyBarrier("PUBLISH_CLOSE");
         k3po.finish();
     }
 
@@ -114,8 +127,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/publish/receive.at.most.once/client",
-        "${server}/receive.at.most.once/server"})
+        "${client}/publish/receive.one.message/client",
+        "${server}/receive.one.message/server"})
     public void shouldReceivePublishAfterSubscribe() throws Exception
     {
         k3po.finish();

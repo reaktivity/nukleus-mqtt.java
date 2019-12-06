@@ -40,7 +40,7 @@ public class MqttConfiguration extends Configuration
         super(MQTT_CONFIG, config);
     }
 
-    public Long getPublishTimeout()
+    public long getPublishTimeout()
     {
         return PUBLISH_TIMEOUT.get(this);
     }
