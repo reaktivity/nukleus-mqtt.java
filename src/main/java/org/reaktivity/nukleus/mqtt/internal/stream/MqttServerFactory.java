@@ -2230,7 +2230,6 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (newRemoteBudget > Integer.MAX_VALUE)
                 {
-                    // doEncodeRstStream(traceId, authorization, streamId, Http2ErrorCode.FLOW_CONTROL_ERROR);
                     cleanup(traceId, authorization);
                 }
                 else
@@ -2247,17 +2246,12 @@ public final class MqttServerFactory implements StreamFactory
             {
                 if (isReplyOpen())
                 {
-                    // final int maxFrameSize = remoteSettings.maxFrameSize;
-                    // final int connectionPadding = framePadding(connectionBudget, maxFrameSize);
-                    // final int remotePadding = framePadding(remoteBudget, maxFrameSize);
                     final int paddedBudgetMax = Math.min(connectionBudget, remoteBudget);
                     final int responseBudgetMax = Math.min(paddedBudgetMax, bufferPool.slotCapacity() - encodeSlotOffset);
                     final int responseCredit = responseBudgetMax - replyBudget;
 
                     if (responseCredit > 0)
                     {
-                        // final int responsePadding = replyPadding + framePadding(responseBudgetMax, maxFrameSize);
-
                         replyBudget += responseCredit;
 
                         doWindow(application, routeId, replyId, traceId, authorization,
@@ -2298,8 +2292,7 @@ public final class MqttServerFactory implements StreamFactory
 
                     if (initialSlot == NO_SLOT)
                     {
-                        // doEncodeRstStream(traceId, authorization, streamId, Http2ErrorCode.INTERNAL_ERROR);
-                        // cleanup(traceId, authorization);
+                        cleanup(traceId, authorization);
                     }
                     else
                     {
