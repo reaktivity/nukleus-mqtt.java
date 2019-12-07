@@ -2053,7 +2053,6 @@ public final class MqttServerFactory implements StreamFactory
             {
                 assert MqttState.initialOpening(state);
 
-
                 flushApplicationData(traceId, authorization, buffer, offset, limit);
             }
 
