@@ -27,8 +27,10 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.SUCCESS;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_PROTOCOL_VERSION;
 
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
@@ -755,7 +757,7 @@ public final class MqttServerFactory implements StreamFactory
 
         private final Int2ObjectHashMap<MqttSubscribeStream> subscribers;
         private final Int2ObjectHashMap<MqttPublishStream> publishers;
-        private final Int2ObjectHashMap<MqttPublishStream> streams;
+        private final Int2ObjectHashMap<MqttUnifiedServerStream> streams;
         private final Map<String, MutableInteger> activeSubscribers;
         private final Map<String, MutableInteger> activePublishers;
         private final Map<String, MutableInteger> activeStreams;
@@ -1573,14 +1575,10 @@ public final class MqttServerFactory implements StreamFactory
             private final MessageConsumer application;
 
             private long routeId;
-            private long publishInitialId;
-            private long publishReplyId;
-            private long subscribeInitialId;
-            private long subscribeReplyId;
+            private long initialId;
+            private long replyId;
 
             private String topicFilter;
-
-            private int publishState;
 
             private int packetId;
 
@@ -1596,8 +1594,12 @@ public final class MqttServerFactory implements StreamFactory
 
             private Future<?> signalFuture;
 
+            // TODO - need multiple states to keep track of which roles of the stream are open?
+            private int publishState;
+            private int subscribeState;
+
             private int state;
-            private int role;
+            private Set<MqttRole> role;
 
             MqttUnifiedServerStream(
                 MessageConsumer application,
@@ -1610,42 +1612,26 @@ public final class MqttServerFactory implements StreamFactory
             {
                 this.application = application;
                 this.routeId = routeId;
+                this.initialId = initialId;
+                this.replyId = replyId;
                 this.packetId = packetId;
                 this.topicFilter = topicFilter;
-
-                switch (role)
-                {
-                case SENDER:
-                    this.publishInitialId = initialId;
-                    this.publishReplyId = replyId;
-                    break;
-                case RECEIVER:
-                    this.subscribeInitialId = initialId;
-                    this.subscribeReplyId = replyId;
-                    break;
-                }
-
-                this.role = MqttApplicationRole.addRole(this.role, role);
+                this.role = EnumSet.of(role);
             }
 
             private void doApplicationBegin(
                 long traceId,
                 long authorization,
                 long affinity,
-                int subscriptionId,
-                MqttRole role)
+                int subscriptionId)
             {
                 assert state == 0;
                 state = MqttState.openingInitial(state);
 
-                switch (role)
+                if (role.contains(MqttRole.SENDER))
                 {
-                case SENDER:
                     this.signalFuture = executor.schedule(publishTimeout, SECONDS, routeId, initialId,
                         PUBLISH_TIMEOUT_SIGNAL);
-                    break;
-                case RECEIVER:
-                    break;
                 }
 
                 router.setThrottle(initialId, this::onApplicationInitial);
@@ -1653,7 +1639,7 @@ public final class MqttServerFactory implements StreamFactory
                 final MqttBeginExFW beginEx = mqttBeginExRW
                                                   .wrap(extBuffer, 0, extBuffer.capacity())
                                                   .typeId(mqttTypeId)
-                                                  .role(r -> r.set(role))
+                                                  .role(r -> r.set(MqttRole.SENDER))
                                                   .clientId("client")
                                                   .topic(topicFilter)
                                                   .subscriptionId(subscriptionId)
@@ -1712,15 +1698,6 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     doApplicationAbort(traceId, authorization, EMPTY_OCTETS);
                 }
-            }
-
-            private void flushApplicationEnd(
-                long traceId,
-                long authorization,
-                Flyweight extension)
-            {
-                setInitialClosed();
-                doEnd(application, routeId, initialId, traceId, authorization, extension);
             }
 
             private void setInitialClosed()
@@ -1859,6 +1836,7 @@ public final class MqttServerFactory implements StreamFactory
                 final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
 
                 final String topicName = dataEx.topic().asString();
+                doEncodePublish(traceId, authorization, topicName, data.payload());
             }
 
             private void onApplicationEnd(
@@ -1884,6 +1862,63 @@ public final class MqttServerFactory implements StreamFactory
 
                     flushReplyWindow(traceId, authorization);
                 }
+            }
+
+            private void flushApplicationData(
+                long traceId,
+                long authorization,
+                DirectBuffer buffer,
+                int offset,
+                int limit)
+            {
+                final int maxLength = limit - offset;
+                final int length = Math.max(Math.min(initialBudget - initialPadding, maxLength), 0);
+
+                if (length > 0)
+                {
+                    final int reserved = length + initialPadding;
+
+                    initialBudget -= reserved;
+
+                    assert initialBudget >= 0;
+
+                    doData(application, routeId, initialId, traceId, authorization, budgetId,
+                        reserved, buffer, offset, length, EMPTY_OCTETS);
+                }
+
+                final int remaining = maxLength - length;
+                if (remaining > 0)
+                {
+                    if (initialSlot == NO_SLOT)
+                    {
+                        initialSlot = bufferPool.acquire(initialId);
+                    }
+
+                    if (initialSlot == NO_SLOT)
+                    {
+                        cleanup(traceId, authorization);
+                    }
+                    else
+                    {
+                        final MutableDirectBuffer requestBuffer = bufferPool.buffer(initialSlot);
+                        requestBuffer.putBytes(0, buffer, offset, remaining);
+                        initialSlotOffset = remaining;
+                        initialSlotTraceId = traceId;
+                    }
+                }
+                else
+                {
+                    cleanupInitialSlotIfNecessary();
+                }
+            }
+
+            private void flushApplicationEnd(
+                long traceId,
+                long authorization,
+                Flyweight extension)
+            {
+                setInitialClosed();
+                doEnd(application, routeId, initialId, traceId, authorization, extension);
             }
 
             private void flushReplyWindow(
@@ -1921,7 +1956,10 @@ public final class MqttServerFactory implements StreamFactory
             {
                 correlations.remove(replyId);
 
-                doApplicationReset(traceId, authorization);
+                if (!MqttState.replyClosed(state))
+                {
+                    doApplicationReset(traceId, authorization);
+                }
             }
 
             private void cleanupInitialSlotIfNecessary()
@@ -1991,8 +2029,6 @@ public final class MqttServerFactory implements StreamFactory
 
         private abstract class MqttServerStream
         {
-            private MqttApplicationRole type;
-
             abstract void onApplicationInitial(
                 int msgTypeId,
                 DirectBuffer buffer,
@@ -2403,6 +2439,8 @@ public final class MqttServerFactory implements StreamFactory
             }
         }
 
+        // TODO - UNSUBSCRIBE send END (as publish timesout anyways w/ end)
+        //      -
         private final class MqttSubscribeStream extends MqttServerStream
         {
             private final MessageConsumer application;
@@ -2819,61 +2857,6 @@ public final class MqttServerFactory implements StreamFactory
                 doApplicationAbortIfNecessary(traceId, authorization);
                 doApplicationResetIfNecessary(traceId, authorization);
             }
-        }
-    }
-
-    private static final class MqttApplicationRole
-    {
-        private static final int PUBLISH = 1 << MqttRole.SENDER.ordinal();
-        private static final int SUBSCRIBE = 1 << MqttRole.RECEIVER.ordinal();
-
-        static int addRole(
-            int role,
-            MqttRole mqttRole)
-        {
-            return role | (1 << mqttRole.ordinal());
-        }
-
-        static int publishOnly(
-            int role)
-        {
-            return role & PUBLISH;
-        }
-
-        static int addPublish(
-            int role)
-        {
-            return role | PUBLISH;
-        }
-
-        static int subscribeOnly(
-            int role)
-        {
-            return role & SUBSCRIBE;
-        }
-
-        static int addSubscribe(
-            int role)
-        {
-            return role | SUBSCRIBE;
-        }
-
-        static boolean canPublish(
-            int role)
-        {
-            return (role & PUBLISH) != 0;
-        }
-
-        static boolean canSubscribe(
-            int role)
-        {
-            return (role & SUBSCRIBE) != 0;
-        }
-
-        static boolean canPublishAndSubscribe(
-            int type)
-        {
-            return canPublish(type) && canSubscribe(type);
         }
     }
 
