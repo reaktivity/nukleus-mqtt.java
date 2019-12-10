@@ -1580,7 +1580,10 @@ public final class MqttServerFactory implements StreamFactory
 
             private String topicFilter;
 
+            private Subscription subscription;
+            private int subackIndex;
             private int packetId;
+            private boolean isSubscribed;
 
             private int initialBudget;
             private int initialPadding;
@@ -1594,10 +1597,6 @@ public final class MqttServerFactory implements StreamFactory
 
             private Future<?> signalFuture;
 
-            // TODO - need multiple states to keep track of which roles of the stream are open?
-            private int publishState;
-            private int subscribeState;
-
             private int state;
             private Set<MqttRole> role;
 
@@ -1608,6 +1607,7 @@ public final class MqttServerFactory implements StreamFactory
                 long replyId,
                 int packetId,
                 String topicFilter,
+                Subscription subscription,
                 MqttRole role)
             {
                 this.application = application;
@@ -1617,6 +1617,7 @@ public final class MqttServerFactory implements StreamFactory
                 this.packetId = packetId;
                 this.topicFilter = topicFilter;
                 this.role = EnumSet.of(role);
+                this.subackIndex = subscription != null ? subscription.ackCount : -1;
             }
 
             private void doApplicationBegin(
@@ -1654,15 +1655,21 @@ public final class MqttServerFactory implements StreamFactory
             private void doApplicationData(
                 long traceId,
                 long authorization,
-                OctetsFW payload,
+                DirectBuffer buffer,
+                int offset,
+                int limit,
                 Flyweight extension)
             {
                 assert MqttState.initialOpening(state);
 
-                refreshPublishTimeout();
+                if (role.contains(MqttRole.SENDER))
+                {
+                    refreshPublishTimeout();
+                }
 
-                doData(application, routeId, initialId, traceId, authorization, 0L, payload.sizeof(),
-                    payload.buffer(), payload.offset(), payload.sizeof(), extension);
+                flushApplicationData(traceId, authorization, buffer, offset, limit, extension);
+                // doData(application, routeId, initialId, traceId, authorization, 0L, limit,
+                //     buffer, offset, limit, extension);
             }
 
             private void doApplicationEnd(
@@ -1751,11 +1758,57 @@ public final class MqttServerFactory implements StreamFactory
             private void onApplicationWindow(
                 WindowFW window)
             {
+                final long traceId = window.traceId();
+                final long authorization = window.authorization();
+                final int credit = window.credit();
+                final int padding = window.padding();
+
+                state = MqttState.openInitial(state);
+
+                initialBudget += credit;
+                initialPadding = padding;
+
+                if (role.contains(MqttRole.RECEIVER) && !isSubscribed)
+                {
+                    isSubscribed = true;
+                    subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
+                }
+
+                if (initialSlot != NO_SLOT)
+                {
+                    final MutableDirectBuffer buffer = bufferPool.buffer(initialSlot);
+                    final int offset = 0;
+                    final int limit = initialSlotOffset;
+
+                    flushApplicationData(initialSlotTraceId, authorization, buffer, offset, limit, EMPTY_OCTETS);
+                }
+
+                if (initialSlot == NO_SLOT)
+                {
+                    if (!MqttState.initialClosed(padding))
+                    {
+                        if (MqttState.initialClosing(state))
+                        {
+                            // TODO: trailers extension?
+                            flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
+                        }
+                    }
+                }
             }
 
             private void onApplicationReset(
                 ResetFW reset)
             {
+                setInitialClosed();
+
+                final long traceId = reset.traceId();
+                final long authorization = reset.authorization();
+                if (role.contains(MqttRole.RECEIVER))
+                {
+                    subscription.onSubscribeFailed(traceId, authorization, packetId, subackIndex);
+                }
+
+                cleanup(traceId, authorization);
             }
 
             private void onApplicationSignal(
@@ -1869,7 +1922,8 @@ public final class MqttServerFactory implements StreamFactory
                 long authorization,
                 DirectBuffer buffer,
                 int offset,
-                int limit)
+                int limit,
+                Flyweight extension)
             {
                 final int maxLength = limit - offset;
                 final int length = Math.max(Math.min(initialBudget - initialPadding, maxLength), 0);
@@ -1883,7 +1937,7 @@ public final class MqttServerFactory implements StreamFactory
                     assert initialBudget >= 0;
 
                     doData(application, routeId, initialId, traceId, authorization, budgetId,
-                        reserved, buffer, offset, length, EMPTY_OCTETS);
+                        reserved, buffer, offset, length, extension);
                 }
 
                 final int remaining = maxLength - length;
