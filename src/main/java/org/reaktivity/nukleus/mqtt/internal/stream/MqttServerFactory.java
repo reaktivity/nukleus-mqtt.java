@@ -757,7 +757,7 @@ public final class MqttServerFactory implements StreamFactory
 
         // private final Int2ObjectHashMap<MqttSubscribeStream> subscribers;
         // private final Int2ObjectHashMap<MqttPublishStream> publishers;
-        private final Int2ObjectHashMap<MqttUnifiedServerStream> streams;
+        private final Int2ObjectHashMap<MqttServerStream> streams;
         private final Map<String, MutableInteger> activeSubscribers;
         private final Map<String, MutableInteger> activePublishers;
         private final Map<String, MutableInteger> activeStreams;
@@ -1026,15 +1026,15 @@ public final class MqttServerFactory implements StreamFactory
                 // publishStream.doApplicationData(traceId, authorization, payload, dataEx);
                 // correlations.put(newReplyId, publishStream);    // TODO: do we need to clean up correlations onAbort()?
 
-                MqttServer.MqttUnifiedServerStream stream = streams.computeIfAbsent(topicKey, s ->
+                MqttServerStream stream = streams.computeIfAbsent(topicKey, s ->
                 {
-                    final MqttUnifiedServerStream newStream = new MqttUnifiedServerStream(newTarget,
+                    final MqttServerStream newStream = new MqttServerStream(newTarget,
                                                                 newRouteId, newInitialId, newReplyId, 0, topicName,
                                                                 null, MqttRole.SENDER);
                     newStream.doApplicationBegin(traceId, authorization, affinity, topicName, 0);
                     return newStream;
                 });
-                stream.doApplicationData(traceId, authorization, payload.buffer(), payload.offset(), payload.limit(), dataEx);
+                stream.doApplicationData(traceId, authorization, MqttRole.SENDER, payload, dataEx);
                 correlations.put(newReplyId, stream);    // TODO: do we need to clean up correlations onAbort()?
 
                 // doEncodePublish(traceId, authorization, topicName, );
@@ -1097,12 +1097,19 @@ public final class MqttServerFactory implements StreamFactory
                     // subscribeStream.doApplicationBegin(traceId, authorization, affinity, topicFilter, subscriptionId);
                     // subscribeStream.doApplicationData(traceId, authorization, buffer, offset, limit);
 
-                    final MqttUnifiedServerStream stream = new MqttUnifiedServerStream(newTarget,
-                                                    newRouteId, newInitialId, newReplyId, packetId, topicFilter, subscription,
-                                                    MqttRole.RECEIVER);
+                    final int topicKey = topicKey(topicFilter);
 
-                    stream.doApplicationBegin(traceId, authorization, affinity, topicFilter, subscriptionId);
-                    stream.doApplicationData(traceId, authorization, buffer, offset, limit, EMPTY_OCTETS);
+                    int finalSubscriptionId = subscriptionId;
+                    MqttServerStream stream = streams.computeIfAbsent(topicKey, s ->
+                    {
+                        final MqttServerStream newStream = new MqttServerStream(newTarget,
+                            newRouteId, newInitialId, newReplyId, packetId, topicFilter, subscription,
+                            MqttRole.RECEIVER);
+                        newStream.doApplicationBegin(traceId, authorization, affinity, topicFilter, finalSubscriptionId);
+                        return newStream;
+                    });
+                    // stream.doApplicationBegin(traceId, authorization, affinity, topicFilter, subscriptionId);
+                    stream.doApplicationData(traceId, authorization, MqttRole.RECEIVER, topicFilters, EMPTY_OCTETS);
 
                     correlations.put(newReplyId, stream);
 
@@ -1147,7 +1154,8 @@ public final class MqttServerFactory implements StreamFactory
                 final String topicString = topic.filter().asString();
                 final int topicKey = topicKey(topicString);
                 // subscribers.remove(topicKey);
-                streams.get(topicKey).role.remove(MqttRole.RECEIVER);
+                final MqttServerStream stream = streams.get(topicKey);
+                stream.roles.remove(MqttRole.RECEIVER);
                 // TODO - END to application; unsubscribe from topic, and publish timesout with end either way
             }
             doEncodeUnsuback(traceId, authorization, packetId);
@@ -1590,23 +1598,23 @@ public final class MqttServerFactory implements StreamFactory
             }
         }
 
-        private abstract class MqttServerStream
-        {
-            abstract void onApplicationInitial(
-                int msgTypeId,
-                DirectBuffer buffer,
-                int index,
-                int length);
+        // private abstract class MqttServerStream
+        // {
+        //     abstract void onApplicationInitial(
+        //         int msgTypeId,
+        //         DirectBuffer buffer,
+        //         int index,
+        //         int length);
+        //
+        //     abstract void onApplicationReply(
+        //         int msgTypeId,
+        //         DirectBuffer buffer,
+        //         int index,
+        //         int length);
+        // }
 
-            abstract void onApplicationReply(
-                int msgTypeId,
-                DirectBuffer buffer,
-                int index,
-                int length);
-        }
 
-
-        private class MqttUnifiedServerStream extends MqttServerStream
+        private class MqttServerStream
         {
             private final MessageConsumer application;
 
@@ -1634,9 +1642,9 @@ public final class MqttServerFactory implements StreamFactory
             private Future<?> signalFuture;
 
             private int state;
-            private Set<MqttRole> role;
+            private Set<MqttRole> roles;
 
-            MqttUnifiedServerStream(
+            MqttServerStream(
                 MessageConsumer application,
                 long routeId,
                 long initialId,
@@ -1653,7 +1661,7 @@ public final class MqttServerFactory implements StreamFactory
                 this.packetId = packetId;
                 this.topicFilter = topicFilter;
                 this.subscription = subscription;
-                this.role = EnumSet.of(role);
+                this.roles = EnumSet.of(role);
                 this.subackIndex = subscription != null ? subscription.ackCount : -1;
             }
 
@@ -1667,10 +1675,16 @@ public final class MqttServerFactory implements StreamFactory
                 assert state == 0;
                 state = MqttState.openingInitial(state);
 
-                if (role.contains(MqttRole.SENDER))
+                final MqttRole role;
+                if (this.roles.contains(MqttRole.SENDER))
                 {
                     this.signalFuture = executor.schedule(publishTimeout, SECONDS, routeId, initialId,
                         PUBLISH_TIMEOUT_SIGNAL);
+                    role = MqttRole.SENDER;
+                }
+                else
+                {
+                    role = MqttRole.RECEIVER;
                 }
 
                 router.setThrottle(initialId, this::onApplicationInitial);
@@ -1678,7 +1692,7 @@ public final class MqttServerFactory implements StreamFactory
                 final MqttBeginExFW beginEx = mqttBeginExRW
                                                   .wrap(extBuffer, 0, extBuffer.capacity())
                                                   .typeId(mqttTypeId)
-                                                  .role(r -> r.set(MqttRole.RECEIVER))
+                                                  .role(r -> r.set(role))
                                                   .clientId("client")
                                                   .topic(topicFilter)
                                                   .subscriptionId(subscriptionId)
@@ -1693,21 +1707,25 @@ public final class MqttServerFactory implements StreamFactory
             private void doApplicationData(
                 long traceId,
                 long authorization,
-                DirectBuffer buffer,
-                int offset,
-                int limit,
+                MqttRole role,
+                OctetsFW payload,
                 Flyweight extension)
             {
                 assert MqttState.initialOpening(state);
 
-                if (role.contains(MqttRole.SENDER))
-                {
-                    refreshPublishTimeout();
-                }
+                refreshPublishTimeout();
 
-                flushApplicationData(traceId, authorization, buffer, offset, limit, extension);
-                // doData(application, routeId, initialId, traceId, authorization, 0L, limit,
-                //     buffer, offset, limit, extension);
+                switch (role)
+                {
+                case SENDER:
+                    doData(application, routeId, initialId, traceId, authorization, 0L, payload.sizeof(),
+                        payload.buffer(), payload.offset(), payload.sizeof(), extension);
+                    break;
+                case RECEIVER:
+                    flushApplicationData(traceId, authorization, payload.buffer(), payload.offset(), payload.limit(), extension);
+                    break;
+                }
+                roles.add(role);
             }
 
             private void doApplicationEnd(
@@ -1815,7 +1833,7 @@ public final class MqttServerFactory implements StreamFactory
                 initialBudget += credit;
                 initialPadding = padding;
 
-                if (role.contains(MqttRole.RECEIVER) && !isSubscribed)
+                if (roles.contains(MqttRole.RECEIVER) && !isSubscribed)
                 {
                     isSubscribed = true;
                     subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
@@ -1850,7 +1868,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 final long traceId = reset.traceId();
                 final long authorization = reset.authorization();
-                if (role.contains(MqttRole.RECEIVER))
+                if (roles.contains(MqttRole.RECEIVER))
                 {
                     subscription.onSubscribeFailed(traceId, authorization, packetId, subackIndex);
                 }
@@ -2121,7 +2139,7 @@ public final class MqttServerFactory implements StreamFactory
 
             private void cancelTimerIfNecessary()
             {
-                if (signalFuture != null)
+                if (signalFuture != null )
                 {
                     signalFuture.cancel(true);
                     signalFuture = null;
