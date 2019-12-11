@@ -123,13 +123,12 @@ public class ConnectionIT
         k3po.finish();
     }
 
-    @Ignore
     @Test
     @Specification({
         "${route}/server/controller",
         "${client}/publish/receive.one.message/client",
         "${server}/receive.one.message/server"})
-    public void shouldReceivePublishAfterSendingPublish() throws Exception
+    public void shouldReceivePublishAfterSubscribe() throws Exception
     {
         k3po.finish();
     }
