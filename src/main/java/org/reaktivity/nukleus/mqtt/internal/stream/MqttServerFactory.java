@@ -1818,6 +1818,15 @@ public final class MqttServerFactory implements StreamFactory
             private void onApplicationData(
                 DataFW data)
             {
+                replyBudget -= data.reserved();
+
+                if (replyBudget < 0)
+                {
+                    final long traceId = data.traceId();
+                    final long authorization = data.authorization();
+                    doApplicationReset(traceId, authorization);
+                    doNetworkAbort(traceId, authorization);
+                }
             }
 
             private void onApplicationEnd(
@@ -2111,13 +2120,10 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (initialSlot == NO_SLOT)
                 {
-                    if (!MqttState.initialClosed(padding))
+                    if (MqttState.initialClosing(state))
                     {
-                        if (MqttState.initialClosing(state))
-                        {
-                            // TODO: trailers extension?
-                            flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
-                        }
+                        // TODO: trailers extension?
+                        flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
                     }
                 }
             }
@@ -2177,14 +2183,26 @@ public final class MqttServerFactory implements StreamFactory
             private void onApplicationData(
                 DataFW data)
             {
-                final long traceId = data.traceId();
-                final long authorization = data.authorization();
-                final OctetsFW extension = data.extension();
+                replyBudget -= data.reserved();
 
-                final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
+                if (replyBudget < 0)
+                {
+                    final long traceId = data.traceId();
+                    final long authorization = data.authorization();
+                    doApplicationReset(traceId, authorization);
+                    doNetworkAbort(traceId, authorization);
+                }
+                else
+                {
+                    final long traceId = data.traceId();
+                    final long authorization = data.authorization();
+                    final OctetsFW extension = data.extension();
 
-                final String topicName = dataEx.topic().asString();
-                doEncodePublish(traceId, authorization, topicName, data.payload());
+                    final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
+
+                    final String topicName = dataEx.topic().asString();
+                    doEncodePublish(traceId, authorization, topicName, data.payload());
+                }
             }
 
             private void onApplicationEnd(
