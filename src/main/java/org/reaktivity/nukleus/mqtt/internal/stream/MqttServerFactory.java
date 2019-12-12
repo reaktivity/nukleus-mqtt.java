@@ -1097,6 +1097,12 @@ public final class MqttServerFactory implements StreamFactory
                     // subscribeStream.doApplicationBegin(traceId, authorization, affinity, topicFilter, subscriptionId);
                     // subscribeStream.doApplicationData(traceId, authorization, buffer, offset, limit);
 
+                    if (topicFilter == null)
+                    {
+                        onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+                        return;
+                    }
+
                     final int topicKey = topicKey(topicFilter);
 
                     int finalSubscriptionId = subscriptionId;
@@ -1108,20 +1114,13 @@ public final class MqttServerFactory implements StreamFactory
                         newStream.doApplicationBegin(traceId, authorization, affinity, topicFilter, finalSubscriptionId);
                         return newStream;
                     });
-                    // stream.doApplicationBegin(traceId, authorization, affinity, topicFilter, subscriptionId);
                     stream.doApplicationData(traceId, authorization, MqttRole.RECEIVER, topicFilters, EMPTY_OCTETS);
 
                     correlations.put(newReplyId, stream);
 
-                    if (topicFilter == null)
-                    {
-                        onDecodeError(traceId, authorization, PROTOCOL_ERROR);
-                        return;
-                    }
-
-                    final int key = topicKey(topicFilter);
+                    // final int key = topicKey(topicFilter);
                     // subscribers.put(key, subscribeStream);
-                    streams.put(key, stream);
+                    // streams.put(key, stream);
                 }
                 else
                 {
@@ -1713,11 +1712,10 @@ public final class MqttServerFactory implements StreamFactory
             {
                 assert MqttState.initialOpening(state);
 
-                refreshPublishTimeout();
-
                 switch (role)
                 {
                 case SENDER:
+                    refreshPublishTimeout();
                     doData(application, routeId, initialId, traceId, authorization, 0L, payload.sizeof(),
                         payload.buffer(), payload.offset(), payload.sizeof(), extension);
                     break;
@@ -1797,6 +1795,7 @@ public final class MqttServerFactory implements StreamFactory
                     }
                 }
             }
+
             public void onApplicationInitial(
                 int msgTypeId,
                 DirectBuffer buffer,
@@ -1897,10 +1896,9 @@ public final class MqttServerFactory implements StreamFactory
                 final long traceId = signal.traceId();
                 final long authorization = signal.authorization();
 
-                final MqttEndExFW endEx = mqttEndExRW
-                                              .wrap(extBuffer, 0, extBuffer.capacity())
-                                              .typeId(mqttTypeId)
-                                              .build();
+                final MqttEndExFW endEx = mqttEndExRW.wrap(extBuffer, 0, extBuffer.capacity())
+                                                     .typeId(mqttTypeId)
+                                                     .build();
 
                 doApplicationEnd(traceId, authorization, endEx);
             }
