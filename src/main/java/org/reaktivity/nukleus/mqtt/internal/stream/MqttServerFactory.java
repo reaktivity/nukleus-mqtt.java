@@ -754,9 +754,7 @@ public final class MqttServerFactory implements StreamFactory
         private final long budgetId;
 
         private final Int2ObjectHashMap<MqttServerStream> streams;
-        private final Map<String, MutableInteger> activeSubscribers;
-        private final Map<String, MutableInteger> activePublishers;
-        private final Map<String, MutableInteger> activeStreams;
+        private final Int2ObjectHashMap<MutableInteger> activeStreams;
         private final Int2ObjectHashMap<Subscription> subscriptionsByPacketId;
 
         private int initialBudget;
@@ -793,9 +791,7 @@ public final class MqttServerFactory implements StreamFactory
             this.budgetId = budgetId;
             this.decoder = decodePacketType;
             this.streams = new Int2ObjectHashMap<>();
-            this.activeSubscribers = new HashMap<>();
-            this.activePublishers = new HashMap<>();
-            this.activeStreams = new HashMap<>();
+            this.activeStreams = new Int2ObjectHashMap<>();
             this.subscriptionsByPacketId = new Int2ObjectHashMap<>();
         }
 
@@ -1070,7 +1066,7 @@ public final class MqttServerFactory implements StreamFactory
                     if (topicFilter == null)
                     {
                         onDecodeError(traceId, authorization, PROTOCOL_ERROR);
-                        return;
+                        break;
                     }
 
                     final int topicKey = topicKey(topicFilter);
@@ -1112,9 +1108,10 @@ public final class MqttServerFactory implements StreamFactory
             for (int progress = offset; progress < limit; progress = topic.limit())
             {
                 topic = mqttTopicRO.tryWrap(buffer, progress, limit);
-                if (topic == null)
+                if (topic == null || topic.filter() == null)
                 {
-                    break;
+                    onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+                    return;
                 }
                 final String topicString = topic.filter().asString();
                 final int topicKey = topicKey(topicString);
@@ -1250,14 +1247,11 @@ public final class MqttServerFactory implements StreamFactory
             String topicName,
             OctetsFW payload)
         {
-            OctetsFW properties = octetsRW.wrap(writeBuffer, 0, 0)
-                                          .build();
-
             final MqttPublishFW publish = mqttPublishRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                               .typeAndFlags(0x30)
                                               .remainingLength(0x14)
                                               .topicName(topicName)
-                                              .properties(properties)
+                                              .properties(EMPTY_OCTETS)
                                               .payload(payload)
                                               .build();
 
@@ -1269,16 +1263,12 @@ public final class MqttServerFactory implements StreamFactory
             long authorization,
             int reasonCode)
         {
-            OctetsFW properties = octetsRW.wrap(writeBuffer, 0, 0)
-                                          .build();
-
             final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                               .typeAndFlags(0x20)
-                                              .remainingLength(properties.sizeof() + 3)
+                                              .remainingLength(EMPTY_OCTETS.sizeof() + 3)
                                               .flags(0x00)
                                               .reasonCode(reasonCode)
-                                              .propertiesLength(properties.sizeof())
-                                              .properties(properties)
+                                              .properties(EMPTY_OCTETS)
                                               .build();
 
             doNetworkData(traceId, authorization, 0L, connack);
@@ -1351,16 +1341,12 @@ public final class MqttServerFactory implements StreamFactory
             long authorization,
             int reasonCode)
         {
-            OctetsFW properties = octetsRW.wrap(writeBuffer, 0, 0)
-                                          .build();
-
             final MqttDisconnectFW disconnect = mqttDisconnectRW
                                                     .wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                                     .typeAndFlags(0xe0)
-                                                    .remainingLength((byte) properties.sizeof() + 2)
+                                                    .remainingLength((byte) EMPTY_OCTETS.sizeof() + 2)
                                                     .reasonCode(reasonCode)
-                                                    .propertiesLength(properties.sizeof())
-                                                    .properties(properties)
+                                                    .properties(EMPTY_OCTETS)
                                                     .build();
 
             doNetworkData(traceId, authorization, 0L, disconnect);
@@ -1430,7 +1416,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 cleanupEncodeSlotIfNecessary();
 
-                if (/*publishers.isEmpty() && subscribers.isEmpty() && */ streams.isEmpty() && decoder == decodeIgnoreAll)
+                if (streams.isEmpty() && decoder == decodeIgnoreAll)
                 {
                     doNetworkEnd(traceId, authorization);
                 }
@@ -1573,7 +1559,6 @@ public final class MqttServerFactory implements StreamFactory
             private Subscription subscription;
             private int subackIndex;
             private int packetId;
-            private boolean isSubscribed;
 
             private int initialSlot = NO_SLOT;
             private int initialSlotOffset;
@@ -1640,7 +1625,8 @@ public final class MqttServerFactory implements StreamFactory
 
                 doBegin(application, routeId, initialId, traceId, authorization, affinity, beginEx);
 
-                final MutableInteger value = activeStreams.computeIfAbsent(topicFilter, key -> new MutableInteger());
+                final int topicKey = topicKey(topicFilter);
+                final MutableInteger value = activeStreams.computeIfAbsent(topicKey, key -> new MutableInteger());
                 value.value++;
 
                 if (initialSlot == NO_SLOT)
@@ -1889,6 +1875,14 @@ public final class MqttServerFactory implements StreamFactory
                 final long authorization = data.authorization();
                 final OctetsFW extension = data.extension();
 
+                replyBudget -= data.reserved();
+
+                if (replyBudget < 0)
+                {
+                    doApplicationReset(traceId, authorization);
+                    doNetworkAbort(traceId, authorization);
+                }
+
                 final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
 
                 final String topicName = dataEx.topic().asString();
@@ -1984,8 +1978,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 if (isReplyOpen())
                 {
-                    final int replyBudgetMax = bufferPool.slotCapacity() - encodeSlotOffset;
-                    final int replyCredit = replyBudgetMax - replyBudget;
+                    final int replyCredit = bufferPool.slotCapacity() - encodeSlotOffset - replyBudget;
 
                     if (replyCredit > 0)
                     {
