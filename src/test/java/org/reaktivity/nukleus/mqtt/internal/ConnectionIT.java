@@ -21,7 +21,6 @@ import static org.junit.rules.RuleChain.outerRule;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
