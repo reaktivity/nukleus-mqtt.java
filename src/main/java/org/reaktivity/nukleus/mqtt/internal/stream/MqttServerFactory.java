@@ -28,7 +28,6 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_P
 
 import java.util.EnumMap;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Future;
@@ -1707,9 +1706,10 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (MqttState.closed(state))
                 {
-                    streams.remove(topicKey(topicFilter));
+                    final int topicKey = topicKey(topicFilter);
+                    streams.remove(topicKey);
 
-                    final MutableInteger count = activeStreams.get(topicFilter);
+                    final MutableInteger count = activeStreams.get(topicKey);
 
                     assert count != null;
 
@@ -1719,7 +1719,7 @@ public final class MqttServerFactory implements StreamFactory
 
                     if (count.value == 0)
                     {
-                        activeStreams.remove(topicFilter);
+                        activeStreams.remove(topicKey);
                     }
                 }
             }
@@ -2030,8 +2030,9 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (MqttState.closed(state))
                 {
-                    streams.remove(topicKey(topicFilter));
-                    final MutableInteger count = activeStreams.get(topicFilter);
+                    final int topicKey = topicKey(topicFilter);
+                    streams.remove(topicKey);
+                    final MutableInteger count = activeStreams.get(topicKey);
 
                     assert count != null;
 
@@ -2041,7 +2042,7 @@ public final class MqttServerFactory implements StreamFactory
 
                     if (count.value == 0)
                     {
-                        activeStreams.remove(topicFilter);
+                        activeStreams.remove(topicKey);
                     }
                 }
             }
