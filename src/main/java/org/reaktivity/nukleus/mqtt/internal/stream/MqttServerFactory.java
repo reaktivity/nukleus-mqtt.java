@@ -1574,10 +1574,6 @@ public final class MqttServerFactory implements StreamFactory
 
             private int packetId;
 
-            private int initialBudget;
-            private int initialPadding;
-            private int replyBudget;
-
             private int initialSlot = NO_SLOT;
             private int initialSlotOffset;
             private long initialSlotTraceId;
@@ -2122,7 +2118,6 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     if (MqttState.initialClosing(state))
                     {
-                        // TODO: trailers extension?
                         flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
                     }
                 }
