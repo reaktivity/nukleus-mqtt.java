@@ -1710,6 +1710,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (MqttState.closed(state))
                 {
+                    roles.clear();
                     final int topicKey = topicKey(topicFilter);
                     streams.remove(topicKey);
 
@@ -1780,12 +1781,9 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (initialSlot == NO_SLOT)
                 {
-                    if (!MqttState.initialClosed(padding))
+                    if (MqttState.initialClosing(state))
                     {
-                        if (MqttState.initialClosing(state))
-                        {
-                            flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
-                        }
+                        flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
                     }
                 }
             }
@@ -2018,6 +2016,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (MqttState.closed(state))
                 {
+                    roles.clear();
                     final int topicKey = topicKey(topicFilter);
                     streams.remove(topicKey);
                     final MutableInteger count = activeStreams.get(topicKey);
