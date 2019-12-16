@@ -1115,8 +1115,12 @@ public final class MqttServerFactory implements StreamFactory
                 final String topicString = topic.filter().asString();
                 final int topicKey = topicKey(topicString);
                 final MqttServerStream stream = streams.get(topicKey);
-                stream.roles.remove(MqttRole.RECEIVER);
-                // TODO - END to application; unsubscribe from topic, and publish timesout with end either way
+
+                final MqttEndExFW endEx = mqttEndExRW.wrap(extBuffer, 0, extBuffer.capacity())
+                                              .typeId(mqttTypeId)
+                                              .build();
+
+                stream.doApplicationEnd(traceId, authorization, endEx);
             }
             doEncodeUnsuback(traceId, authorization, packetId);
         }
@@ -1673,7 +1677,7 @@ public final class MqttServerFactory implements StreamFactory
                 }
                 else
                 {
-                    flushApplicationPublishEnd(traceId, authorization, extension);
+                    flushApplicationEnd(traceId, authorization, extension);
                 }
             }
 
@@ -1950,25 +1954,9 @@ public final class MqttServerFactory implements StreamFactory
                 Flyweight extension)
             {
                 setInitialClosed();
-                if (roles.isEmpty())
-                {
-                    streams.remove(topicKey(topicFilter));
-                }
-                doEnd(application, routeId, initialId, traceId, authorization, extension);
-            }
+                roles.clear();
+                streams.remove(topicKey(topicFilter));
 
-            private void flushApplicationPublishEnd(
-                long traceId,
-                long authorization,
-                Flyweight extension)
-            {
-                setInitialClosed();
-                roles.remove(MqttRole.SENDER);
-
-                if (roles.isEmpty())
-                {
-                    streams.remove(topicKey(topicFilter));
-                }
                 doEnd(application, routeId, initialId, traceId, authorization, extension);
             }
 
