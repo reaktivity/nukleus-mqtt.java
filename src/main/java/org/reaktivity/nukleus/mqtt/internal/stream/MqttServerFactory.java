@@ -1000,9 +1000,7 @@ public final class MqttServerFactory implements StreamFactory
             int messageExpiryInterval = 15;
             String contentType = "message";
             String responseTopic = topicName;
-            OctetsFW correlationInfo = octetsRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                                       .put(info.getBytes(UTF_8))
-                                       .build();
+            byte[] correlationInfo = info.getBytes(UTF_8);
 
             MqttPropertyFW mqttProperty;
 
@@ -1024,13 +1022,13 @@ public final class MqttServerFactory implements StreamFactory
                     responseTopic = mqttProperty.responseTopic().asString();
                     break;
                 case KIND_CORRELATION_DATA:
-                    correlationInfo = mqttProperty.correlationData().bytes();
+                    correlationInfo = mqttProperty.correlationData().asString().getBytes();
                     break;
                 }
             }
 
             final MqttPayloadFormat format = mqttPayloadFormat != null ? mqttPayloadFormat : MqttPayloadFormat.TEXT;
-            final OctetsFW finalCorrelationInfo = correlationInfo;
+            final byte[] finalCorrelationInfo = correlationInfo;
 
             final MqttDataExFW dataEx = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                                     .typeId(mqttTypeId)

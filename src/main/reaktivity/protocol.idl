@@ -74,7 +74,7 @@
             case 0x02: uint32 messageExpiryInterval;
             case 0x03: string contentType;
             case 0x08: string responseTopic;
-            case 0x09: Binary correlationData;
+            case 0x09: string correlationData;
             case 0x0b: uint8 subscriptionId;
             case 0x11: uint32 sessionExpiry;
             case 0x12: string assignedClientId;
