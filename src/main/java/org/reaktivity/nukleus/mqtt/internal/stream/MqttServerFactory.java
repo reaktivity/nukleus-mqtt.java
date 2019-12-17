@@ -25,6 +25,12 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NORMAL_DISCON
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.PROTOCOL_ERROR;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.SUCCESS;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_PROTOCOL_VERSION;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CONTENT_TYPE;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CORRELATION_DATA;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_MESSAGE_EXPIRY_INTERVAL;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_PAYLOAD_FORMAT_INDICATOR;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_RESPONSE_TOPIC;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_SUBSCRIPTION_ID;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -52,6 +58,8 @@ import org.reaktivity.nukleus.mqtt.internal.types.Flyweight;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttRole;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
+import org.reaktivity.nukleus.mqtt.internal.types.String16FW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.BinaryFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttDisconnectFW;
@@ -134,6 +142,7 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttRouteExFW routeExRO = new MqttRouteExFW();
     private final MqttPropertyFW mqttPropertyRO = new MqttPropertyFW();
 
+    private final BinaryFW.Builder binaryRW = new BinaryFW.Builder();
     private final OctetsFW.Builder octetsRW = new OctetsFW.Builder();
 
     private final MqttPacketFixedHeaderFW.Builder mqttPacketFixedHeaderRW = new MqttPacketFixedHeaderFW.Builder();
@@ -975,18 +984,62 @@ public final class MqttServerFactory implements StreamFactory
             long authorization,
             MqttPublishFW publish)
         {
-            final String topicName = publish.topicName().asString();
+            final String16FW publishTopicName = publish.topicName();
+            final DirectBuffer buffer = publishTopicName.buffer();
+            final int limit = publishTopicName.limit();
+            final int offset = publishTopicName.offset();
 
-            String info = "info";
+            OctetsFW properties = publish.properties();
+            final int propertiesOffset = properties.offset();
+            final int propertiesLimit = properties.limit();
+
+            final String topicName = publishTopicName.asString();
+            final String info = "info";
+
+            MqttPayloadFormat mqttPayloadFormat = MqttPayloadFormat.TEXT;
+            int messageExpiryInterval = 15;
+            String contentType = "message";
+            String responseTopic = topicName;
+            OctetsFW correlationInfo = octetsRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                                       .put(info.getBytes(UTF_8))
+                                       .build();
+
+            MqttPropertyFW mqttProperty;
+
+            for (int progress = propertiesOffset; progress < propertiesLimit; progress = mqttProperty.limit())
+            {
+                mqttProperty = mqttPropertyRO.tryWrap(buffer, progress, propertiesLimit);
+                switch (mqttProperty.kind())
+                {
+                case KIND_PAYLOAD_FORMAT_INDICATOR:
+                    mqttPayloadFormat = MqttPayloadFormat.valueOf(mqttProperty.payloadFormatIndicator());
+                    break;
+                case KIND_MESSAGE_EXPIRY_INTERVAL:
+                    messageExpiryInterval = mqttProperty.subscriptionId();
+                    break;
+                case KIND_CONTENT_TYPE:
+                    contentType = mqttProperty.contentType().asString();
+                    break;
+                case KIND_RESPONSE_TOPIC:
+                    responseTopic = mqttProperty.responseTopic().asString();
+                    break;
+                case KIND_CORRELATION_DATA:
+                    correlationInfo = mqttProperty.correlationData().bytes();
+                    break;
+                }
+            }
+
+            final MqttPayloadFormat format = mqttPayloadFormat != null ? mqttPayloadFormat : MqttPayloadFormat.TEXT;
+            final OctetsFW finalCorrelationInfo = correlationInfo;
 
             final MqttDataExFW dataEx = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                                     .typeId(mqttTypeId)
                                                     .topic(topicName)
-                                                    .expiryInterval(15)
-                                                    .contentType("message")
-                                                    .format(f -> f.set(MqttPayloadFormat.TEXT))
-                                                    .responseTopic(topicName)
-                                                    .correlationInfo(c -> c.bytes(b -> b.set(info.getBytes(UTF_8))))
+                                                    .expiryInterval(messageExpiryInterval)
+                                                    .contentType(contentType)
+                                                    .format(f -> f.set(format))
+                                                    .responseTopic(responseTopic)
+                                                    .correlationInfo(c -> c.bytes(b -> b.set(finalCorrelationInfo)))
                                                     .build();
 
             OctetsFW payload = publish.payload();
@@ -1039,7 +1092,7 @@ public final class MqttServerFactory implements StreamFactory
                 mqttProperty = mqttPropertyRO.tryWrap(buffer, progress, propertiesLimit);
                 switch (mqttProperty.kind())
                 {
-                case 0x0b:
+                case KIND_SUBSCRIPTION_ID:
                     subscriptionId = mqttProperty.subscriptionId();
                     break;
                 }

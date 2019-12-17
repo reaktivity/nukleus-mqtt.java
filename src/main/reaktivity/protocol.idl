@@ -70,26 +70,30 @@
 
         union MqttProperty switch (uint8)
         {
+            case 0x01: uint8 payloadFormatIndicator;
+            case 0x02: uint32 messageExpiryInterval;
+            case 0x03: string contentType;
+            case 0x08: string responseTopic;
+            case 0x09: Binary correlationData;
+            case 0x0b: uint8 subscriptionId;
             case 0x11: uint32 sessionExpiry;
-            case 0x21: uint16 receiveMaximum;
-            case 0x27: uint32 maximumPacketSize;
-            case 0x22: uint16 topicAliasMaximum;
-            case 0x19: uint8 requestResponseInformation;
+            case 0x12: string assignedClientId;
+            case 0x13: uint16 serverKeepAlive;
+            case 0x15: string authenticationMethod;
+            case 0x16: Binary authenticationData;
             case 0x17: uint8 requestProblemInformation;
+            case 0x19: uint8 requestResponseInformation;
+            case 0x1A: string responseInformation;
+            case 0x1C: string serverReference;
+            case 0x1F: string reasonString;
+            case 0x21: uint16 receiveMaximum;
+            case 0x22: uint16 topicAliasMaximum;
             case 0x24: uint8 maximumQoS;
             case 0x25: uint8 retainAvailable;
-            case 0x12: string assignedClientId;
-            case 0x1F: string reasonString;
+            case 0x27: uint32 maximumPacketSize;
             case 0x28: uint8 wildcardSubscriptionAvailable;
             case 0x29: uint8 subscriptionIdsAvailable;
             case 0x2A: uint8 sharedSubscriptionAvailable;
-            case 0x13: uint16 serverKeepAlive;
-            case 0x1A: string responseInformation;
-            case 0x1C: string serverReference;
-            case 0x15: string authenticationMethod;
-            case 0x16: Binary authenticationData;
-            case 0x01: uint8 payloadFormatIndicator;
-            case 0x0b: uint8 subscriptionId;
         }
 
         struct MqttConnect extends MqttPacketFixedHeader
