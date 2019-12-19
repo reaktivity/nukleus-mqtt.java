@@ -999,10 +999,11 @@ public final class MqttServerFactory implements StreamFactory
             final String topicName = publishTopicName.asString();
 
             MqttPayloadFormat mqttPayloadFormat = MqttPayloadFormat.TEXT;
+            int subscriptionId = 0;
             int messageExpiryInterval = 0;
             String contentType = "";
             String responseTopic = "";
-            OctetsFW correlationInfo = null;
+            OctetsFW correlationInfo = EMPTY_OCTETS;
 
             MqttPropertyFW mqttProperty;
 
@@ -1015,7 +1016,7 @@ public final class MqttServerFactory implements StreamFactory
                     mqttPayloadFormat = MqttPayloadFormat.valueOf(mqttProperty.payloadFormatIndicator());
                     break;
                 case KIND_MESSAGE_EXPIRY_INTERVAL:
-                    messageExpiryInterval = mqttProperty.subscriptionId();
+                    messageExpiryInterval = (int) (mqttProperty.messageExpiryInterval() >> 4);
                     break;
                 case KIND_CONTENT_TYPE:
                     contentType = mqttProperty.contentType().asString();
@@ -1029,6 +1030,7 @@ public final class MqttServerFactory implements StreamFactory
                 case KIND_TOPIC_ALIAS:
                     break;
                 case KIND_SUBSCRIPTION_ID:
+                    subscriptionId = mqttProperty.subscriptionId().value();
                     break;
                 default:
                     onDecodeError(traceId, authorization, MALFORMED_PACKET);
@@ -1042,6 +1044,7 @@ public final class MqttServerFactory implements StreamFactory
             final MqttDataExFW dataEx = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                                     .typeId(mqttTypeId)
                                                     .topic(topicName)
+                                                    .subscriptionId(subscriptionId)
                                                     .expiryInterval(messageExpiryInterval)
                                                     .contentType(contentType)
                                                     .format(f -> f.set(format))
@@ -1097,7 +1100,7 @@ public final class MqttServerFactory implements StreamFactory
                 switch (mqttProperty.kind())
                 {
                 case KIND_SUBSCRIPTION_ID:
-                    subscriptionId = mqttProperty.subscriptionId();
+                    subscriptionId = mqttProperty.subscriptionId().value();
                     break;
                 }
             }
@@ -1317,6 +1320,8 @@ public final class MqttServerFactory implements StreamFactory
             final String topicName = topic.asString();
 
             mqttPropertyRW.wrap(mqttPropertyBuffer, 0, mqttPropertyBuffer.capacity())
+                    .subscriptionId(v -> v.set(dataEx.subscriptionId()))
+                .wrap(mqttPropertyBuffer, 0, mqttPropertyBuffer.capacity())
                     .messageExpiryInterval((int) dataEx.expiryInterval())
                 .wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
                     .contentType(dataEx.contentType().asString())

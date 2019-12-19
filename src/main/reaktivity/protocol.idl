@@ -81,7 +81,7 @@
             case 0x03: string contentType;
             case 0x08: string responseTopic;
             case 0x09: Binary correlationData;
-            case 0x0b: uint8 subscriptionId;
+            case 0x0b: varbyteuint32 subscriptionId;
             case 0x11: uint32 sessionExpiry;
             case 0x12: string assignedClientId;
             case 0x13: uint16 serverKeepAlive;
