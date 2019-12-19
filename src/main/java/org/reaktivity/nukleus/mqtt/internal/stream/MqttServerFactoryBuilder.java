@@ -23,7 +23,7 @@ import java.util.function.ToIntFunction;
 
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
-import org.reaktivity.nukleus.concurrent.SignalingExecutor;
+import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -41,7 +41,7 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
     private LongSupplier supplyTraceId;
     private Supplier<BufferPool> supplyBufferPool;
     private ToIntFunction<String> supplyTypeId;
-    private SignalingExecutor executor;
+    private Signaler signaler;
 
     public MqttServerFactoryBuilder(
         MqttConfiguration config)
@@ -114,10 +114,10 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
-    public StreamFactoryBuilder setExecutor(
-        SignalingExecutor executor)
+    public StreamFactoryBuilder setSignaler(
+        Signaler signaler)
     {
-        this.executor = executor;
+        this.signaler = signaler;
         return this;
     }
 
@@ -136,6 +136,6 @@ public final class MqttServerFactoryBuilder implements StreamFactoryBuilder
             supplyBudgetId,
             supplyTraceId,
             supplyTypeId,
-            executor);
+            signaler);
     }
 }
