@@ -1780,12 +1780,14 @@ public final class MqttServerFactory implements StreamFactory
                 switch (role)
                 {
                 case SENDER:
+                    assert roles.contains(role);
+
+                    DirectBuffer buffer = payload.buffer();
+                    int offset = payload.offset();
+                    int limit = payload.limit();
+
                     refreshPublishTimeout();
-                    doData(application, routeId, initialId, traceId, authorization, 0L, payload.sizeof(),
-                        payload.buffer(), payload.offset(), payload.sizeof(), extension);
-                    break;
-                case RECEIVER:
-                default:
+                    flushApplicationData(traceId, authorization, buffer, offset, limit, extension);
                     break;
                 }
             }
