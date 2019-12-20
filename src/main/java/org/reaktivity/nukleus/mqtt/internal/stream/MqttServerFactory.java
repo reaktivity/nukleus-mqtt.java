@@ -774,8 +774,8 @@ public final class MqttServerFactory implements StreamFactory
 
         private int initialBudget;
         private int initialPadding;
-        private int replyPadding;
         private int replyBudget;
+        private int replyPadding;
 
         private int decodeSlot = NO_SLOT;
         private int decodeSlotLimit;
