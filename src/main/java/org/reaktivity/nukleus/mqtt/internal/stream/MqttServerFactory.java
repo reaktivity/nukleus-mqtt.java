@@ -999,7 +999,6 @@ public final class MqttServerFactory implements StreamFactory
             final String topicName = publishTopicName.asString();
 
             MqttPayloadFormat mqttPayloadFormat = MqttPayloadFormat.TEXT;
-            int subscriptionId = 0;
             int messageExpiryInterval = 0;
             String contentType = "";
             String responseTopic = "";
@@ -1016,7 +1015,7 @@ public final class MqttServerFactory implements StreamFactory
                     mqttPayloadFormat = MqttPayloadFormat.valueOf(mqttProperty.payloadFormatIndicator());
                     break;
                 case KIND_MESSAGE_EXPIRY_INTERVAL:
-                    messageExpiryInterval = (int) (mqttProperty.messageExpiryInterval() >> 4);
+                    messageExpiryInterval = mqttProperty.messageExpiryInterval();
                     break;
                 case KIND_CONTENT_TYPE:
                     contentType = mqttProperty.contentType().asString();
@@ -1028,9 +1027,6 @@ public final class MqttServerFactory implements StreamFactory
                     correlationInfo = mqttProperty.correlationData().bytes();
                     break;
                 case KIND_TOPIC_ALIAS:
-                    break;
-                case KIND_SUBSCRIPTION_ID:
-                    subscriptionId = mqttProperty.subscriptionId().value();
                     break;
                 default:
                     onDecodeError(traceId, authorization, MALFORMED_PACKET);
@@ -1044,7 +1040,6 @@ public final class MqttServerFactory implements StreamFactory
             final MqttDataExFW dataEx = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                                     .typeId(mqttTypeId)
                                                     .topic(topicName)
-                                                    .subscriptionId(subscriptionId)
                                                     .expiryInterval(messageExpiryInterval)
                                                     .contentType(contentType)
                                                     .format(f -> f.set(format))
@@ -1105,47 +1100,56 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
-            for (int progress = offset; progress < limit; progress = mqttSubscription.limit(), subscription.ackCount++)
+            if (subscriptionId == 0)
             {
-                mqttSubscription = mqttSubscriptionRO.tryWrap(buffer, progress, limit);
-                if (mqttSubscription == null)
-                {
-                    break;
-                }
-                final String topicFilter = mqttSubscription.topicFilter().asString();
-                final RouteFW route = resolveTarget(routeId, authorization, topicFilter);
+                onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+            }
+            else
+            {
+                subscription.subscriptionId = subscriptionId;
 
-                if (route != null)
+                for (int progress = offset; progress < limit; progress = mqttSubscription.limit(), subscription.ackCount++)
                 {
-                    final long newRouteId = route.correlationId();
-                    final long newInitialId = supplyInitialId.applyAsLong(newRouteId);
-                    final long newReplyId = supplyReplyId.applyAsLong(newInitialId);
-                    final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
-
-                    if (topicFilter == null)
+                    mqttSubscription = mqttSubscriptionRO.tryWrap(buffer, progress, limit);
+                    if (mqttSubscription == null)
                     {
-                        onDecodeError(traceId, authorization, PROTOCOL_ERROR);
                         break;
                     }
+                    final String topicFilter = mqttSubscription.topicFilter().asString();
+                    final RouteFW route = resolveTarget(routeId, authorization, topicFilter);
 
-                    final int topicKey = topicKey(topicFilter);
+                    if (route != null)
+                    {
+                        final long newRouteId = route.correlationId();
+                        final long newInitialId = supplyInitialId.applyAsLong(newRouteId);
+                        final long newReplyId = supplyReplyId.applyAsLong(newInitialId);
+                        final MessageConsumer newTarget = router.supplyReceiver(newInitialId);
 
-                    MqttServerStream stream = streams.computeIfAbsent(topicKey, s ->
-                                                        new MqttServerStream(newTarget, newRouteId, newInitialId, newReplyId,
-                                                            packetId, topicFilter, MqttRole.RECEIVER));
-                    stream.doApplicationSubscription(subscription);
-                    stream.doApplicationBeginIfNecessary(traceId, authorization, affinity, topicFilter, subscriptionId);
-                    stream.doApplicationData(traceId, authorization, MqttRole.RECEIVER, topicFilters, EMPTY_OCTETS);
+                        if (topicFilter == null)
+                        {
+                            onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+                            break;
+                        }
 
-                    correlations.put(newReplyId, stream);
+                        final int topicKey = topicKey(topicFilter);
+
+                        MqttServerStream stream = streams.computeIfAbsent(topicKey, s ->
+                                                            new MqttServerStream(newTarget, newRouteId, newInitialId, newReplyId,
+                                                                packetId, topicFilter, MqttRole.RECEIVER));
+                        stream.doApplicationSubscribe(subscription);
+                        stream.doApplicationBeginIfNecessary(traceId, authorization, affinity, topicFilter, subscriptionId);
+                        stream.doApplicationData(traceId, authorization, MqttRole.RECEIVER, topicFilters, EMPTY_OCTETS);
+
+                        correlations.put(newReplyId, stream);
+                    }
+                    else
+                    {
+                        unrouteableMask |= 1 << subscription.ackCount;
+                    }
                 }
-                else
-                {
-                    unrouteableMask |= 1 << subscription.ackCount;
-                }
+
+                subscription.ackMask |= unrouteableMask;
             }
-
-            subscription.ackMask |= unrouteableMask;
         }
 
         private void onDecodeUnsubscribe(
@@ -1312,6 +1316,7 @@ public final class MqttServerFactory implements StreamFactory
         private void doEncodePublish(
             long traceId,
             long authorization,
+            int subscriptionId,
             OctetsFW extension,
             OctetsFW payload)
         {
@@ -1319,18 +1324,21 @@ public final class MqttServerFactory implements StreamFactory
             final StringFW topic = dataEx.topic();
             final String topicName = topic.asString();
 
-            mqttPropertyRW.wrap(mqttPropertyBuffer, 0, mqttPropertyBuffer.capacity())
-                    .subscriptionId(v -> v.set(dataEx.subscriptionId()))
-                .wrap(mqttPropertyBuffer, 0, mqttPropertyBuffer.capacity())
-                    .messageExpiryInterval((int) dataEx.expiryInterval())
+            if (subscriptionId > 0)
+            {
+                mqttPropertyRW.wrap(mqttPropertyBuffer, 0, mqttPropertyBuffer.capacity())
+                    .subscriptionId(v -> v.set(subscriptionId));
+            }
+            mqttPropertyRW.wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
+                .messageExpiryInterval(dataEx.expiryInterval())
                 .wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
-                    .contentType(dataEx.contentType().asString())
+                .contentType(dataEx.contentType().asString())
                 .wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
-                    .payloadFormatIndicator((byte) dataEx.format().get().ordinal())
+                .payloadFormatIndicator((byte) dataEx.format().get().ordinal())
                 .wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
-                    .responseTopic(dataEx.responseTopic().asString())
+                .responseTopic(dataEx.responseTopic().asString())
                 .wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
-                    .correlationData(a -> a.bytes(dataEx.correlationInfo().bytes()))
+                .correlationData(a -> a.bytes(dataEx.correlationInfo().bytes()))
                 .build();
 
             final int limit = mqttPropertyRW.limit();
@@ -1591,6 +1599,7 @@ public final class MqttServerFactory implements StreamFactory
 
         private final class Subscription
         {
+            private int subscriptionId = 0;
             private int ackCount;
             private int successMask;
             private int ackMask;
@@ -1677,7 +1686,7 @@ public final class MqttServerFactory implements StreamFactory
                 this.cancelId = NO_CANCEL_ID;
             }
 
-            private void doApplicationSubscription(
+            private void doApplicationSubscribe(
                 Subscription subscription)
             {
                 this.subscription = subscription;
@@ -1991,7 +2000,7 @@ public final class MqttServerFactory implements StreamFactory
                     doNetworkAbort(traceId, authorization);
                 }
 
-                doEncodePublish(traceId, authorization, extension, data.payload());
+                doEncodePublish(traceId, authorization, subscription.subscriptionId, extension, data.payload());
             }
 
             private void onApplicationEnd(
