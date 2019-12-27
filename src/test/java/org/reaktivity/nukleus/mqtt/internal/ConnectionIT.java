@@ -135,6 +135,15 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/publish/receive.one.message.with.invalid.subscription.id/client"})
+    public void shouldReceivePublishWithInvalidSubscriptionIdAfterSendingSubscribe() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/connect/invalid.protocol.version/client"})
     public void shouldRejectInvalidMqttProtocolVersion() throws Exception
     {

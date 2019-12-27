@@ -17,6 +17,8 @@
 package org.reaktivity.nukleus.mqtt.internal;
 
 import static org.junit.Assert.assertEquals;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CLIENT_ID;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CLIENT_ID_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT_NAME;
 
@@ -27,6 +29,7 @@ public class ConfigurationTest
     @Test
     public void shouldVerifyConstants() throws Exception
     {
+        assertEquals(CLIENT_ID.name(), CLIENT_ID_NAME);
         assertEquals(PUBLISH_TIMEOUT.name(), PUBLISH_TIMEOUT_NAME);
     }
 }
