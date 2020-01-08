@@ -92,6 +92,16 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/unsubscribe/aggregated.topic.filters.both.exact/client",
+        "${server}/connect.as.receiver.with.aggregated.topic.filters.both.exact/server"})
+    public void shouldUnsubscribeFromTwoTopicsBothExactOneUnsubackPacket() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/publish/send.one.message/client",
         "${server}/send.one.message/server"})
     public void shouldPublishOneMessage() throws Exception
