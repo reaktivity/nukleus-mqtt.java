@@ -24,7 +24,6 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NORMAL_DISCON
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.PROTOCOL_ERROR;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.SUCCESS;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_PROTOCOL_VERSION;
-import static org.reaktivity.nukleus.mqtt.internal.MqttUtility.validTopicFilter;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttRole.RECEIVER;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttRole.SENDER;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CONTENT_TYPE;
@@ -56,6 +55,7 @@ import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
 import org.reaktivity.nukleus.mqtt.internal.MqttNukleus;
+import org.reaktivity.nukleus.mqtt.internal.MqttValidator;
 import org.reaktivity.nukleus.mqtt.internal.types.Flyweight;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttRole;
@@ -177,6 +177,8 @@ public final class MqttServerFactory implements StreamFactory
     private final String clientId;
     private final long publishTimeout;
 
+    private final MqttValidator validator;
+
     private final Long2ObjectHashMap<MqttServer.MqttServerStream> correlations;
     private final MessageFunction<RouteFW> wrapRoute = (t, b, i, l) -> routeRO.wrap(b, i, i + l);
     private final int mqttTypeId;
@@ -238,6 +240,7 @@ public final class MqttServerFactory implements StreamFactory
         this.signaler = signaler;
         this.clientId = config.getClientId();
         this.publishTimeout = config.getPublishTimeout();
+        this.validator = new MqttValidator();
     }
 
     @Override
@@ -1133,7 +1136,7 @@ public final class MqttServerFactory implements StreamFactory
                             break;
                         }
 
-                        final boolean validTopicFilter = validTopicFilter(topicFilter);
+                        final boolean validTopicFilter = validator.isTopicFilterValid(topicFilter);
 
                         if (!validTopicFilter)
                         {

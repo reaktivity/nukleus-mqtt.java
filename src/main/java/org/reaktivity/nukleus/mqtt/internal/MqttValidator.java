@@ -15,19 +15,22 @@
  */
 package org.reaktivity.nukleus.mqtt.internal;
 
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public final class MqttUtility
+public final class MqttValidator
 {
-    public static final Pattern TOPIC_FILTER_REGEX = Pattern.compile("[/]?(([^/#+]*|\\+)/)*(#|\\+|[^/#+]*)");
+    private static final Pattern TOPIC_FILTER_REGEX = Pattern.compile("[/]?(([^/#+]*|\\+)/)*(#|\\+|[^/#+]*)");
 
-    public static boolean validTopicFilter(String topicFilter)
+    private static final Matcher TOPIC_FILTER_MATCHER = TOPIC_FILTER_REGEX.matcher("");
+
+    public MqttValidator()
     {
-        return TOPIC_FILTER_REGEX.matcher(topicFilter).matches();
     }
 
-    private MqttUtility()
+    public boolean isTopicFilterValid(
+        String topicFilter)
     {
-        // Utility
+        return TOPIC_FILTER_MATCHER.reset(topicFilter).matches();
     }
 }
