@@ -24,6 +24,7 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NORMAL_DISCON
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.PROTOCOL_ERROR;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.SUCCESS;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_PROTOCOL_VERSION;
+import static org.reaktivity.nukleus.mqtt.internal.MqttUtility.validTopicFilter;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttRole.RECEIVER;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttRole.SENDER;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CONTENT_TYPE;
@@ -1127,6 +1128,14 @@ public final class MqttServerFactory implements StreamFactory
                         final long newRouteId = route.correlationId();
 
                         if (topicFilter == null)
+                        {
+                            onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+                            break;
+                        }
+
+                        final boolean validTopicFilter = validTopicFilter(topicFilter);
+
+                        if (!validTopicFilter)
                         {
                             onDecodeError(traceId, authorization, PROTOCOL_ERROR);
                             break;
