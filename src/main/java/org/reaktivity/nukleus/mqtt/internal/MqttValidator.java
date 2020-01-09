@@ -22,7 +22,7 @@ public final class MqttValidator
 {
     private static final Pattern TOPIC_FILTER_REGEX = Pattern.compile("[/]?(([^/#+]*|\\+)/)*(#|\\+|[^/#+]*)");
 
-    private static final Matcher TOPIC_FILTER_MATCHER = TOPIC_FILTER_REGEX.matcher("");
+    private final Matcher topicFilterMatcher = TOPIC_FILTER_REGEX.matcher("");
 
     public MqttValidator()
     {
@@ -31,6 +31,6 @@ public final class MqttValidator
     public boolean isTopicFilterValid(
         String topicFilter)
     {
-        return TOPIC_FILTER_MATCHER.reset(topicFilter).matches();
+        return topicFilterMatcher.reset(topicFilter).matches();
     }
 }

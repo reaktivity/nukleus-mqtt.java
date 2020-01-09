@@ -27,279 +27,198 @@ public class ValidatorTest
     @Test
     public void shouldValidateIsolatedMultiLevelWildcard()
     {
-        final String topicFilter = "#";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("#"));
     }
 
     @Test
     public void shouldValidateMultiLevelWildcardAtEnd()
     {
-        final String topicFilter = "/#";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("/#"));
     }
 
     @Test
     public void shouldValidateIsolatedSingleLevelWildcard()
     {
-        final String topicFilter = "+";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("+"));
     }
 
     @Test
     public void shouldValidateSingleLevelWildcardBeforeTrailingLevelSeparator()
     {
-        final String topicFilter = "+/";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("+/"));
     }
 
     @Test
     public void shouldValidateSingleLevelWildcardAfterLeadingLevelSeparator()
     {
-        final String topicFilter = "/+";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("/+"));
     }
 
     @Test
     public void shouldValidateMultiLevelWildcardAfterSingleWildcards()
     {
-        final String topicFilter = "+/+/#";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("+/+/#"));
     }
 
     @Test
     public void shouldValidateIsolatedLevelSeparator()
     {
-        final String topicFilter = "/";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("/"));
     }
 
     @Test
     public void shouldValidateAdjacentLevelSeparator()
     {
-        final String topicFilter = "//";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("//"));
     }
 
     @Test
     public void shouldValidateMultipleTopicNamesFilter()
     {
-        final String topicFilter = "topic/name";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("topic/name"));
     }
 
     @Test
     public void shouldValidateMultipleTopicNamesAfterLeadingLevelSeparator()
     {
-        final String topicFilter = "/topic/name";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("/topic/name"));
     }
 
     @Test
     public void shouldValidateMultipleTopicNamesBeforeTrailingLevelSeparator()
     {
-        final String topicFilter = "topic/name/";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("topic/name/"));
     }
 
     @Test
     public void shouldValidateMultipleTopicNamesBetweenLeadingAndTrailingLevelSeparators()
     {
-        final String topicFilter = "/topic/name/";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("/topic/name/"));
     }
 
     @Test
     public void shouldValidateMultipleTopicNamesWithAdjacentLevelSeparators()
     {
-        final String topicFilter = "topic//name";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("topic//name"));
     }
 
     @Test
     public void shouldValidateMultipleTopicNamesWithLeadingAndAdjacentLevelSeparators()
     {
-        final String topicFilter = "/topic//name";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("/topic//name"));
     }
 
     @Test
     public void shouldValidateMultipleTopicNamesWithTrailingAndAdjacentLevelSeparators()
     {
-        final String topicFilter = "topic//name/";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("topic//name/"));
     }
 
     @Test
     public void shouldValidateMultipleTopicNamesWithSingleLevelWildcard()
     {
-        final String topicFilter = "topic/+/name/";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("topic/+/name/"));
     }
 
     @Test
     public void shouldValidateMultipleTopicNamesWithMultiLevelWildcard()
     {
-        final String topicFilter = "topic/name/+";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("topic/name/+"));
     }
 
     @Test
     public void shouldValidateMultipleTopicNamesWithSingleAndMultiLevelWildcard()
     {
-        final String topicFilter = "topic/+/name/#";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("topic/+/name/#"));
     }
 
     @Test
     public void shouldValidateMultipleTopicNamesWithSingleAndMultiLevelWildcardAndAdjacentLevelSeparators()
     {
-        final String topicFilter = "topic/+//name/#";
-
-        checkForValidTopicFilter(topicFilter);
+        assertTrue(validator.isTopicFilterValid("topic/+//name/#"));
     }
 
     @Test
     public void shouldNotValidateLeadingMultiLevelWildcard()
     {
-        final String topicFilter = "#/";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("#/"));
     }
 
     @Test
     public void shouldNotValidateInteriorMultiLevelWildcard()
     {
-        final String topicFilter = "topic/#/name";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("topic/#/name"));
     }
 
     @Test
     public void shouldNotValidateAdjacentMultiLevelWildcard()
     {
-        final String topicFilter = "##";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("##"));
     }
 
     @Test
     public void shouldNotValidateAdjacentMultiLevelWildcardWithTrailingLevelSeparator()
     {
-        final String topicFilter = "##/";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("##/"));
     }
 
     @Test
     public void shouldNotValidateAdjacentMultiLevelWildcardWithLeadingLevelSeparator()
     {
-        final String topicFilter = "/##";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("/##"));
     }
 
     @Test
     public void shouldNotValidateAdjacentMultiAndSingleLevelWildcards()
     {
-        final String topicFilter = "#+";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("#+"));
     }
 
     @Test
     public void shouldNotValidateAdjacentSingleLevelWildcards()
     {
-        final String topicFilter = "++";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("++"));
     }
 
     @Test
     public void shouldNotValidateAdjacentSingleLevelWildcardsWithTrailingLevelSeparator()
     {
-        final String topicFilter = "++/";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("++/"));
     }
 
     @Test
     public void shouldNotValidateAdjacentSingleLevelWildcardsWithLeadingLevelSeparator()
     {
-        final String topicFilter = "/++";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("/++"));
     }
 
     @Test
     public void shouldNotValidateLeadingMultiLevelWildcardsWithMultipleTopicNames()
     {
-        final String topicFilter = "#/topic/name";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("#/topic/name"));
     }
 
     @Test
     public void shouldNotValidateSingleLevelWildcardsCombinedWithTopicName()
     {
-        final String topicFilter = "+topic/name";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("+topic/name"));
     }
 
     @Test
     public void shouldNotValidateMultiLevelWildcardsCombinedWithTopicName()
     {
-        final String topicFilter = "#topic/name";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("#topic/name"));
     }
 
     @Test
     public void shouldNotValidateMultiLevelWildcardsCombinedWithTopicNameWithValidSingleLevelWildcard()
     {
-        final String topicFilter = "#topic/+/name";
-
-        checkForInvalidTopicFilter(topicFilter);
+        assertFalse(validator.isTopicFilterValid("#topic/+/name"));
     }
-
 
     @Test
     public void shouldNotValidateSingleLevelWildcardsCombinedWithTopicNameWithValidMultiLevelWildcard()
     {
-        final String topicFilter = "+topic/name/#";
-
-        checkForInvalidTopicFilter(topicFilter);
-    }
-
-    private void checkForValidTopicFilter(
-        String topicFilter)
-    {
-        assertTrue(String.format("\"%s\" was an invalid filter when it's supposed to be valid.", topicFilter),
-            validator.isTopicFilterValid(topicFilter));
-    }
-
-    private void checkForInvalidTopicFilter(
-        String topicFilter)
-    {
-        assertFalse(String.format("\"%s\" was a valid filter when it's supposed to be invalid.", topicFilter),
-            validator.isTopicFilterValid(topicFilter));
+        assertFalse(validator.isTopicFilterValid("+topic/name/#"));
     }
 }
