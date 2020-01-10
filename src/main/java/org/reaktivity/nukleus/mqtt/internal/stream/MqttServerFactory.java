@@ -55,6 +55,7 @@ import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
 import org.reaktivity.nukleus.mqtt.internal.MqttNukleus;
+import org.reaktivity.nukleus.mqtt.internal.MqttValidator;
 import org.reaktivity.nukleus.mqtt.internal.types.Flyweight;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttRole;
@@ -176,6 +177,8 @@ public final class MqttServerFactory implements StreamFactory
     private final String clientId;
     private final long publishTimeout;
 
+    private final MqttValidator validator;
+
     private final Long2ObjectHashMap<MqttServer.MqttServerStream> correlations;
     private final MessageFunction<RouteFW> wrapRoute = (t, b, i, l) -> routeRO.wrap(b, i, i + l);
     private final int mqttTypeId;
@@ -237,6 +240,7 @@ public final class MqttServerFactory implements StreamFactory
         this.signaler = signaler;
         this.clientId = config.getClientId();
         this.publishTimeout = config.getPublishTimeout();
+        this.validator = new MqttValidator();
     }
 
     @Override
@@ -1127,6 +1131,14 @@ public final class MqttServerFactory implements StreamFactory
                         final long newRouteId = route.correlationId();
 
                         if (topicFilter == null)
+                        {
+                            onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+                            break;
+                        }
+
+                        final boolean validTopicFilter = validator.isTopicFilterValid(topicFilter);
+
+                        if (!validTopicFilter)
                         {
                             onDecodeError(traceId, authorization, PROTOCOL_ERROR);
                             break;
