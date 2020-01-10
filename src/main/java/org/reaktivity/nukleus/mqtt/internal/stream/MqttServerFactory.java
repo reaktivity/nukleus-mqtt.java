@@ -48,6 +48,7 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.collections.MutableInteger;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.reaktivity.nukleus.budget.BudgetCreditor;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.nukleus.function.MessageConsumer;
@@ -184,6 +185,7 @@ public final class MqttServerFactory implements StreamFactory
     private final int mqttTypeId;
 
     private final BufferPool bufferPool;
+    private final BudgetCreditor creditor;
 
     private final MqttServerDecoder decodePacketType = this::decodePacketType;
     private final MqttServerDecoder decodeConnect = this::decodeConnect;
@@ -217,6 +219,7 @@ public final class MqttServerFactory implements StreamFactory
         RouteManager router,
         MutableDirectBuffer writeBuffer,
         BufferPool bufferPool,
+        BudgetCreditor creditor,
         LongUnaryOperator supplyInitialId,
         LongUnaryOperator supplyReplyId,
         LongSupplier supplyBudgetId,
@@ -231,6 +234,7 @@ public final class MqttServerFactory implements StreamFactory
         this.dataExtBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.mqttPropertyBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.bufferPool = bufferPool;
+        this.creditor = creditor;
         this.supplyInitialId = requireNonNull(supplyInitialId);
         this.supplyReplyId = requireNonNull(supplyReplyId);
         this.supplyBudgetId = requireNonNull(supplyBudgetId);
