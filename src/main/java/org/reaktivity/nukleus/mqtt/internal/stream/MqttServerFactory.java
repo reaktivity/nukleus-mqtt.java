@@ -17,6 +17,7 @@
 package org.reaktivity.nukleus.mqtt.internal.stream;
 
 import static java.util.Objects.requireNonNull;
+import static org.reaktivity.nukleus.budget.BudgetCreditor.NO_CREDITOR_INDEX;
 import static org.reaktivity.nukleus.buffer.BufferPool.NO_SLOT;
 import static org.reaktivity.nukleus.concurrent.Signaler.NO_CANCEL_ID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.MALFORMED_PACKET;
@@ -785,6 +786,9 @@ public final class MqttServerFactory implements StreamFactory
         private int replyBudget;
         private int replyPadding;
 
+        private long replyBudgetIndex = NO_CREDITOR_INDEX;
+        private int sharedBudget;
+
         private int decodeSlot = NO_SLOT;
         private int decodeSlotLimit;
 
@@ -953,6 +957,19 @@ public final class MqttServerFactory implements StreamFactory
             }
 
             doNetworkWindow(traceId, authorization, credit, padding, budgetId);
+
+            if (replyBudget > 0)
+            {
+                final int slotCapacity = bufferPool.slotCapacity();
+                final long replySharedPrevious = creditor.credit(traceId, replyBudgetIndex, replyBudget);
+
+                assert replySharedPrevious <= slotCapacity
+                    : String.format("%d <= %d, replyBudget = %d",
+                    replySharedPrevious, slotCapacity, replyBudget);
+
+                assert credit <= slotCapacity
+                    : String.format("%d <= %d", credit, slotCapacity);
+            }
         }
 
         private void onNetworkReset(
@@ -960,6 +977,12 @@ public final class MqttServerFactory implements StreamFactory
         {
             final long traceId = reset.traceId();
             final long authorization = reset.authorization();
+
+            cleanupBudgetCreditorIfNecessary();
+            cleanupEncodeSlotIfNecessary();
+
+            streams.values().forEach(s -> s.cleanup(traceId, authorization));
+
             doNetworkReset(traceId, authorization);
         }
 
@@ -1246,6 +1269,9 @@ public final class MqttServerFactory implements StreamFactory
         {
             doBegin(network, routeId, replyId, traceId, authorization, affinity, EMPTY_OCTETS);
             router.setThrottle(replyId, this::onNetwork);
+
+            assert replyBudgetIndex == NO_CREDITOR_INDEX;
+            this.replyBudgetIndex = creditor.acquire(budgetId);
         }
 
         private void doNetworkData(
@@ -1287,6 +1313,7 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization)
         {
+            cleanupBudgetCreditorIfNecessary();
             cleanupEncodeSlotIfNecessary();
             doEnd(network, routeId, replyId, traceId, authorization, EMPTY_OCTETS);
         }
@@ -1295,8 +1322,17 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization)
         {
+            cleanupBudgetCreditorIfNecessary();
             cleanupEncodeSlotIfNecessary();
             doAbort(network, routeId, replyId, traceId, authorization, EMPTY_OCTETS);
+        }
+
+        private void doNetworkReset(
+            long traceId,
+            long authorization)
+        {
+            cleanupDecodeSlotIfNecessary();
+            doReset(network, routeId, initialId, traceId, authorization, EMPTY_OCTETS);
         }
 
         private void doNetworkWindow(
@@ -1310,14 +1346,6 @@ public final class MqttServerFactory implements StreamFactory
 
             initialBudget += credit;
             doWindow(network, routeId, initialId, traceId, authorization, budgetId, credit, padding);
-        }
-
-        private void doNetworkReset(
-            long traceId,
-            long authorization)
-        {
-            cleanupDecodeSlotIfNecessary();
-            doReset(network, routeId, initialId, traceId, authorization, EMPTY_OCTETS);
         }
 
         private void doNetworkSignal(
@@ -1591,6 +1619,15 @@ public final class MqttServerFactory implements StreamFactory
             long authorization)
         {
             streams.values().forEach(s -> s.cleanup(traceId, authorization));
+        }
+
+        private void cleanupBudgetCreditorIfNecessary()
+        {
+            if (replyBudgetIndex != NO_CREDITOR_INDEX)
+            {
+                creditor.release(replyBudgetIndex);
+                replyBudgetIndex = NO_CREDITOR_INDEX;
+            }
         }
 
         private void cleanupDecodeSlotIfNecessary()
