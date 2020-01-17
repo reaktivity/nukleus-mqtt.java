@@ -304,7 +304,7 @@ public final class MqttServerFactory implements StreamFactory
             final long replyId = supplyReplyId.applyAsLong(initialId);
             final long budgetId = supplyBudgetId.getAsLong();
 
-            final MqttServer connection = new MqttServer(sender, routeId, initialId, replyId, budgetId, affinity);
+            final MqttServer connection = new MqttServer(sender, routeId, initialId, replyId, affinity, budgetId);
             newStream = connection::onNetwork;
         }
         return newStream;
@@ -775,7 +775,7 @@ public final class MqttServerFactory implements StreamFactory
         private final long initialId;
         private final long replyId;
         private final long affinity;
-        private final long budgetId;
+        private final long replySharedBudgetId;
 
         private final Int2ObjectHashMap<MqttServerStream> streams;
         private final Int2ObjectHashMap<MutableInteger> activeStreams;
@@ -815,7 +815,7 @@ public final class MqttServerFactory implements StreamFactory
             this.initialId = initialId;
             this.replyId = replyId;
             this.affinity = affinity;
-            this.budgetId = budgetId;
+            this.replySharedBudgetId = budgetId;
             this.decoder = decodePacketType;
             this.streams = new Int2ObjectHashMap<>();
             this.activeStreams = new Int2ObjectHashMap<>();
@@ -956,12 +956,14 @@ public final class MqttServerFactory implements StreamFactory
                 streams.values().forEach(s -> s.flushReplyWindow(traceId, authorization));
             }
 
-            doNetworkWindow(traceId, authorization, credit, padding, budgetId);
+            doNetworkWindow(traceId, authorization, credit, padding, 0L);
 
-            if (replyBudget > 0)
+            final int slotCapacity = bufferPool.slotCapacity();
+            final int sharedBudgetCredit = Math.min(slotCapacity, replyBudget - encodeSlotOffset);
+
+            if (sharedBudgetCredit > 0)
             {
-                final int slotCapacity = bufferPool.slotCapacity();
-                final long replySharedPrevious = creditor.credit(traceId, replyBudgetIndex, replyBudget);
+                final long replySharedPrevious = creditor.credit(traceId, replyBudgetIndex, credit);
 
                 assert replySharedPrevious <= slotCapacity
                     : String.format("%d <= %d, replyBudget = %d",
@@ -1271,7 +1273,7 @@ public final class MqttServerFactory implements StreamFactory
             router.setThrottle(replyId, this::onNetwork);
 
             assert replyBudgetIndex == NO_CREDITOR_INDEX;
-            this.replyBudgetIndex = creditor.acquire(budgetId);
+            this.replyBudgetIndex = creditor.acquire(replySharedBudgetId);
         }
 
         private void doNetworkData(
@@ -1705,6 +1707,7 @@ public final class MqttServerFactory implements StreamFactory
             private long routeId;
             private long initialId;
             private long replyId;
+            private long budgetId;
 
             private String topicFilter;
 
@@ -1944,6 +1947,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 final long traceId = window.traceId();
                 final long authorization = window.authorization();
+                final long budgetId = window.budgetId();
                 final int credit = window.credit();
                 final int padding = window.padding();
 
@@ -1953,6 +1957,8 @@ public final class MqttServerFactory implements StreamFactory
                 }
 
                 state = MqttState.openInitial(state);
+
+                this.budgetId = budgetId;
 
                 initialBudget += credit;
                 initialPadding = padding;
