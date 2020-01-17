@@ -17,6 +17,7 @@
 package org.reaktivity.nukleus.mqtt.internal.stream;
 
 import static java.util.Objects.requireNonNull;
+import static org.reaktivity.nukleus.budget.BudgetCreditor.NO_CREDITOR_INDEX;
 import static org.reaktivity.nukleus.buffer.BufferPool.NO_SLOT;
 import static org.reaktivity.nukleus.concurrent.Signaler.NO_CANCEL_ID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.MALFORMED_PACKET;
@@ -48,6 +49,7 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.collections.MutableInteger;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.reaktivity.nukleus.budget.BudgetCreditor;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.nukleus.function.MessageConsumer;
@@ -184,6 +186,7 @@ public final class MqttServerFactory implements StreamFactory
     private final int mqttTypeId;
 
     private final BufferPool bufferPool;
+    private final BudgetCreditor creditor;
 
     private final MqttServerDecoder decodePacketType = this::decodePacketType;
     private final MqttServerDecoder decodeConnect = this::decodeConnect;
@@ -217,6 +220,7 @@ public final class MqttServerFactory implements StreamFactory
         RouteManager router,
         MutableDirectBuffer writeBuffer,
         BufferPool bufferPool,
+        BudgetCreditor creditor,
         LongUnaryOperator supplyInitialId,
         LongUnaryOperator supplyReplyId,
         LongSupplier supplyBudgetId,
@@ -231,6 +235,7 @@ public final class MqttServerFactory implements StreamFactory
         this.dataExtBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.mqttPropertyBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.bufferPool = bufferPool;
+        this.creditor = creditor;
         this.supplyInitialId = requireNonNull(supplyInitialId);
         this.supplyReplyId = requireNonNull(supplyReplyId);
         this.supplyBudgetId = requireNonNull(supplyBudgetId);
@@ -299,7 +304,7 @@ public final class MqttServerFactory implements StreamFactory
             final long replyId = supplyReplyId.applyAsLong(initialId);
             final long budgetId = supplyBudgetId.getAsLong();
 
-            final MqttServer connection = new MqttServer(sender, routeId, initialId, replyId, budgetId, affinity);
+            final MqttServer connection = new MqttServer(sender, routeId, initialId, replyId, affinity, budgetId);
             newStream = connection::onNetwork;
         }
         return newStream;
@@ -770,7 +775,7 @@ public final class MqttServerFactory implements StreamFactory
         private final long initialId;
         private final long replyId;
         private final long affinity;
-        private final long budgetId;
+        private final long replySharedBudgetId;
 
         private final Int2ObjectHashMap<MqttServerStream> streams;
         private final Int2ObjectHashMap<MutableInteger> activeStreams;
@@ -780,6 +785,9 @@ public final class MqttServerFactory implements StreamFactory
         private int initialPadding;
         private int replyBudget;
         private int replyPadding;
+
+        private long replyBudgetIndex = NO_CREDITOR_INDEX;
+        private int sharedBudget;
 
         private int decodeSlot = NO_SLOT;
         private int decodeSlotLimit;
@@ -807,7 +815,7 @@ public final class MqttServerFactory implements StreamFactory
             this.initialId = initialId;
             this.replyId = replyId;
             this.affinity = affinity;
-            this.budgetId = budgetId;
+            this.replySharedBudgetId = budgetId;
             this.decoder = decodePacketType;
             this.streams = new Int2ObjectHashMap<>();
             this.activeStreams = new Int2ObjectHashMap<>();
@@ -948,7 +956,22 @@ public final class MqttServerFactory implements StreamFactory
                 streams.values().forEach(s -> s.flushReplyWindow(traceId, authorization));
             }
 
-            doNetworkWindow(traceId, authorization, credit, padding, budgetId);
+            doNetworkWindow(traceId, authorization, credit, padding, 0L);
+
+            final int slotCapacity = bufferPool.slotCapacity();
+            final int sharedBudgetCredit = Math.min(slotCapacity, replyBudget - encodeSlotOffset);
+
+            if (sharedBudgetCredit > 0)
+            {
+                final long replySharedPrevious = creditor.credit(traceId, replyBudgetIndex, credit);
+
+                assert replySharedPrevious <= slotCapacity
+                    : String.format("%d <= %d, replyBudget = %d",
+                    replySharedPrevious, slotCapacity, replyBudget);
+
+                assert credit <= slotCapacity
+                    : String.format("%d <= %d", credit, slotCapacity);
+            }
         }
 
         private void onNetworkReset(
@@ -956,6 +979,12 @@ public final class MqttServerFactory implements StreamFactory
         {
             final long traceId = reset.traceId();
             final long authorization = reset.authorization();
+
+            cleanupBudgetCreditorIfNecessary();
+            cleanupEncodeSlotIfNecessary();
+
+            streams.values().forEach(s -> s.cleanup(traceId, authorization));
+
             doNetworkReset(traceId, authorization);
         }
 
@@ -1242,6 +1271,9 @@ public final class MqttServerFactory implements StreamFactory
         {
             doBegin(network, routeId, replyId, traceId, authorization, affinity, EMPTY_OCTETS);
             router.setThrottle(replyId, this::onNetwork);
+
+            assert replyBudgetIndex == NO_CREDITOR_INDEX;
+            this.replyBudgetIndex = creditor.acquire(replySharedBudgetId);
         }
 
         private void doNetworkData(
@@ -1283,6 +1315,7 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization)
         {
+            cleanupBudgetCreditorIfNecessary();
             cleanupEncodeSlotIfNecessary();
             doEnd(network, routeId, replyId, traceId, authorization, EMPTY_OCTETS);
         }
@@ -1291,8 +1324,17 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization)
         {
+            cleanupBudgetCreditorIfNecessary();
             cleanupEncodeSlotIfNecessary();
             doAbort(network, routeId, replyId, traceId, authorization, EMPTY_OCTETS);
+        }
+
+        private void doNetworkReset(
+            long traceId,
+            long authorization)
+        {
+            cleanupDecodeSlotIfNecessary();
+            doReset(network, routeId, initialId, traceId, authorization, EMPTY_OCTETS);
         }
 
         private void doNetworkWindow(
@@ -1306,14 +1348,6 @@ public final class MqttServerFactory implements StreamFactory
 
             initialBudget += credit;
             doWindow(network, routeId, initialId, traceId, authorization, budgetId, credit, padding);
-        }
-
-        private void doNetworkReset(
-            long traceId,
-            long authorization)
-        {
-            cleanupDecodeSlotIfNecessary();
-            doReset(network, routeId, initialId, traceId, authorization, EMPTY_OCTETS);
         }
 
         private void doNetworkSignal(
@@ -1589,6 +1623,15 @@ public final class MqttServerFactory implements StreamFactory
             streams.values().forEach(s -> s.cleanup(traceId, authorization));
         }
 
+        private void cleanupBudgetCreditorIfNecessary()
+        {
+            if (replyBudgetIndex != NO_CREDITOR_INDEX)
+            {
+                creditor.release(replyBudgetIndex);
+                replyBudgetIndex = NO_CREDITOR_INDEX;
+            }
+        }
+
         private void cleanupDecodeSlotIfNecessary()
         {
             if (decodeSlot != NO_SLOT)
@@ -1664,6 +1707,7 @@ public final class MqttServerFactory implements StreamFactory
             private long routeId;
             private long initialId;
             private long replyId;
+            private long budgetId;
 
             private String topicFilter;
 
@@ -1903,6 +1947,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 final long traceId = window.traceId();
                 final long authorization = window.authorization();
+                final long budgetId = window.budgetId();
                 final int credit = window.credit();
                 final int padding = window.padding();
 
@@ -1912,6 +1957,8 @@ public final class MqttServerFactory implements StreamFactory
                 }
 
                 state = MqttState.openInitial(state);
+
+                this.budgetId = budgetId;
 
                 initialBudget += credit;
                 initialPadding = padding;
