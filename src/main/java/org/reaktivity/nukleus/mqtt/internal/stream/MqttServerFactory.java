@@ -534,15 +534,15 @@ public final class MqttServerFactory implements StreamFactory
         int reasonCode = SUCCESS;
         if (mqttConnect == null)
         {
-            reasonCode = PROTOCOL_ERROR & 0xff;
+            reasonCode = PROTOCOL_ERROR;
         }
         else if ((mqttConnect.flags() & 0b0000_0001) != CONNECT_FIXED_HEADER)
         {
-            reasonCode = MALFORMED_PACKET & 0xff;
+            reasonCode = MALFORMED_PACKET;
         }
         else if (!"MQTT".equals(mqttConnect.protocolName().asString()) || mqttConnect.protocolVersion() != 5)
         {
-            reasonCode = UNSUPPORTED_PROTOCOL_VERSION & 0xff;
+            reasonCode = UNSUPPORTED_PROTOCOL_VERSION;
         }
 
         if (reasonCode == 0)
@@ -575,7 +575,7 @@ public final class MqttServerFactory implements StreamFactory
         int reasonCode = SUCCESS;
         if (publish == null || publish.topicName().asString() == null)
         {
-            reasonCode = PROTOCOL_ERROR & 0xff;
+            reasonCode = PROTOCOL_ERROR;
         }
 
         if (reasonCode == 0)
@@ -608,11 +608,11 @@ public final class MqttServerFactory implements StreamFactory
         int reasonCode = SUCCESS;
         if (subscribe == null)
         {
-            reasonCode = PROTOCOL_ERROR & 0xff;
+            reasonCode = PROTOCOL_ERROR;
         }
         else if ((subscribe.typeAndFlags() & 0b1111_1111) != SUBSCRIBE_FIXED_HEADER)
         {
-            reasonCode = MALFORMED_PACKET & 0xff;
+            reasonCode = MALFORMED_PACKET;
         }
 
         if (reasonCode == 0)
@@ -645,11 +645,11 @@ public final class MqttServerFactory implements StreamFactory
         int reasonCode = SUCCESS;
         if (unsubscribe == null)
         {
-            reasonCode = PROTOCOL_ERROR & 0xff;
+            reasonCode = PROTOCOL_ERROR;
         }
         else if ((unsubscribe.typeAndFlags() & 0b1111_1111) != UNSUBSCRIBE_FIXED_HEADER)
         {
-            reasonCode = MALFORMED_PACKET & 0xff;
+            reasonCode = MALFORMED_PACKET;
         }
 
         if (reasonCode == 0)
@@ -680,7 +680,7 @@ public final class MqttServerFactory implements StreamFactory
         int progress = offset;
         if (ping == null)
         {
-            server.onDecodeError(traceId, authorization, PROTOCOL_ERROR & 0xff);
+            server.onDecodeError(traceId, authorization, PROTOCOL_ERROR);
             server.decoder = decodeIgnoreAll;
         }
         else
@@ -708,11 +708,11 @@ public final class MqttServerFactory implements StreamFactory
         int reasonCode = NORMAL_DISCONNECT;
         if (disconnect == null)
         {
-            reasonCode = PROTOCOL_ERROR & 0xff;
+            reasonCode = PROTOCOL_ERROR;
         }
         else if ((disconnect.typeAndFlags() & 0b1111_1111) != DISCONNECT_FIXED_HEADER)
         {
-            reasonCode = MALFORMED_PACKET & 0xff;
+            reasonCode = MALFORMED_PACKET;
         }
 
         if (reasonCode == 0)
@@ -751,7 +751,7 @@ public final class MqttServerFactory implements StreamFactory
         int offset,
         int limit)
     {
-        server.onDecodeError(traceId, authorization, PROTOCOL_ERROR & 0xff);
+        server.onDecodeError(traceId, authorization, PROTOCOL_ERROR);
         server.decoder = decodeIgnoreAll;
         return limit;
     }
@@ -1004,7 +1004,7 @@ public final class MqttServerFactory implements StreamFactory
             int reasonCode = SUCCESS;
             if (connected)
             {
-                reasonCode = PROTOCOL_ERROR & 0xff;
+                reasonCode = PROTOCOL_ERROR;
             }
 
             doEncodeConnack(traceId, authorization, reasonCode);
@@ -1137,7 +1137,7 @@ public final class MqttServerFactory implements StreamFactory
 
             if (containsSubscriptionId && subscriptionId == 0)
             {
-                onDecodeError(traceId, authorization, PROTOCOL_ERROR & 0xff);
+                onDecodeError(traceId, authorization, PROTOCOL_ERROR);
             }
             else
             {
@@ -1162,7 +1162,7 @@ public final class MqttServerFactory implements StreamFactory
 
                         if (topicFilter == null)
                         {
-                            onDecodeError(traceId, authorization, PROTOCOL_ERROR & 0xff);
+                            onDecodeError(traceId, authorization, PROTOCOL_ERROR);
                             break;
                         }
 
@@ -1170,7 +1170,7 @@ public final class MqttServerFactory implements StreamFactory
 
                         if (!validTopicFilter)
                         {
-                            onDecodeError(traceId, authorization, PROTOCOL_ERROR & 0xff);
+                            onDecodeError(traceId, authorization, PROTOCOL_ERROR);
                             break;
                         }
 
@@ -1213,7 +1213,7 @@ public final class MqttServerFactory implements StreamFactory
                 topic = mqttTopicRO.tryWrap(buffer, progress, limit);
                 if (topic == null || topic.filter() == null)
                 {
-                    reasonCode = PROTOCOL_ERROR & 0xff;
+                    reasonCode = PROTOCOL_ERROR;
                     break;
                 }
                 final String topicString = topic.filter().asString();
@@ -1414,7 +1414,7 @@ public final class MqttServerFactory implements StreamFactory
                                               .typeAndFlags(0x20)
                                               .remainingLength(EMPTY_OCTETS.sizeof() + 3)
                                               .flags(0x00)
-                                              .reasonCode(reasonCode)
+                                              .reasonCode(reasonCode & 0xff)
                                               .propertiesLength(0x00)
                                               .properties(EMPTY_OCTETS)
                                               .build();
@@ -1495,7 +1495,7 @@ public final class MqttServerFactory implements StreamFactory
                                                     .wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                                     .typeAndFlags(0xe0)
                                                     .remainingLength((byte) EMPTY_OCTETS.sizeof() + 2)
-                                                    .reasonCode(reasonCode)
+                                                    .reasonCode(reasonCode & 0xff)
                                                     .properties(EMPTY_OCTETS)
                                                     .build();
 
