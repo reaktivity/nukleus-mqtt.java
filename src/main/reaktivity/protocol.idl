@@ -146,6 +146,7 @@
         {
             uint16 packetId;
             varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
             octets reasonCodes;
         }
 
@@ -161,6 +162,7 @@
         {
             uint16 packetId;
             varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
             octets reasonCodes;
         }
 
