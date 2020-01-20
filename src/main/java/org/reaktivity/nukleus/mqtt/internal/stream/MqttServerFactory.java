@@ -24,6 +24,7 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.MALFORMED_PAC
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NORMAL_DISCONNECT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.PROTOCOL_ERROR;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.SUCCESS;
+import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.TOPIC_FILTER_INVALID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_PROTOCOL_VERSION;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttRole.RECEIVER;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttRole.SENDER;
@@ -1366,6 +1367,8 @@ public final class MqttServerFactory implements StreamFactory
             final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
             final StringFW topic = dataEx.topic();
             final String topicName = topic.asString();
+            final int topicNameLength = topicName != null ? topicName.length() : 0;
+            final int payloadSize = payload.sizeof();
 
             if (subscriptionId > 0)
             {
@@ -1388,14 +1391,14 @@ public final class MqttServerFactory implements StreamFactory
                 .correlationData(a -> a.bytes(dataEx.correlationInfo().bytes()))
                 .build();
 
-            final int limit = mqttPropertyRW.limit();
+            final int propertiesSize = mqttPropertyRW.limit();
 
             final MqttPublishFW publish = mqttPublishRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                               .typeAndFlags(0x30)
-                                              .remainingLength(0x14)
+                                              .remainingLength(3 + topicNameLength + propertiesSize + payloadSize)
                                               .topicName(topicName)
-                                              .propertiesLength(limit)
-                                              .properties(mqttPropertyBuffer, 0, limit)
+                                              .propertiesLength(propertiesSize)
+                                              .properties(mqttPropertyBuffer, 0, propertiesSize)
                                               .payload(payload)
                                               .build();
 
@@ -1411,7 +1414,8 @@ public final class MqttServerFactory implements StreamFactory
                                               .typeAndFlags(0x20)
                                               .remainingLength(EMPTY_OCTETS.sizeof() + 3)
                                               .flags(0x00)
-                                              .reasonCode(reasonCode)
+                                              .reasonCode(reasonCode & 0xff)
+                                              .propertiesLength(0x00)
                                               .properties(EMPTY_OCTETS)
                                               .build();
 
@@ -1430,7 +1434,7 @@ public final class MqttServerFactory implements StreamFactory
             for (int i = 0; i < ackCount; i++)
             {
                 final int ackIndex = 1 << i;
-                subscriptions[i] = (byte) ((successMask & ackIndex) > 0 ? 0x00 : 0x8F);
+                subscriptions[i] = (successMask & ackIndex) != 0 ? SUCCESS : TOPIC_FILTER_INVALID;
             }
 
             OctetsFW reasonCodes = octetsRW.wrap(writeBuffer, 0, writeBuffer.capacity())
@@ -1439,9 +1443,10 @@ public final class MqttServerFactory implements StreamFactory
 
             final MqttSubackFW suback = mqttSubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                             .typeAndFlags(0x90)
-                                            .remainingLength(reasonCodes.sizeof() + 1)
+                                            .remainingLength(3 + EMPTY_OCTETS.sizeof() + reasonCodes.sizeof())
                                             .packetId(packetId)
                                             .propertiesLength(0x00)
+                                            .properties(EMPTY_OCTETS)
                                             .reasonCodes(reasonCodes)
                                             .build();
 
@@ -1459,9 +1464,10 @@ public final class MqttServerFactory implements StreamFactory
 
             final MqttUnsubackFW unsuback = mqttUnsubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                                 .typeAndFlags(0xa0)
-                                                .remainingLength(reasonCodes.sizeof() + 1)
+                                                .remainingLength(3 + EMPTY_OCTETS.sizeof() + reasonCodes.sizeof())
                                                 .packetId(packetId)
                                                 .propertiesLength(0x00)
+                                                .properties(EMPTY_OCTETS)
                                                 .reasonCodes(reasonCodes)
                                                 .build();
 
@@ -1489,7 +1495,7 @@ public final class MqttServerFactory implements StreamFactory
                                                     .wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                                     .typeAndFlags(0xe0)
                                                     .remainingLength((byte) EMPTY_OCTETS.sizeof() + 2)
-                                                    .reasonCode(reasonCode)
+                                                    .reasonCode(reasonCode & 0xff)
                                                     .properties(EMPTY_OCTETS)
                                                     .build();
 

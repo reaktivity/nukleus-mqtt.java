@@ -18,44 +18,44 @@ package org.reaktivity.nukleus.mqtt.internal;
 
 public final class MqttReasonCodes
 {
-    public static final int SUCCESS = 0x00;
+    public static final byte SUCCESS = 0x00;
 
-    public static final int NORMAL_DISCONNECT = 0x00;
+    public static final byte NORMAL_DISCONNECT = 0x00;
 
-    public static final int GRANTED_QOS_1 = 0x00;
-    public static final int GRANTED_QOS_2 = 0x01;
-    public static final int GRANTED_QOS_3 = 0x02;
+    public static final byte GRANTED_QOS_1 = 0x00;
+    public static final byte GRANTED_QOS_2 = 0x01;
+    public static final byte GRANTED_QOS_3 = 0x02;
 
-    public static final int DISCONNECT_WITH_WILL_MESSAGE = 0x04;
+    public static final byte DISCONNECT_WITH_WILL_MESSAGE = 0x04;
 
-    public static final int NO_MATCHING_SUBSCRIBERS = 0x10;
-    public static final int NO_SUBSCRIPTION_EXISTED = 0x11;
+    public static final byte NO_MATCHING_SUBSCRIBERS = 0x10;
+    public static final byte NO_SUBSCRIPTION_EXISTED = 0x11;
 
-    public static final int CONTINUE_AUTHENTICATION = 0x18;
-    public static final int REAUTHENTICATE = 0x19;
+    public static final byte CONTINUE_AUTHENTICATION = 0x18;
+    public static final byte REAUTHENTICATE = 0x19;
 
-    public static final int UNSPECIFIED_ERROR = 0x80;
-    public static final int MALFORMED_PACKET = 0x81;
-    public static final int PROTOCOL_ERROR = 0x82;
-    public static final int IMPLEMENTATION_SPECIFIC_ERROR = 0x83;
-    public static final int UNSUPPORTED_PROTOCOL_VERSION = 0x84;
-    public static final int CLIENT_IDENTIFIER_NOT_VALID = 0x85;
-    public static final int BAD_USER_NAME_OR_PASSWORD = 0x86;
-    public static final int NOT_AUTHORIZED = 0x87;
-    public static final int SERVER_UNAVAILABLE = 0x88;
-    public static final int SERVER_BUSY = 0x89;
-    public static final int BANNED = 0x8A;
-    public static final int SERVER_SHUTTING_DOWN = 0x8B;
-    public static final int BAD_AUTHENTICATION_METHOD = 0x8C;
+    public static final byte UNSPECIFIED_ERROR = -0x80;
+    public static final byte MALFORMED_PACKET = -0x7F;
+    public static final byte PROTOCOL_ERROR = -0x7E;
+    public static final byte IMPLEMENTATION_SPECIFIC_ERROR = -0x7D;
+    public static final byte UNSUPPORTED_PROTOCOL_VERSION = -0x7C;
+    public static final byte CLIENT_IDENTIFIER_NOT_VALID = -0x7B;
+    public static final byte BAD_USER_NAME_OR_PASSWORD = -0x7A;
+    public static final byte NOT_AUTHORIZED = -0x79;
+    public static final byte SERVER_UNAVAILABLE = -0x78;
+    public static final byte SERVER_BUSY = -0x76;
+    public static final byte BANNED = -0x75;
+    public static final byte SERVER_SHUTTING_DOWN = -0x74;
+    public static final byte BAD_AUTHENTICATION_METHOD = -0x73;
 
-    public static final int KEEP_ALIVE_TIMEOUT = 0x8D;
-    public static final int SESSION_TAKEN_OVER = 0x8E;
+    public static final byte KEEP_ALIVE_TIMEOUT = -0x72;
+    public static final byte SESSION_TAKEN_OVER = -0x71;
 
-    public static final int TOPIC_FILTER_INVALID = 0x8F;
-    public static final int TOPIC_NAME_INVALID = 0x90;
+    public static final byte TOPIC_FILTER_INVALID = -0x70;
+    public static final byte TOPIC_NAME_INVALID = -0x6F;
 
-    public static final int PACKET_IDENTIFIER_IN_USE = 0x91;
-    public static final int PACKET_IDENTIFIER_NOT_FOUND = 0x92;
+    public static final byte PACKET_IDENTIFIER_IN_USE = -0x6E;
+    public static final byte PACKET_IDENTIFIER_NOT_FOUND = -0x6D;
 
     private MqttReasonCodes()
     {
