@@ -64,7 +64,6 @@ import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttRole;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.mqtt.internal.types.String16FW;
-import org.reaktivity.nukleus.mqtt.internal.types.StringFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.BinaryFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
@@ -1363,7 +1362,7 @@ public final class MqttServerFactory implements StreamFactory
             OctetsFW payload)
         {
             final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
-            final StringFW topic = dataEx.topic();
+            final String16FW topic = dataEx.topic();
             final String topicName = topic.asString();
             final int topicNameLength = topicName != null ? topicName.length() : 0;
             final int payloadSize = payload.sizeof();
