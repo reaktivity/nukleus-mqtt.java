@@ -63,7 +63,6 @@ import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttRole;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.mqtt.internal.types.String16FW;
-import org.reaktivity.nukleus.mqtt.internal.types.StringFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.BinaryFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
@@ -88,7 +87,6 @@ import org.reaktivity.nukleus.mqtt.internal.types.stream.DataFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.EndFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttBeginExFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttDataExFW;
-import org.reaktivity.nukleus.mqtt.internal.types.stream.MqttEndExFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.ResetFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.SignalFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.WindowFW;
@@ -129,7 +127,6 @@ public final class MqttServerFactory implements StreamFactory
 
     private final MqttBeginExFW.Builder mqttBeginExRW = new MqttBeginExFW.Builder();
     private final MqttDataExFW.Builder mqttDataExRW = new MqttDataExFW.Builder();
-    private final MqttEndExFW.Builder mqttEndExRW = new MqttEndExFW.Builder();
 
     private final MqttPacketFixedHeaderFW mqttPacketFixedHeaderRO = new MqttPacketFixedHeaderFW();
     private final MqttConnectFW mqttConnectRO = new MqttConnectFW();
@@ -1364,7 +1361,7 @@ public final class MqttServerFactory implements StreamFactory
             OctetsFW payload)
         {
             final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
-            final StringFW topic = dataEx.topic();
+            final String16FW topic = dataEx.topic();
             final String topicName = topic.asString();
             final int topicNameLength = topicName != null ? topicName.length() : 0;
             final int payloadSize = payload.sizeof();
@@ -1411,7 +1408,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             final MqttConnackFW connack = mqttConnackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                               .typeAndFlags(0x20)
-                                              .remainingLength(EMPTY_OCTETS.sizeof() + 3)
+                                              .remainingLength(3)
                                               .flags(0x00)
                                               .reasonCode(reasonCode & 0xff)
                                               .propertiesLength(0x00)
@@ -1442,7 +1439,7 @@ public final class MqttServerFactory implements StreamFactory
 
             final MqttSubackFW suback = mqttSubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                             .typeAndFlags(0x90)
-                                            .remainingLength(3 + EMPTY_OCTETS.sizeof() + reasonCodes.sizeof())
+                                            .remainingLength(3 + reasonCodes.sizeof())
                                             .packetId(packetId)
                                             .propertiesLength(0x00)
                                             .properties(EMPTY_OCTETS)
@@ -1463,7 +1460,7 @@ public final class MqttServerFactory implements StreamFactory
 
             final MqttUnsubackFW unsuback = mqttUnsubackRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                                 .typeAndFlags(0xa0)
-                                                .remainingLength(3 + EMPTY_OCTETS.sizeof() + reasonCodes.sizeof())
+                                                .remainingLength(3 + reasonCodes.sizeof())
                                                 .packetId(packetId)
                                                 .propertiesLength(0x00)
                                                 .properties(EMPTY_OCTETS)
@@ -1493,7 +1490,7 @@ public final class MqttServerFactory implements StreamFactory
             final MqttDisconnectFW disconnect = mqttDisconnectRW
                                                     .wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                                     .typeAndFlags(0xe0)
-                                                    .remainingLength((byte) EMPTY_OCTETS.sizeof() + 2)
+                                                    .remainingLength(2)
                                                     .reasonCode(reasonCode & 0xff)
                                                     .properties(EMPTY_OCTETS)
                                                     .build();
@@ -1867,11 +1864,7 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     if (empty)
                     {
-                        final MqttEndExFW endEx = mqttEndExRW.wrap(extBuffer, 0, extBuffer.capacity())
-                                                      .typeId(mqttTypeId)
-                                                      .build();
-
-                        flushApplicationEnd(traceId, authorization, endEx);
+                        flushApplicationEnd(traceId, authorization, EMPTY_OCTETS);
                     }
                 }
             }
