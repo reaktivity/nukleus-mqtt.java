@@ -1034,7 +1034,7 @@ public final class MqttServerFactory implements StreamFactory
             int messageExpiryInterval = 0;
             String contentType = "";
             String responseTopic = "";
-            OctetsFW correlationInfo = EMPTY_OCTETS;
+            OctetsFW correlationData = EMPTY_OCTETS;
 
             MqttPropertyFW mqttProperty;
 
@@ -1056,7 +1056,7 @@ public final class MqttServerFactory implements StreamFactory
                     responseTopic = mqttProperty.responseTopic().asString();
                     break;
                 case KIND_CORRELATION_DATA:
-                    correlationInfo = mqttProperty.correlationData().bytes();
+                    correlationData = mqttProperty.correlationData().bytes();
                     break;
                 case KIND_TOPIC_ALIAS:
                     break;
@@ -1067,7 +1067,7 @@ public final class MqttServerFactory implements StreamFactory
             }
 
             final MqttPayloadFormat payloadFormat0 = payloadFormat != null ? payloadFormat : MqttPayloadFormat.TEXT;
-            final OctetsFW correlationInfo0 = correlationInfo;
+            final OctetsFW correlationData0 = correlationData;
 
             final MqttDataExFW dataEx = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                                     .typeId(mqttTypeId)
@@ -1076,7 +1076,7 @@ public final class MqttServerFactory implements StreamFactory
                                                     .contentType(contentType)
                                                     .format(f -> f.set(payloadFormat0))
                                                     .responseTopic(responseTopic)
-                                                    .correlationInfo(c -> c.bytes(b -> b.set(correlationInfo0)))
+                                                    .correlation(c -> c.bytes(b -> b.set(correlationData0)))
                                                     .build();
 
             OctetsFW payload = publish.payload();
@@ -1384,7 +1384,7 @@ public final class MqttServerFactory implements StreamFactory
                 .responseTopic(dataEx.responseTopic().asString())
                 .build();
             mqttPropertyRW.wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
-                .correlationData(a -> a.bytes(dataEx.correlationInfo().bytes()))
+                .correlationData(a -> a.bytes(dataEx.correlation().bytes()))
                 .build();
 
             final int propertiesSize = mqttPropertyRW.limit();
