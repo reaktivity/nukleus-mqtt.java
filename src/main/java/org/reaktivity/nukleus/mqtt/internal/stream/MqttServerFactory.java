@@ -1365,6 +1365,8 @@ public final class MqttServerFactory implements StreamFactory
             final String topicName = topic.asString();
             final int topicNameLength = topicName != null ? topicName.length() : 0;
             final int payloadSize = payload.sizeof();
+            final String responseTopic = dataEx.responseTopic().asString();
+            final OctetsFW correlation = dataEx.correlation().bytes();
 
             if (subscriptionId > 0)
             {
@@ -1380,12 +1382,20 @@ public final class MqttServerFactory implements StreamFactory
             mqttPropertyRW.wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
                 .payloadFormatIndicator((byte) dataEx.format().get().ordinal())
                 .build();
-            mqttPropertyRW.wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
-                .responseTopic(dataEx.responseTopic().asString())
-                .build();
-            mqttPropertyRW.wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
-                .correlationData(a -> a.bytes(dataEx.correlation().bytes()))
-                .build();
+
+            if (responseTopic != null)
+            {
+                mqttPropertyRW.wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
+                              .responseTopic(responseTopic)
+                              .build();
+            }
+
+            if (correlation != null)
+            {
+                mqttPropertyRW.wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
+                              .correlationData(a -> a.bytes(correlation))
+                              .build();
+            }
 
             final int propertiesSize = mqttPropertyRW.limit();
 

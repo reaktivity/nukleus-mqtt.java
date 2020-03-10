@@ -144,6 +144,16 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/publish/send.message.and.receive.correlated.message/client",
+        "${server}/send.message.and.receive.correlated.message/server"})
+    public void shouldReceiveCorrelatedPublishAfterSendingSubscribe() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/publish/receive.one.message.with.invalid.subscription.id/client"})
     public void shouldReceivePublishWithInvalidSubscriptionIdAfterSendingSubscribe() throws Exception
     {
