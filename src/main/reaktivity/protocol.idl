@@ -1,0 +1,215 @@
+/*
+ * Copyright 2016-2020 The Reaktivity Project
+ *
+ * The Reaktivity Project licenses this file to you under the Apache License,
+ * version 2.0 (the "License"); you may not use this file except in compliance
+ * with the License. You may obtain a copy of the License at:
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ */
+ scope protocol
+ {
+    option byteorder network;
+
+    scope codec
+    {
+        enum MqttPacketType
+        {
+            RESERVED,
+            CONNECT,
+            CONNACK,
+            PUBLISH,
+            PUBACK,
+            PUBREC,
+            PUBREL,
+            PUBCOMP,
+            SUBSCRIBE,
+            SUBACK,
+            UNSUBSCRIBE,
+            UNSUBACK,
+            PINGREQ,
+            PINGRESP,
+            DISCONNECT,
+            AUTH
+        }
+
+        struct Binary
+        {
+            uint16 length;
+            octets[length] bytes;
+        }
+
+        struct MqttPacketFixedHeader
+        {
+            uint8 typeAndFlags;
+            varbyteuint32 remainingLength;
+        }
+
+        struct MqttByte
+        {
+            uint8 value;
+        }
+
+        struct MqttSubscription
+        {
+            string16 topicFilter;
+            uint8 options;
+        }
+
+        struct MqttTopic
+        {
+            string16 filter;
+        }
+
+        struct MqttUserProperty
+        {
+            string key;
+            string value;
+        }
+
+        union MqttProperty switch (uint8)
+        {
+            case 0x01: uint8 payloadFormatIndicator;
+            case 0x02: int32 messageExpiryInterval;
+            case 0x03: string contentType;
+            case 0x08: string responseTopic;
+            case 0x09: Binary correlationData;
+            case 0x0b: varbyteuint32 subscriptionId;
+            case 0x11: uint32 sessionExpiry;
+            case 0x12: string assignedClientId;
+            case 0x13: uint16 serverKeepAlive;
+            case 0x15: string authenticationMethod;
+            case 0x16: Binary authenticationData;
+            case 0x17: uint8 requestProblemInformation;
+            case 0x19: uint8 requestResponseInformation;
+            case 0x1A: string responseInformation;
+            case 0x1C: string serverReference;
+            case 0x1F: string reasonString;
+            case 0x21: uint16 receiveMaximum;
+            case 0x22: uint16 topicAliasMaximum;
+            case 0x23: uint16 topicAlias;
+            case 0x24: uint8 maximumQoS;
+            case 0x25: uint8 retainAvailable;
+            case 0x26: MqttUserProperty userProperty;
+            case 0x27: uint32 maximumPacketSize;
+            case 0x28: uint8 wildcardSubscriptionAvailable;
+            case 0x29: uint8 subscriptionIdsAvailable;
+            case 0x2A: uint8 sharedSubscriptionAvailable;
+        }
+
+        struct MqttConnect extends MqttPacketFixedHeader
+        {
+            string16 protocolName;
+            uint8 protocolVersion;
+            uint8 flags;
+            uint16 keepAlive;
+            varbyteuint32 propertiesLength;
+            string16 clientId;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttConnack extends MqttPacketFixedHeader
+        {
+            uint8 flags;
+            uint8 reasonCode;
+            varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttPingReq
+        {
+            uint8 packetType;
+            uint8 remainingLength;
+        }
+
+        struct MqttPingResp extends MqttPacketFixedHeader
+        {
+
+        }
+
+        struct MqttSubscribe extends MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
+            octets topicFilters;
+        }
+
+        struct MqttSuback extends MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
+            octets reasonCodes;
+        }
+
+        struct MqttUnsubscribe extends MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
+            octets topicFilters;
+        }
+
+        struct MqttUnsuback extends MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
+            octets reasonCodes;
+        }
+
+        struct MqttPublish extends MqttPacketFixedHeader
+        {
+            string16 topicName;
+            varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
+            octets payload;
+        }
+
+        struct MqttPuback extends MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            uint8 reasonCode;
+            varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttPubrec extends MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            uint8 reasonCode;
+            varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttPubrel extends MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            uint8 reasonCode;
+            varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttPubcomp extends MqttPacketFixedHeader
+        {
+            uint16 packetId;
+            uint8 reasonCode;
+            varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+
+        struct MqttDisconnect extends MqttPacketFixedHeader
+        {
+            uint8 reasonCode;
+            varbyteuint32 propertiesLength;
+            octets[propertiesLength] properties;
+        }
+    }
+ }

@@ -1,0 +1,19 @@
+dist: bionic
+language: java
+before_install:
+- rm ~/.m2/settings.xml
+jdk:
+- openjdk11
+install: ./mvnw -v
+script: ./mvnw -B -nsu verify jacoco:report
+cache:
+  directories:
+  - "$HOME/.m2"
+branches:
+  except:
+  - "/^release\\/.*$/"
+after_success:
+- bash <(curl -s https://codecov.io/bash)
+notifications:
+  slack:
+    secure: GRERglK6c7TD/4AZ0R6hVH0ctY4bKO23njIRK8wGys7m9JS/UD8vYDCmnLW5XjMGvnI9aBCW92fvk3J+tUL+awlgeATu1uRo0KlNj9yhbDtu5cyLdFMHrlbfOJeQPc9U83il7GCPh1RX0gXnoGYl3kNtYlRHtGbdrtKMfJnwfyqyzkkZTb3YfHzxIjeFItiorcbtuPSFBu5UTksrfUtfA/F0An8kMFX28N0Po3nYu3kosk1T9DJCmyAkAUG1sH883r8R440pRMV1tTDCZbrTQGxaaz8cmjg6PIVyvDwAV2buoqmFjLXx+ecz4wW0ArUsgb3wpUmVTNwUi3qheA1o+It99rxyWlzld2qYmTob0zACN3NAzJPKQ/MVeq8Q/hCWHkquguQfi1Pr8C7aUf1Ol46KmUwe28nDJGRHYJiTRFeBCT317qRr1YCI04SPe6iqQhW4tMljRbQfrpL+GDx7Bd83sqf29Lxn7O/QxDuCeIljAEwSFLNGovZduhBRRYkO7w0CyCSpqvKMTASNpUjDBH1sKtHoy53ShRKg9OecaJ/gslXboAVNS9DJ7K4b04vHyhmlIVAEkfyZpts8VoSKjJumFP/l3Hsgf2bcw83QGIQtKVcToQ0SPyUVeHTW3mLY88KkcsdC1jbuqz1H9QcayhQbkKXUh/N+nVNU/nMqNfU=
