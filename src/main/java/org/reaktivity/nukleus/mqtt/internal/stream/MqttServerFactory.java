@@ -1357,16 +1357,23 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization,
             int subscriptionId,
+            String topic,
             OctetsFW extension,
             OctetsFW payload)
         {
             final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
-            final String16FW topic = dataEx.topic();
-            final String topicName = topic.asString();
-            final int topicNameLength = topicName != null ? topicName.length() : 0;
             final int payloadSize = payload.sizeof();
             final String responseTopic = dataEx.responseTopic().asString();
             final OctetsFW correlation = dataEx.correlation().bytes();
+
+            String topicName = dataEx.topic().asString();
+
+            if (topicName == null)
+            {
+                topicName = topic;
+            }
+
+            final int topicNameLength = topicName != null ? topicName.length() : 0;
 
             if (subscriptionId > 0)
             {
@@ -2086,7 +2093,7 @@ public final class MqttServerFactory implements StreamFactory
                     doNetworkAbort(traceId, authorization);
                 }
 
-                doEncodePublish(traceId, authorization, subscription.id, extension, data.payload());
+                doEncodePublish(traceId, authorization, subscription.id, topicFilter, extension, data.payload());
             }
 
             private void onApplicationEnd(
