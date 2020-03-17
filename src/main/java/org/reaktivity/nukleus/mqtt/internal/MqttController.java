@@ -26,6 +26,7 @@ import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.ControllerSpi;
 import org.reaktivity.nukleus.mqtt.internal.types.Flyweight;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
+import org.reaktivity.nukleus.mqtt.internal.types.control.FreezeFW;
 import org.reaktivity.nukleus.mqtt.internal.types.control.MqttRouteExFW;
 import org.reaktivity.nukleus.mqtt.internal.types.control.Role;
 import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
@@ -43,6 +44,7 @@ public final class MqttController implements Controller
 
     private final RouteFW.Builder routeRW = new RouteFW.Builder();
     private final UnrouteFW.Builder unrouteRW = new UnrouteFW.Builder();
+    private final FreezeFW.Builder freezeRW = new FreezeFW.Builder();
 
     private final MqttRouteExFW.Builder routeExRW = new MqttRouteExFW.Builder();
 
@@ -132,6 +134,18 @@ public final class MqttController implements Controller
                                            .build();
 
         return controllerSpi.doUnroute(unroute.typeId(), unroute.buffer(), unroute.offset(), unroute.sizeof());
+    }
+
+    public CompletableFuture<Void> freeze()
+    {
+        long correlationId = controllerSpi.nextCorrelationId();
+
+        FreezeFW freeze = freezeRW.wrap(commandBuffer, 0, commandBuffer.capacity())
+                                  .correlationId(correlationId)
+                                  .nukleus(name())
+                                  .build();
+
+        return controllerSpi.doFreeze(freeze.typeId(), freeze.buffer(), freeze.offset(), freeze.sizeof());
     }
 
     private CompletableFuture<Long> doRoute(
