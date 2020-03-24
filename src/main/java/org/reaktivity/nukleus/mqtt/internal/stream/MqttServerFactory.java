@@ -59,10 +59,12 @@ import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
 import org.reaktivity.nukleus.mqtt.internal.MqttNukleus;
 import org.reaktivity.nukleus.mqtt.internal.MqttValidator;
 import org.reaktivity.nukleus.mqtt.internal.types.Flyweight;
+import org.reaktivity.nukleus.mqtt.internal.types.MqttBinaryFW;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttRole;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.mqtt.internal.types.String16FW;
+import org.reaktivity.nukleus.mqtt.internal.types.StringFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.BinaryFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
@@ -784,7 +786,7 @@ public final class MqttServerFactory implements StreamFactory
         private int replyPadding;
 
         private long replyBudgetIndex = NO_CREDITOR_INDEX;
-        private int sharedBudget;
+        private int sharedReplyBudget;
 
         private int decodeSlot = NO_SLOT;
         private int decodeSlotLimit;
@@ -866,6 +868,7 @@ public final class MqttServerFactory implements StreamFactory
             final long traceId = begin.traceId();
             final long authorization = begin.authorization();
             doNetworkBegin(traceId, authorization);
+            doNetworkWindow(traceId, authorization, bufferPool.slotCapacity(), 0, 0L);
         }
 
         private void onNetworkData(
@@ -953,21 +956,20 @@ public final class MqttServerFactory implements StreamFactory
                 streams.values().forEach(s -> s.flushReplyWindow(traceId, authorization));
             }
 
-            doNetworkWindow(traceId, authorization, credit, padding, 0L);
-
             final int slotCapacity = bufferPool.slotCapacity();
-            final int sharedBudgetCredit = Math.min(slotCapacity, replyBudget - encodeSlotOffset);
+            final int sharedReplyCredit = Math.min(slotCapacity, replyBudget - encodeSlotOffset - sharedReplyBudget);
 
-            if (sharedBudgetCredit > 0)
+            if (sharedReplyCredit > 0)
             {
-                final long replySharedPrevious = creditor.credit(traceId, replyBudgetIndex, credit);
+                final long sharedBudgetPrevious = creditor.credit(traceId, replyBudgetIndex, sharedReplyCredit);
+                sharedReplyBudget += sharedReplyCredit;
 
-                assert replySharedPrevious <= slotCapacity
+                assert sharedBudgetPrevious <= slotCapacity
                     : String.format("%d <= %d, replyBudget = %d",
-                    replySharedPrevious, slotCapacity, replyBudget);
+                    sharedBudgetPrevious, slotCapacity, replyBudget);
 
-                assert credit <= slotCapacity
-                    : String.format("%d <= %d", credit, slotCapacity);
+                assert sharedReplyCredit <= slotCapacity
+                    : String.format("%d <= %d", sharedReplyCredit, slotCapacity);
             }
         }
 
@@ -1356,59 +1358,93 @@ public final class MqttServerFactory implements StreamFactory
         private void doEncodePublish(
             long traceId,
             long authorization,
+            int flags,
             int subscriptionId,
+            String topic,
             OctetsFW extension,
             OctetsFW payload)
         {
-            final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
-            final String16FW topic = dataEx.topic();
-            final String topicName = topic.asString();
-            final int topicNameLength = topicName != null ? topicName.length() : 0;
-            final int payloadSize = payload.sizeof();
-            final String responseTopic = dataEx.responseTopic().asString();
-            final OctetsFW correlation = dataEx.correlation().bytes();
-
-            if (subscriptionId > 0)
+            if ((flags & 0x02) != 0)
             {
-                mqttPropertyRW.wrap(mqttPropertyBuffer, 0, mqttPropertyBuffer.capacity())
-                    .subscriptionId(v -> v.set(subscriptionId));
-            }
-            mqttPropertyRW.wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
-                .messageExpiryInterval(dataEx.expiryInterval())
-                .build();
-            mqttPropertyRW.wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
-                .contentType(dataEx.contentType().asString())
-                .build();
-            mqttPropertyRW.wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
-                .payloadFormatIndicator((byte) dataEx.format().get().ordinal())
-                .build();
+                final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
+                final int payloadSize = payload.sizeof();
+                final int deferred = dataEx.deferred();
+                final int expiryInterval = dataEx.expiryInterval();
+                final StringFW contentType = dataEx.contentType();
+                final StringFW responseTopic = dataEx.responseTopic();
+                final MqttBinaryFW correlation = dataEx.correlation();
 
-            if (responseTopic != null)
+                String topicName = dataEx.topic().asString();
+
+                if (topicName == null)
+                {
+                    topicName = topic;
+                }
+
+                final int topicNameLength = topicName != null ? topicName.length() : 0;
+
+                int propertiesSize = 0;
+
+                if (subscriptionId > 0)
+                {
+                    mqttPropertyRW.wrap(mqttPropertyBuffer, propertiesSize, mqttPropertyBuffer.capacity())
+                        .subscriptionId(v -> v.set(subscriptionId));
+                    propertiesSize = mqttPropertyRW.limit();
+                }
+
+                if (expiryInterval != -1)
+                {
+                    mqttPropertyRW.wrap(mqttPropertyBuffer, propertiesSize, mqttPropertyBuffer.capacity())
+                        .messageExpiryInterval(expiryInterval)
+                        .build();
+                    propertiesSize = mqttPropertyRW.limit();
+                }
+
+                if (contentType.value() != null)
+                {
+                    mqttPropertyRW.wrap(mqttPropertyBuffer, propertiesSize, mqttPropertyBuffer.capacity())
+                        .contentType(contentType.asString())
+                        .build();
+                    propertiesSize = mqttPropertyRW.limit();
+                }
+
+                // TODO: optional format
+                mqttPropertyRW.wrap(mqttPropertyBuffer, propertiesSize, mqttPropertyBuffer.capacity())
+                    .payloadFormatIndicator((byte) dataEx.format().get().ordinal())
+                    .build();
+                propertiesSize = mqttPropertyRW.limit();
+
+                if (responseTopic.value() != null)
+                {
+                    mqttPropertyRW.wrap(mqttPropertyBuffer, propertiesSize, mqttPropertyBuffer.capacity())
+                                  .responseTopic(responseTopic.asString())
+                                  .build();
+                    propertiesSize = mqttPropertyRW.limit();
+                }
+
+                if (correlation.length() != -1)
+                {
+                    mqttPropertyRW.wrap(mqttPropertyBuffer, propertiesSize, mqttPropertyBuffer.capacity())
+                                  .correlationData(a -> a.bytes(correlation.bytes()))
+                                  .build();
+                    propertiesSize = mqttPropertyRW.limit();
+                }
+
+                final MqttPublishFW publish = mqttPublishRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                                                  .typeAndFlags(0x30)
+                                                  .remainingLength(3 + topicNameLength + propertiesSize + payloadSize + deferred)
+                                                  .topicName(topicName)
+                                                  .propertiesLength(propertiesSize)
+                                                  .properties(mqttPropertyBuffer, 0, propertiesSize)
+                                                  .payload(payload)
+                                                  .build();
+
+                doNetworkData(traceId, authorization, 0L, publish);
+            }
+            else
             {
-                mqttPropertyRW.wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
-                              .responseTopic(responseTopic)
-                              .build();
+                doNetworkData(traceId, authorization, 0L, payload);
             }
-
-            if (correlation != null)
-            {
-                mqttPropertyRW.wrap(mqttPropertyBuffer, mqttPropertyRW.limit(), mqttPropertyBuffer.capacity())
-                              .correlationData(a -> a.bytes(correlation))
-                              .build();
-            }
-
-            final int propertiesSize = mqttPropertyRW.limit();
-
-            final MqttPublishFW publish = mqttPublishRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                                              .typeAndFlags(0x30)
-                                              .remainingLength(3 + topicNameLength + propertiesSize + payloadSize)
-                                              .topicName(topicName)
-                                              .propertiesLength(propertiesSize)
-                                              .properties(mqttPropertyBuffer, 0, propertiesSize)
-                                              .payload(payload)
-                                              .build();
-
-            doNetworkData(traceId, authorization, 0L, publish);
         }
 
         private void doEncodeConnack(
@@ -1720,6 +1756,7 @@ public final class MqttServerFactory implements StreamFactory
             private long initialId;
             private long replyId;
             private long budgetId;
+            private int replyBudget;
 
             private String topicFilter;
 
@@ -1927,7 +1964,7 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
-            public void onApplicationInitial(
+            private void onApplicationInitial(
                 int msgTypeId,
                 DirectBuffer buffer,
                 int index,
@@ -2033,7 +2070,7 @@ public final class MqttServerFactory implements StreamFactory
                 return MqttState.replyOpened(state);
             }
 
-            public void onApplicationReply(
+            private void onApplicationReply(
                 int msgTypeId,
                 DirectBuffer buffer,
                 int index,
@@ -2075,10 +2112,13 @@ public final class MqttServerFactory implements StreamFactory
                 DataFW data)
             {
                 final long traceId = data.traceId();
+                final int reserved = data.reserved();
                 final long authorization = data.authorization();
+                final int flags = data.flags();
                 final OctetsFW extension = data.extension();
 
-                replyBudget -= data.reserved();
+                replyBudget -= reserved;
+                sharedReplyBudget -= reserved;
 
                 if (replyBudget < 0)
                 {
@@ -2086,7 +2126,7 @@ public final class MqttServerFactory implements StreamFactory
                     doNetworkAbort(traceId, authorization);
                 }
 
-                doEncodePublish(traceId, authorization, subscription.id, extension, data.payload());
+                doEncodePublish(traceId, authorization, flags, subscription.id, topicFilter, extension, data.payload());
             }
 
             private void onApplicationEnd(
@@ -2174,14 +2214,14 @@ public final class MqttServerFactory implements StreamFactory
             {
                 if (isReplyOpen())
                 {
-                    final int replyCredit = bufferPool.slotCapacity() - encodeSlotOffset - replyBudget;
+                    final int replyCredit = MqttServer.this.replyBudget - replyBudget;
 
                     if (replyCredit > 0)
                     {
                         replyBudget += replyCredit;
 
                         doWindow(application, routeId, replyId, traceId, authorization,
-                            budgetId, replyCredit, 0);
+                            replySharedBudgetId, replyCredit, 0);
                     }
                 }
             }
