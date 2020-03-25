@@ -64,7 +64,7 @@ import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttRole;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.mqtt.internal.types.String16FW;
-import org.reaktivity.nukleus.mqtt.internal.types.StringFW;
+import org.reaktivity.nukleus.mqtt.internal.types.String8FW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.BinaryFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
@@ -1370,8 +1370,8 @@ public final class MqttServerFactory implements StreamFactory
                 final int payloadSize = payload.sizeof();
                 final int deferred = dataEx.deferred();
                 final int expiryInterval = dataEx.expiryInterval();
-                final StringFW contentType = dataEx.contentType();
-                final StringFW responseTopic = dataEx.responseTopic();
+                final String8FW contentType = dataEx.contentType();
+                final String8FW responseTopic = dataEx.responseTopic();
                 final MqttBinaryFW correlation = dataEx.correlation();
 
                 String topicName = dataEx.topic().asString();
