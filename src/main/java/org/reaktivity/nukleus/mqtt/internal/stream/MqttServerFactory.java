@@ -25,8 +25,9 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.PROTOCOL_ERRO
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.SUCCESS;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.TOPIC_FILTER_INVALID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_PROTOCOL_VERSION;
-import static org.reaktivity.nukleus.mqtt.internal.types.MqttRole.RECEIVER;
-import static org.reaktivity.nukleus.mqtt.internal.types.MqttRole.SENDER;
+import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.*;
+import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH;
+import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.SUBSCRIBE;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CONTENT_TYPE;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CORRELATION_DATA;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_MESSAGE_EXPIRY_INTERVAL;
@@ -60,8 +61,8 @@ import org.reaktivity.nukleus.mqtt.internal.MqttNukleus;
 import org.reaktivity.nukleus.mqtt.internal.MqttValidator;
 import org.reaktivity.nukleus.mqtt.internal.types.Flyweight;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttBinaryFW;
+import org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
-import org.reaktivity.nukleus.mqtt.internal.types.MqttRole;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.mqtt.internal.types.String16FW;
 import org.reaktivity.nukleus.mqtt.internal.types.String8FW;
@@ -1091,9 +1092,9 @@ public final class MqttServerFactory implements StreamFactory
                 final int topicKey = topicKey(topicName);
                 MqttServerStream stream = streams.computeIfAbsent(topicKey, s ->
                                                         new MqttServerStream(newRouteId, 0, topicName));
-                stream.addRole(MqttRole.SENDER);
+                stream.addRole(PUBLISH);
                 stream.doApplicationBeginIfNecessary(traceId, authorization, affinity, topicName, 0);
-                stream.doApplicationData(traceId, authorization, MqttRole.SENDER, payload, dataEx);
+                stream.doApplicationData(traceId, authorization, PUBLISH, payload, dataEx);
                 correlations.put(stream.replyId, stream);
             }
         }
@@ -1176,10 +1177,10 @@ public final class MqttServerFactory implements StreamFactory
 
                         MqttServerStream stream = streams.computeIfAbsent(topicKey, s ->
                                                     new MqttServerStream(newRouteId, packetId, topicFilter));
-                        stream.addRole(RECEIVER);
+                        stream.addRole(SUBSCRIBE);
                         stream.doApplicationSubscribe(subscription);
                         stream.doApplicationBeginIfNecessary(traceId, authorization, affinity, topicFilter, subscriptionId);
-                        stream.doApplicationData(traceId, authorization, RECEIVER, topicFilters, EMPTY_OCTETS);
+                        stream.doApplicationData(traceId, authorization, SUBSCRIBE, topicFilters, EMPTY_OCTETS);
 
                         correlations.put(stream.replyId, stream);
                     }
@@ -1218,7 +1219,7 @@ public final class MqttServerFactory implements StreamFactory
                 final int topicKey = topicKey(topicString);
                 final MqttServerStream stream = streams.get(topicKey);
 
-                stream.doApplicationEndIfNoRoles(traceId, authorization, RECEIVER);
+                stream.doApplicationEndIfNoRoles(traceId, authorization, SUBSCRIBE);
             }
 
             if (reasonCode != SUCCESS)
@@ -1769,7 +1770,7 @@ public final class MqttServerFactory implements StreamFactory
             private long initialSlotTraceId;
 
             private int state;
-            private Set<MqttRole> roles;
+            private Set<MqttCapabilities> roles;
 
             private long cancelId;
 
@@ -1784,18 +1785,18 @@ public final class MqttServerFactory implements StreamFactory
                 this.application = router.supplyReceiver(initialId);
                 this.packetId = packetId;
                 this.topicFilter = topicFilter;
-                this.roles = EnumSet.noneOf(MqttRole.class);
+                this.roles = EnumSet.noneOf(MqttCapabilities.class);
                 this.cancelId = NO_CANCEL_ID;
             }
 
             private void addRole(
-                MqttRole role)
+                MqttCapabilities role)
             {
                 roles.add(role);
             }
 
             private boolean rolesEmptyAfterRemoveRole(
-                MqttRole role)
+                MqttCapabilities role)
             {
                 roles.remove(role);
                 return roles.isEmpty();
@@ -1831,15 +1832,15 @@ public final class MqttServerFactory implements StreamFactory
                 assert state == 0;
                 state = MqttState.openingInitial(state);
 
-                final MqttRole role;
-                if (roles.contains(SENDER))
+                final MqttCapabilities role;
+                if (roles.contains(PUBLISH))
                 {
-                    role = SENDER;
+                    role = PUBLISH;
                     cancelId = signaler.signalAt(publishTimeout, routeId, initialId, PUBLISH_TIMEOUT_SIGNAL);
                 }
-                else if (roles.contains(RECEIVER))
+                else if (roles.contains(SUBSCRIBE))
                 {
-                    role = RECEIVER;
+                    role = SUBSCRIBE;
                 }
                 else
                 {
@@ -1876,7 +1877,7 @@ public final class MqttServerFactory implements StreamFactory
             private void doApplicationData(
                 long traceId,
                 long authorization,
-                MqttRole role,
+                MqttCapabilities role,
                 OctetsFW payload,
                 Flyweight extension)
             {
@@ -1884,7 +1885,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 switch (role)
                 {
-                case SENDER:
+                case PUBLISH:
                     assert roles.contains(role);
 
                     DirectBuffer buffer = payload.buffer();
@@ -1900,7 +1901,7 @@ public final class MqttServerFactory implements StreamFactory
             private void doApplicationEndIfNoRoles(
                 long traceId,
                 long authorization,
-                MqttRole role)
+                MqttCapabilities role)
             {
                 final boolean empty = rolesEmptyAfterRemoveRole(role);
                 if (!MqttState.initialOpened(state) || initialSlot != NO_SLOT)
@@ -1996,7 +1997,7 @@ public final class MqttServerFactory implements StreamFactory
                 final int credit = window.credit();
                 final int padding = window.padding();
 
-                if (roles.contains(RECEIVER) && !MqttState.initialOpened(state))
+                if (roles.contains(SUBSCRIBE) && !MqttState.initialOpened(state))
                 {
                     subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
                 }
@@ -2033,7 +2034,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 final long traceId = reset.traceId();
                 final long authorization = reset.authorization();
-                if (roles.contains(RECEIVER))
+                if (roles.contains(SUBSCRIBE))
                 {
                     subscription.onSubscribeFailed(traceId, authorization, packetId, subackIndex);
                 }
@@ -2062,7 +2063,7 @@ public final class MqttServerFactory implements StreamFactory
                 final long traceId = signal.traceId();
                 final long authorization = signal.authorization();
 
-                doApplicationEndIfNoRoles(traceId, authorization, SENDER);
+                doApplicationEndIfNoRoles(traceId, authorization, PUBLISH);
             }
 
             private boolean isReplyOpen()
