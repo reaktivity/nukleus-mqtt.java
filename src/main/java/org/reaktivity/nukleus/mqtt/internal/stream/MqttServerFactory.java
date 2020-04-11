@@ -1120,7 +1120,7 @@ public final class MqttServerFactory implements StreamFactory
                                                         new MqttServerStream(newRouteId, 0, topicName));
                 stream.addCapabilities(PUBLISH_ONLY);
                 stream.doApplicationBeginIfNecessary(traceId, authorization, affinity, topicName, 0);
-                stream.doApplicationData(traceId, authorization, PUBLISH_ONLY, payload, dataEx);
+                stream.doApplicationData(traceId, authorization, payload, dataEx);
                 stream.doApplicationFlush(traceId, authorization, 0);
 
                 correlations.put(stream.replyId, stream);
@@ -1208,7 +1208,6 @@ public final class MqttServerFactory implements StreamFactory
                         stream.addCapabilities(SUBSCRIBE_ONLY);
                         stream.doApplicationSubscribe(subscription);
                         stream.doApplicationBeginIfNecessary(traceId, authorization, affinity, topicFilter, subscriptionId);
-                        stream.doApplicationData(traceId, authorization, SUBSCRIBE_ONLY, topicFilters, EMPTY_OCTETS);
                         stream.doApplicationFlush(traceId, authorization, 0);
 
                         correlations.put(stream.replyId, stream);
@@ -1909,25 +1908,19 @@ public final class MqttServerFactory implements StreamFactory
             private void doApplicationData(
                 long traceId,
                 long authorization,
-                MqttCapabilities role,
                 OctetsFW payload,
                 Flyweight extension)
             {
                 assert MqttState.initialOpening(state);
 
-                switch (role)
-                {
-                case PUBLISH_ONLY:
-                    assert hasPublishCapability(capabilities);
+                assert hasPublishCapability(this.capabilities);
 
-                    DirectBuffer buffer = payload.buffer();
-                    int offset = payload.offset();
-                    int limit = payload.limit();
+                DirectBuffer buffer = payload.buffer();
+                int offset = payload.offset();
+                int limit = payload.limit();
 
-                    refreshPublishTimeout();
-                    flushApplicationData(traceId, authorization, buffer, offset, limit, extension);
-                    break;
-                }
+                refreshPublishTimeout();
+                flushApplicationData(traceId, authorization, buffer, offset, limit, extension);
             }
 
             private void doApplicationEndIfNoCapabilities(
