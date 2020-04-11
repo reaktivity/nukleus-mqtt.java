@@ -25,6 +25,7 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.PROTOCOL_ERRO
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.SUCCESS;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.TOPIC_FILTER_INVALID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_PROTOCOL_VERSION;
+import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_AND_SUBSCRIBE;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_ONLY;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.SUBSCRIBE_ONLY;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CONTENT_TYPE;
@@ -282,16 +283,23 @@ public final class MqttServerFactory implements StreamFactory
 
         final MessagePredicate filter = (t, b, o, l) ->
         {
-            /*
             final RouteFW route = routeRO.wrap(b, o, o + l);
             final OctetsFW routeEx = route.extension();
 
-
             if (routeEx.sizeof() != 0)
             {
-                TODO
+                final MqttRouteExFW mqttRouteEx = routeEx.get(routeExRO::tryWrap);
+                final MqttBeginExFW beginEx = begin.extension().get(mqttBeginExRO::tryWrap);
+
+                final int routeCapabilities = mqttRouteEx.capabilities().get().value();
+                final int beginCapabilities = beginEx.capabilities().get().value();
+                final String routeTopic = mqttRouteEx.topic().asString();
+                final String beginTopic = beginEx.topic().asString();
+
+                return routeTopic.equals(beginTopic) && (beginCapabilities == PUBLISH_AND_SUBSCRIBE.value() ?
+                                                     (routeCapabilities & beginCapabilities) == PUBLISH_AND_SUBSCRIBE.value() :
+                                                     (routeCapabilities & beginCapabilities) != 0);
             }
-            */
             return true;
         };
 
@@ -1121,7 +1129,7 @@ public final class MqttServerFactory implements StreamFactory
                 stream.addCapabilities(PUBLISH_ONLY);
                 stream.doApplicationBeginIfNecessary(traceId, authorization, affinity, topicName, 0);
                 stream.doApplicationData(traceId, authorization, payload, dataEx);
-                stream.doApplicationFlush(traceId, authorization, 0);
+                stream.doApplicationFlushIfCapabilitiesChanged(traceId, authorization, 0);
 
                 correlations.put(stream.replyId, stream);
             }
@@ -1208,7 +1216,7 @@ public final class MqttServerFactory implements StreamFactory
                         stream.addCapabilities(SUBSCRIBE_ONLY);
                         stream.doApplicationSubscribe(subscription);
                         stream.doApplicationBeginIfNecessary(traceId, authorization, affinity, topicFilter, subscriptionId);
-                        stream.doApplicationFlush(traceId, authorization, 0);
+                        stream.doApplicationFlushIfCapabilitiesChanged(traceId, authorization, 0);
 
                         correlations.put(stream.replyId, stream);
                     }
@@ -1919,6 +1927,16 @@ public final class MqttServerFactory implements StreamFactory
                 int offset = payload.offset();
                 int limit = payload.limit();
 
+                if (decodeSlot != NO_SLOT)
+                {
+                    final MutableDirectBuffer slotBuffer = bufferPool.buffer(decodeSlot);
+                    slotBuffer.putBytes(decodeSlotLimit, buffer, offset, limit - offset);
+                    decodeSlotLimit += limit - offset;
+                    buffer = slotBuffer;
+                    offset = 0;
+                    limit = decodeSlotLimit;
+                }
+
                 refreshPublishTimeout();
                 flushApplicationData(traceId, authorization, buffer, offset, limit, extension);
             }
@@ -1965,6 +1983,17 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
+            private void doApplicationFlushIfCapabilitiesChanged(
+                long traceId,
+                long authorization,
+                int reserved)
+            {
+                if (capabilities == PUBLISH_AND_SUBSCRIBE.value())
+                {
+                    doApplicationFlush(traceId, authorization, reserved);
+                }
+            }
+
             private void doApplicationFlushIfNecessary(
                 long traceId,
                 long authorization,
@@ -1985,7 +2014,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 assert replyBudget >= 0;
 
-                doFlush(application, routeId, replyId, traceId, authorization, 0L, reserved,
+                doFlush(application, routeId, initialId, traceId, authorization, 0L, reserved,
                     ex -> ex.set((b, o, l) -> mqttFlushExRW.wrap(b, o, l)
                                                            .typeId(mqttTypeId)
                                                            .capabilities(c -> c.set(MqttCapabilities.valueOf(capabilities)))
