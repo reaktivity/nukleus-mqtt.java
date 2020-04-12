@@ -94,6 +94,33 @@ public class ControlIT
 
     @Test
     @Specification({
+        "${routeExt}/publish.only/client/controller"
+    })
+    public void shouldRouteClientWithPublishOnlyExt() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${routeExt}/subscribe.only/client/controller"
+    })
+    public void shouldRouteClientWithSubscribeOnlyExt() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${routeExt}/publish.and.subscribe/client/controller"
+    })
+    public void shouldRouteClientWithPublishAndSubscribeExt() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "${route}/client/controller",
         "${unroute}/client/controller"
     })
