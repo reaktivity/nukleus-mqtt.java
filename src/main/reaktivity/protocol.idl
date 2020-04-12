@@ -75,8 +75,8 @@
 
         union MqttProperty switch (uint8)
         {
-            case 0x01: uint8 payloadFormatIndicator;
-            case 0x02: int32 messageExpiryInterval;
+            case 0x01: uint8 payloadFormat;
+            case 0x02: int32 expiryInterval;
             case 0x03: string8 contentType;
             case 0x08: string8 responseTopic;
             case 0x09: Binary correlationData;

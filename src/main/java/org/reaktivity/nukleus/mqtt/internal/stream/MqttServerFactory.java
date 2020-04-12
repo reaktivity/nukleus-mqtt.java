@@ -30,11 +30,12 @@ import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLIS
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.SUBSCRIBE_ONLY;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CONTENT_TYPE;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CORRELATION_DATA;
-import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_MESSAGE_EXPIRY_INTERVAL;
-import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_PAYLOAD_FORMAT_INDICATOR;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_EXPIRY_INTERVAL;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_PAYLOAD_FORMAT;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_RESPONSE_TOPIC;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_SUBSCRIPTION_ID;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_TOPIC_ALIAS;
+import static org.reaktivity.nukleus.mqtt.internal.types.stream.MqttDataExFW.Builder.DEFAULT_EXPIRY_INTERVAL;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -918,7 +919,6 @@ public final class MqttServerFactory implements StreamFactory
             }
             else
             {
-                final long streamId = data.streamId();
                 final long budgetId = data.budgetId();
                 final OctetsFW payload = data.payload();
 
@@ -1065,11 +1065,11 @@ public final class MqttServerFactory implements StreamFactory
 
             final String topicName = publishTopicName.asString();
 
-            MqttPayloadFormat payloadFormat = MqttPayloadFormat.TEXT;
-            int messageExpiryInterval = 0;
-            String contentType = "";
-            String responseTopic = "";
-            OctetsFW correlationData = EMPTY_OCTETS;
+            MqttPayloadFormat payloadFormat = null;
+            int expiryInterval = DEFAULT_EXPIRY_INTERVAL;
+            String contentType = null;
+            String responseTopic = null;
+            OctetsFW correlationData = null;
 
             MqttPropertyFW mqttProperty;
 
@@ -1078,11 +1078,11 @@ public final class MqttServerFactory implements StreamFactory
                 mqttProperty = mqttPropertyRO.tryWrap(buffer, progress, propertiesLimit);
                 switch (mqttProperty.kind())
                 {
-                case KIND_PAYLOAD_FORMAT_INDICATOR:
-                    payloadFormat = MqttPayloadFormat.valueOf(mqttProperty.payloadFormatIndicator());
+                case KIND_PAYLOAD_FORMAT:
+                    payloadFormat = MqttPayloadFormat.valueOf(mqttProperty.payloadFormat());
                     break;
-                case KIND_MESSAGE_EXPIRY_INTERVAL:
-                    messageExpiryInterval = mqttProperty.messageExpiryInterval();
+                case KIND_EXPIRY_INTERVAL:
+                    expiryInterval = mqttProperty.expiryInterval();
                     break;
                 case KIND_CONTENT_TYPE:
                     contentType = mqttProperty.contentType().asString();
@@ -1107,7 +1107,7 @@ public final class MqttServerFactory implements StreamFactory
             final MqttDataExFW dataEx = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                                     .typeId(mqttTypeId)
                                                     .topic(topicName)
-                                                    .expiryInterval(messageExpiryInterval)
+                                                    .expiryInterval(expiryInterval)
                                                     .contentType(contentType)
                                                     .format(f -> f.set(payloadFormat0))
                                                     .responseTopic(responseTopic)
@@ -1430,7 +1430,7 @@ public final class MqttServerFactory implements StreamFactory
                 if (expiryInterval != -1)
                 {
                     mqttPropertyRW.wrap(mqttPropertyBuffer, propertiesSize, mqttPropertyBuffer.capacity())
-                        .messageExpiryInterval(expiryInterval)
+                        .expiryInterval(expiryInterval)
                         .build();
                     propertiesSize = mqttPropertyRW.limit();
                 }
@@ -1445,7 +1445,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 // TODO: optional format
                 mqttPropertyRW.wrap(mqttPropertyBuffer, propertiesSize, mqttPropertyBuffer.capacity())
-                    .payloadFormatIndicator((byte) dataEx.format().get().ordinal())
+                    .payloadFormat((byte) dataEx.format().get().ordinal())
                     .build();
                 propertiesSize = mqttPropertyRW.limit();
 
