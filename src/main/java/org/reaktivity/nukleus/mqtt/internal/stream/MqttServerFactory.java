@@ -283,23 +283,16 @@ public final class MqttServerFactory implements StreamFactory
 
         final MessagePredicate filter = (t, b, o, l) ->
         {
+            /*
             final RouteFW route = routeRO.wrap(b, o, o + l);
             final OctetsFW routeEx = route.extension();
 
             if (routeEx.sizeof() != 0)
             {
                 final MqttRouteExFW mqttRouteEx = routeEx.get(routeExRO::tryWrap);
-                final MqttBeginExFW beginEx = begin.extension().get(mqttBeginExRO::tryWrap);
-
-                final int routeCapabilities = mqttRouteEx.capabilities().get().value();
-                final int beginCapabilities = beginEx.capabilities().get().value();
                 final String routeTopic = mqttRouteEx.topic().asString();
-                final String beginTopic = beginEx.topic().asString();
-
-                return routeTopic.equals(beginTopic) && (beginCapabilities == PUBLISH_AND_SUBSCRIBE.value() ?
-                                                     (routeCapabilities & beginCapabilities) == PUBLISH_AND_SUBSCRIBE.value() :
-                                                     (routeCapabilities & beginCapabilities) != 0);
             }
+            */
             return true;
         };
 
@@ -338,7 +331,8 @@ public final class MqttServerFactory implements StreamFactory
     private RouteFW resolveTarget(
         long routeId,
         long authorization,
-        String topicFilter)
+        String topicFilter,
+        MqttCapabilities capabilities)
     {
         final MessagePredicate filter = (t, b, o, l) ->
         {
@@ -348,7 +342,11 @@ public final class MqttServerFactory implements StreamFactory
             {
                 final MqttRouteExFW routeEx = ext.get(routeExRO::wrap);
                 final String topicEx = routeEx.topic().asString();
-                return topicEx.equals(topicFilter);
+                final MqttCapabilities routeCapabilities = routeEx.capabilities().get();
+
+                return topicEx.equals(topicFilter) && (capabilities == PUBLISH_AND_SUBSCRIBE ?
+                                           (capabilities.value() & routeCapabilities.value()) == PUBLISH_AND_SUBSCRIBE.value() :
+                                           (capabilities.value() & routeCapabilities.value()) != 0);
             }
             return true;
         };
@@ -1118,7 +1116,7 @@ public final class MqttServerFactory implements StreamFactory
 
             OctetsFW payload = publish.payload();
 
-            final RouteFW route = resolveTarget(routeId, authorization, topicName);
+            final RouteFW route = resolveTarget(routeId, authorization, topicName, PUBLISH_ONLY);
             if (route != null)
             {
                 final long newRouteId = route.correlationId();
@@ -1189,7 +1187,7 @@ public final class MqttServerFactory implements StreamFactory
                         break;
                     }
                     final String topicFilter = mqttSubscription.topicFilter().asString();
-                    final RouteFW route = resolveTarget(routeId, authorization, topicFilter);
+                    final RouteFW route = resolveTarget(routeId, authorization, topicFilter, SUBSCRIBE_ONLY);
 
                     if (route != null)
                     {

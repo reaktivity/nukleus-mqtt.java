@@ -33,6 +33,7 @@ public class ConnectionIT
 {
     private final K3poRule k3po = new K3poRule()
         .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
+        .addScriptRoot("routeExt", "org/reaktivity/specification/nukleus/mqtt/control/route.ext")
         .addScriptRoot("client", "org/reaktivity/specification/mqtt")
         .addScriptRoot("server", "org/reaktivity/specification/nukleus/mqtt/streams");
 
@@ -110,6 +111,16 @@ public class ConnectionIT
 
     @Test
     @Specification({
+        "${routeExt}/publish.only/server/controller",
+        "${client}/publish.one.message/client",
+        "${server}/publish.one.message/server"})
+    public void shouldPublishOneMessageWithRouteExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "${route}/server/controller",
         "${client}/publish.multiple.messages/client",
         "${server}/publish.multiple.messages/server"})
@@ -137,6 +148,16 @@ public class ConnectionIT
         "${client}/subscribe.one.message/client",
         "${server}/subscribe.one.message/server"})
     public void shouldReceivePublishAfterSendingSubscribe() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${routeExt}/subscribe.only/server/controller",
+        "${client}/subscribe.one.message/client",
+        "${server}/subscribe.one.message/server"})
+    public void shouldReceivePublishAfterSendingSubscribeWtihRouteExtension() throws Exception
     {
         k3po.finish();
     }
