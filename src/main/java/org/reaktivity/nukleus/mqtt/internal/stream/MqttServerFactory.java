@@ -1111,7 +1111,7 @@ public final class MqttServerFactory implements StreamFactory
                                                     .contentType(contentType)
                                                     .format(f -> f.set(payloadFormat0))
                                                     .responseTopic(responseTopic)
-                                                    .correlation(c -> c.bytes(b -> b.set(correlationData0)))
+                                                    .correlation(c -> c.bytes(correlationData0))
                                                     .build();
 
             OctetsFW payload = publish.payload();
