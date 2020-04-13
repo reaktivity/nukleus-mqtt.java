@@ -45,26 +45,16 @@
             octets[length] bytes;
         }
 
-        struct MqttPacketFixedHeader
+        struct MqttPacketHeader
         {
             uint8 typeAndFlags;
             varbyteuint32 remainingLength;
         }
 
-        struct MqttByte
+        struct MqttProperties
         {
-            uint8 value;
-        }
-
-        struct MqttSubscription
-        {
-            string16 topicFilter;
-            uint8 options;
-        }
-
-        struct MqttTopic
-        {
-            string16 filter;
+            varbyteuint32 length;
+            octets[length] value;
         }
 
         struct MqttUserProperty
@@ -103,113 +93,119 @@
             case 0x2A: uint8 sharedSubscriptionAvailable;
         }
 
-        struct MqttConnect extends MqttPacketFixedHeader
+        struct MqttConnect extends MqttPacketHeader
         {
             string16 protocolName;
             uint8 protocolVersion;
             uint8 flags;
             uint16 keepAlive;
-            varbyteuint32 propertiesLength;
+            MqttProperties properties;
             string16 clientId;
-            octets[propertiesLength] properties;
         }
 
-        struct MqttConnack extends MqttPacketFixedHeader
+        struct MqttConnack extends MqttPacketHeader
         {
             uint8 flags;
             uint8 reasonCode;
-            varbyteuint32 propertiesLength;
-            octets[propertiesLength] properties;
+            MqttProperties properties;
         }
 
-        struct MqttPingReq
-        {
-            uint8 packetType;
-            uint8 remainingLength;
-        }
-
-        struct MqttPingResp extends MqttPacketFixedHeader
-        {
-
-        }
-
-        struct MqttSubscribe extends MqttPacketFixedHeader
-        {
-            uint16 packetId;
-            varbyteuint32 propertiesLength;
-            octets[propertiesLength] properties;
-            octets topicFilters;
-        }
-
-        struct MqttSuback extends MqttPacketFixedHeader
-        {
-            uint16 packetId;
-            varbyteuint32 propertiesLength;
-            octets[propertiesLength] properties;
-            octets reasonCodes;
-        }
-
-        struct MqttUnsubscribe extends MqttPacketFixedHeader
-        {
-            uint16 packetId;
-            varbyteuint32 propertiesLength;
-            octets[propertiesLength] properties;
-            octets topicFilters;
-        }
-
-        struct MqttUnsuback extends MqttPacketFixedHeader
-        {
-            uint16 packetId;
-            varbyteuint32 propertiesLength;
-            octets[propertiesLength] properties;
-            octets reasonCodes;
-        }
-
-        struct MqttPublish extends MqttPacketFixedHeader
+        struct MqttPublish extends MqttPacketHeader
         {
             string16 topicName;
-            varbyteuint32 propertiesLength;
-            octets[propertiesLength] properties;
+            MqttProperties properties;
             octets payload;
         }
 
-        struct MqttPuback extends MqttPacketFixedHeader
+        struct MqttPuback extends MqttPacketHeader
         {
             uint16 packetId;
             uint8 reasonCode;
-            varbyteuint32 propertiesLength;
-            octets[propertiesLength] properties;
+            MqttProperties properties;
         }
 
-        struct MqttPubrec extends MqttPacketFixedHeader
+        struct MqttPubrec extends MqttPacketHeader
         {
             uint16 packetId;
             uint8 reasonCode;
-            varbyteuint32 propertiesLength;
-            octets[propertiesLength] properties;
+            MqttProperties properties;
         }
 
-        struct MqttPubrel extends MqttPacketFixedHeader
+        struct MqttPubrel extends MqttPacketHeader
         {
             uint16 packetId;
             uint8 reasonCode;
-            varbyteuint32 propertiesLength;
-            octets[propertiesLength] properties;
+            MqttProperties properties;
         }
 
-        struct MqttPubcomp extends MqttPacketFixedHeader
+        struct MqttPubcomp extends MqttPacketHeader
         {
             uint16 packetId;
             uint8 reasonCode;
-            varbyteuint32 propertiesLength;
-            octets[propertiesLength] properties;
+            MqttProperties properties;
         }
 
-        struct MqttDisconnect extends MqttPacketFixedHeader
+        struct MqttSubscribe extends MqttPacketHeader
+        {
+            uint16 packetId;
+            MqttProperties properties;
+            octets payload;
+        }
+
+        struct MqttSubscribePayload
+        {
+            string16 filter;
+            uint8 options;
+        }
+
+        struct MqttSuback extends MqttPacketHeader
+        {
+            uint16 packetId;
+            MqttProperties properties;
+            octets payload;
+        }
+
+        struct MqttSubackPayload
         {
             uint8 reasonCode;
-            varbyteuint32 propertiesLength;
-            octets[propertiesLength] properties;
+        }
+
+        struct MqttUnsubscribe extends MqttPacketHeader
+        {
+            uint16 packetId;
+            MqttProperties properties;
+            octets payload;
+        }
+
+        struct MqttUnsubscribePayload
+        {
+            string16 filter;
+        }
+
+        struct MqttUnsuback extends MqttPacketHeader
+        {
+            uint16 packetId;
+            MqttProperties properties;
+            octets payload;
+        }
+
+        struct MqttUnsubackPayload
+        {
+            uint8 reasonCode;
+        }
+
+        struct MqttPingReq extends MqttPacketHeader
+        {
+        }
+
+        struct MqttPingResp extends MqttPacketHeader
+        {
+        }
+
+        struct MqttDisconnect extends MqttPacketHeader
+        {
+            uint8 reasonCode;
+            MqttProperties properties;
         }
     }
  }

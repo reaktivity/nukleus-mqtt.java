@@ -27,6 +27,7 @@ import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
+import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class ConnectionIT
@@ -46,6 +47,7 @@ public class ConnectionIT
         .counterValuesBufferCapacity(8192)
         .nukleus("mqtt"::equals)
         .configure(PUBLISH_TIMEOUT, 5L)
+        .configure(ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE, false)
         .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
         .clean();
 
@@ -137,8 +139,9 @@ public class ConnectionIT
     public void shouldPublishMultipleMessagesWithDelay() throws Exception
     {
         k3po.start();
+        k3po.awaitBarrier("PUBLISHED_MESSAGE_TWO");
         Thread.sleep(6000);
-        k3po.notifyBarrier("PUBLISH_CLOSE");
+        k3po.notifyBarrier("PUBLISH_MESSAGE_THREE");
         k3po.finish();
     }
 
