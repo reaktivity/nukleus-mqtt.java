@@ -655,7 +655,7 @@ public final class MqttServerFactory implements StreamFactory
                     reserved = publisher.debitor.claim(publisher.debitorIndex, publisher.initialId, minimum, reserved);
                 }
 
-                if (canPublish && reserved != 0)
+                if (canPublish && reserved != 0) // TODO: zero length messages (throttled)
                 {
                     server.onDecodePublish(traceId, authorization, reserved, publish);
                     server.decodeablePacketBytes = 0;
