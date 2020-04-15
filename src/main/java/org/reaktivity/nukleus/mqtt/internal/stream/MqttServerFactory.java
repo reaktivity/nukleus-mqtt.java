@@ -18,6 +18,7 @@ package org.reaktivity.nukleus.mqtt.internal.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.reaktivity.nukleus.budget.BudgetCreditor.NO_CREDITOR_INDEX;
+import static org.reaktivity.nukleus.budget.BudgetDebitor.NO_DEBITOR_INDEX;
 import static org.reaktivity.nukleus.buffer.BufferPool.NO_SLOT;
 import static org.reaktivity.nukleus.concurrent.Signaler.NO_CANCEL_ID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.MALFORMED_PACKET;
@@ -42,6 +43,7 @@ import static org.reaktivity.nukleus.mqtt.internal.types.stream.DataFW.FIELD_OFF
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.ToIntFunction;
@@ -53,6 +55,7 @@ import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.collections.MutableInteger;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.budget.BudgetCreditor;
+import org.reaktivity.nukleus.budget.BudgetDebitor;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.nukleus.function.MessageConsumer;
@@ -184,6 +187,7 @@ public final class MqttServerFactory implements StreamFactory
 
     private final BufferPool bufferPool;
     private final BudgetCreditor creditor;
+    private final LongFunction<BudgetDebitor> supplyDebitor;
 
     private final MqttServerDecoder decodePacketType = this::decodePacketType;
     private final MqttServerDecoder decodeConnect = this::decodeConnect;
@@ -223,6 +227,7 @@ public final class MqttServerFactory implements StreamFactory
         LongSupplier supplyBudgetId,
         LongSupplier supplyTraceId,
         ToIntFunction<String> supplyTypeId,
+        LongFunction<BudgetDebitor> supplyDebitor,
         Signaler signaler)
     {
         this.router = requireNonNull(router);
@@ -233,6 +238,7 @@ public final class MqttServerFactory implements StreamFactory
         this.payloadBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.bufferPool = bufferPool;
         this.creditor = creditor;
+        this.supplyDebitor = supplyDebitor;
         this.supplyInitialId = requireNonNull(supplyInitialId);
         this.supplyReplyId = requireNonNull(supplyReplyId);
         this.supplyBudgetId = requireNonNull(supplyBudgetId);
@@ -637,10 +643,21 @@ public final class MqttServerFactory implements StreamFactory
                 assert publisher != null;
 
                 final OctetsFW payload = publish.payload();
-                if (MqttState.initialOpened(publisher.state) &&
-                    publisher.initialBudget - publisher.initialPadding >= payload.sizeof())
+                final int payloadSize = payload.sizeof();
+
+                boolean canPublish = MqttState.initialOpened(publisher.state);
+                canPublish &= publisher.initialBudget - publisher.initialPadding >= payloadSize;
+
+                int reserved = payloadSize + publisher.initialPadding;
+                if (canPublish && publisher.debitorIndex != NO_DEBITOR_INDEX)
                 {
-                    server.onDecodePublish(traceId, authorization, publish);
+                    final int minimum = reserved; // TODO: fragmentation
+                    reserved = publisher.debitor.claim(publisher.debitorIndex, publisher.initialId, minimum, reserved);
+                }
+
+                if (canPublish && reserved != 0)
+                {
+                    server.onDecodePublish(traceId, authorization, reserved, publish);
                     server.decodeablePacketBytes = 0;
                     server.decodePublisherKey = 0;
                     server.decoder = decodePacketType;
@@ -1133,6 +1150,7 @@ public final class MqttServerFactory implements StreamFactory
         private void onDecodePublish(
             long traceId,
             long authorization,
+            int reserved,
             MqttPublishFW publish)
         {
             final String topic = publish.topicName().asString();
@@ -1203,7 +1221,7 @@ public final class MqttServerFactory implements StreamFactory
                                                         .responseTopic(responseTopic)
                                                         .correlation(c -> c.bytes(correlationData0))
                                                         .build();
-                stream.doApplicationData(traceId, authorization, payload, dataEx);
+                stream.doApplicationData(traceId, authorization, reserved, payload, dataEx);
             }
         }
 
@@ -1911,6 +1929,9 @@ public final class MqttServerFactory implements StreamFactory
             private long replyId;
             private long budgetId;
 
+            private BudgetDebitor debitor;
+            private long debitorIndex = NO_DEBITOR_INDEX;
+
             private int initialBudget;
             private int initialPadding;
             private int replyBudget;
@@ -2001,6 +2022,7 @@ public final class MqttServerFactory implements StreamFactory
             private void doApplicationData(
                 long traceId,
                 long authorization,
+                int reserved,
                 OctetsFW payload,
                 Flyweight extension)
             {
@@ -2012,7 +2034,7 @@ public final class MqttServerFactory implements StreamFactory
                 final int offset = payload.offset();
                 final int limit = payload.limit();
                 final int length = limit - offset;
-                final int reserved = length + initialPadding;
+                assert reserved >= length + initialPadding;
 
                 initialBudget -= reserved;
 
@@ -2092,6 +2114,12 @@ public final class MqttServerFactory implements StreamFactory
 
                 state = MqttState.closeInitial(state);
 
+                if (debitorIndex != NO_DEBITOR_INDEX)
+                {
+                    debitor.release(debitorIndex, initialId);
+                    debitorIndex = NO_DEBITOR_INDEX;
+                }
+
                 if (MqttState.closed(state))
                 {
                     capabilities = 0;
@@ -2155,6 +2183,12 @@ public final class MqttServerFactory implements StreamFactory
                 this.budgetId = budgetId;
                 this.initialBudget += credit;
                 this.initialPadding = padding;
+
+                if (budgetId != 0L && debitorIndex == NO_DEBITOR_INDEX)
+                {
+                    debitor = supplyDebitor.apply(budgetId);
+                    debitorIndex = debitor.acquire(budgetId, initialId, MqttServer.this::decodeNetworkIfNecessary);
+                }
 
                 if (MqttState.initialClosing(state) &&
                     !MqttState.initialClosed(state))
