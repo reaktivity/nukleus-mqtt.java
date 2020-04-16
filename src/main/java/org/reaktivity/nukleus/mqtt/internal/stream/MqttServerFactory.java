@@ -112,7 +112,7 @@ public final class MqttServerFactory implements StreamFactory
     private static final int UNSUBSCRIBE_FIXED_HEADER = 0b1010_0010;
     private static final int DISCONNECT_FIXED_HEADER = 0b1110_0000;
 
-    private static final int PUBLISH_TIMEOUT_SIGNAL = 1;
+    private static final int PUBLISH_EXPIRED_SIGNAL = 1;
 
     private final RouteFW routeRO = new RouteFW();
     private final MqttRouteExFW mqttRouteExRO = new MqttRouteExFW();
@@ -632,7 +632,6 @@ public final class MqttServerFactory implements StreamFactory
                     publisher = server.resolvePublisher(traceId, authorization, topicName);
                     if (publisher == null)
                     {
-                        server.decodePublisherKey = 0;
                         server.decodeablePacketBytes = 0;
                         server.decoder = decodePacketType;
                         progress = publish.limit();
@@ -655,17 +654,12 @@ public final class MqttServerFactory implements StreamFactory
                     reserved = publisher.debitor.claim(publisher.debitorIndex, publisher.initialId, minimum, reserved);
                 }
 
-                if (canPublish && reserved != 0)
+                if (canPublish && reserved != 0) // TODO: zero length messages (throttled)
                 {
                     server.onDecodePublish(traceId, authorization, reserved, publish);
                     server.decodeablePacketBytes = 0;
-                    server.decodePublisherKey = 0;
                     server.decoder = decodePacketType;
                     progress = publish.limit();
-                }
-                else
-                {
-                    server.decodePublisherKey = topicKey;
                 }
             }
             else
@@ -899,7 +893,8 @@ public final class MqttServerFactory implements StreamFactory
         private int sharedReplyBudget;
 
         private int decodeSlot = NO_SLOT;
-        private int decodeSlotLimit;
+        private int decodeSlotOffset;
+        private int decodeSlotReserved;
 
         private int encodeSlot = NO_SLOT;
         private int encodeSlotOffset;
@@ -907,7 +902,6 @@ public final class MqttServerFactory implements StreamFactory
 
         private MqttServerDecoder decoder;
         private int decodeablePacketBytes;
-        private int decodePublisherKey;
 
         private int keepAlive;
         private boolean connected;
@@ -1002,18 +996,28 @@ public final class MqttServerFactory implements StreamFactory
                 DirectBuffer buffer = payload.buffer();
                 int offset = payload.offset();
                 int limit = payload.limit();
+                int reserved = data.reserved();
 
                 if (decodeSlot != NO_SLOT)
                 {
                     final MutableDirectBuffer slotBuffer = bufferPool.buffer(decodeSlot);
-                    slotBuffer.putBytes(decodeSlotLimit, buffer, offset, limit - offset);
-                    decodeSlotLimit += limit - offset;
+                    slotBuffer.putBytes(decodeSlotOffset, buffer, offset, limit - offset);
+                    decodeSlotOffset += limit - offset;
+                    decodeSlotReserved += reserved;
+
                     buffer = slotBuffer;
                     offset = 0;
-                    limit = decodeSlotLimit;
+                    limit = decodeSlotOffset;
+                    reserved = decodeSlotReserved;
                 }
 
-                decodeNetwork(traceId, authorization, budgetId, buffer, offset, limit);
+                decodeNetwork(traceId, authorization, budgetId, reserved, buffer, offset, limit);
+
+                final int initialCredit = reserved - decodeSlotReserved;
+                if (initialCredit > 0)
+                {
+                    doNetworkWindow(traceId, authorization, initialCredit, 0, 0);
+                }
             }
         }
 
@@ -1768,9 +1772,16 @@ public final class MqttServerFactory implements StreamFactory
 
                 final DirectBuffer buffer = bufferPool.buffer(decodeSlot);
                 final int offset = 0;
-                final int limit = decodeSlotLimit;
+                final int limit = decodeSlotOffset;
+                final int reserved = decodeSlotReserved;
 
-                decodeNetwork(traceId, authorization, budgetId, buffer, offset, limit);
+                decodeNetwork(traceId, authorization, budgetId, reserved, buffer, offset, limit);
+
+                final int initialCredit = reserved - decodeSlotReserved;
+                if (initialCredit > 0)
+                {
+                    doNetworkWindow(traceId, authorization, initialCredit, 0, 0);
+                }
             }
         }
 
@@ -1778,6 +1789,7 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization,
             long budgetId,
+            int reserved,
             DirectBuffer buffer,
             int offset,
             int limit)
@@ -1804,8 +1816,9 @@ public final class MqttServerFactory implements StreamFactory
                 else
                 {
                     final MutableDirectBuffer slotBuffer = bufferPool.buffer(decodeSlot);
-                    decodeSlotLimit = limit - progress;
-                    slotBuffer.putBytes(0, buffer, progress, decodeSlotLimit);
+                    slotBuffer.putBytes(0, buffer, progress, limit - progress);
+                    decodeSlotOffset = limit - progress;
+                    decodeSlotReserved = (int)((long) reserved * (limit - progress) / (limit - offset));
                 }
             }
             else
@@ -1845,7 +1858,8 @@ public final class MqttServerFactory implements StreamFactory
             {
                 bufferPool.release(decodeSlot);
                 decodeSlot = NO_SLOT;
-                decodeSlotLimit = 0;
+                decodeSlotOffset = 0;
+                decodeSlotReserved = 0;
             }
         }
 
@@ -1922,7 +1936,6 @@ public final class MqttServerFactory implements StreamFactory
         private class MqttServerStream
         {
             private final MessageConsumer application;
-            private final int topicKey;
 
             private long routeId;
             private long initialId;
@@ -1945,7 +1958,8 @@ public final class MqttServerFactory implements StreamFactory
             private int state;
             private int capabilities;
 
-            private long timerId;
+            private long publishExpiresId = NO_CANCEL_ID;
+            private long publishExpiresAt;
 
             MqttServerStream(
                 long routeId,
@@ -1958,8 +1972,6 @@ public final class MqttServerFactory implements StreamFactory
                 this.application = router.supplyReceiver(initialId);
                 this.packetId = packetId;
                 this.topicFilter = topicFilter;
-                this.topicKey = topicKey(topicFilter);
-                this.timerId = NO_CANCEL_ID;
             }
 
             private void onApplicationSubscribe(
@@ -2016,7 +2028,10 @@ public final class MqttServerFactory implements StreamFactory
                 final MutableInteger activeStreams = activeStreamsByTopic.computeIfAbsent(topicKey, key -> new MutableInteger());
                 activeStreams.value++;
 
-                schedulePublishTimeoutIfNecessary();
+                if (hasPublishCapability(capabilities))
+                {
+                    doSignalPublishExpirationIfNecessary();
+                }
             }
 
             private void doApplicationData(
@@ -2043,7 +2058,7 @@ public final class MqttServerFactory implements StreamFactory
                 doData(application, routeId, initialId, traceId, authorization, budgetId,
                     reserved, buffer, offset, length, extension);
 
-                schedulePublishTimeoutIfNecessary();
+                doSignalPublishExpirationIfNecessary();
             }
 
             private void doApplicationFlushOrEnd(
@@ -2195,10 +2210,8 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     doApplicationEnd(traceId, authorization, EMPTY_OCTETS);
                 }
-                else if (decodePublisherKey == topicKey)
-                {
-                    decodeNetworkIfNecessary(traceId);
-                }
+
+                decodeNetworkIfNecessary(traceId);
             }
 
             private void onApplicationReset(
@@ -2208,11 +2221,14 @@ public final class MqttServerFactory implements StreamFactory
 
                 final long traceId = reset.traceId();
                 final long authorization = reset.authorization();
-                if (hasSubscribeCapability(capabilities))
+
+                if (!MqttState.initialOpened(state) &&
+                    hasSubscribeCapability(capabilities))
                 {
                     subscription.onSubscribeFailed(traceId, authorization, packetId, subackIndex);
                 }
 
+                decodeNetworkIfNecessary(traceId);
                 cleanup(traceId, authorization);
             }
 
@@ -2223,21 +2239,30 @@ public final class MqttServerFactory implements StreamFactory
 
                 switch (signalId)
                 {
-                case PUBLISH_TIMEOUT_SIGNAL:
-                    onPublishTimeoutSignal(signal);
+                case PUBLISH_EXPIRED_SIGNAL:
+                    onPublishExpiredSignal(signal);
                     break;
                 default:
                     break;
                 }
             }
 
-            private void onPublishTimeoutSignal(
+            private void onPublishExpiredSignal(
                 SignalFW signal)
             {
                 final long traceId = signal.traceId();
                 final long authorization = signal.authorization();
 
-                doApplicationFlushOrEnd(traceId, authorization, PUBLISH_ONLY);
+                final long now = System.currentTimeMillis();
+                if (now >= publishExpiresAt)
+                {
+                    doApplicationFlushOrEnd(traceId, authorization, PUBLISH_ONLY);
+                }
+                else
+                {
+                    publishExpiresId = NO_CANCEL_ID;
+                    doSignalPublishExpirationIfNecessary();
+                }
             }
 
             private boolean isReplyOpen()
@@ -2406,17 +2431,16 @@ public final class MqttServerFactory implements StreamFactory
             {
                 doApplicationAbortIfNecessary(traceId, authorization);
                 doApplicationResetIfNecessary(traceId, authorization);
-                cancelTimerIfNecessary();
+                doCancelPublishExpirationIfNecessary();
             }
 
-            private void schedulePublishTimeoutIfNecessary()
+            private void doSignalPublishExpirationIfNecessary()
             {
-                cancelTimerIfNecessary();
+                publishExpiresAt = System.currentTimeMillis() + publishTimeoutMillis;
 
-                if (hasPublishCapability(capabilities))
+                if (publishExpiresId == NO_CANCEL_ID)
                 {
-                    final long publishTimeoutAt = System.currentTimeMillis() + publishTimeoutMillis;
-                    timerId = signaler.signalAt(publishTimeoutAt, routeId, initialId, PUBLISH_TIMEOUT_SIGNAL);
+                    publishExpiresId = signaler.signalAt(publishExpiresAt, routeId, initialId, PUBLISH_EXPIRED_SIGNAL);
                 }
             }
 
@@ -2431,12 +2455,12 @@ public final class MqttServerFactory implements StreamFactory
                 return correlated != null;
             }
 
-            private void cancelTimerIfNecessary()
+            private void doCancelPublishExpirationIfNecessary()
             {
-                if (timerId != NO_CANCEL_ID)
+                if (publishExpiresId != NO_CANCEL_ID)
                 {
-                    signaler.cancel(timerId);
-                    timerId = NO_CANCEL_ID;
+                    signaler.cancel(publishExpiresId);
+                    publishExpiresId = NO_CANCEL_ID;
                 }
             }
         }
