@@ -27,6 +27,7 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NO_SUBSCRIPTI
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.PROTOCOL_ERROR;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.SUCCESS;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.TOPIC_FILTER_INVALID;
+import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.TOPIC_NAME_INVALID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_PROTOCOL_VERSION;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_AND_SUBSCRIBE;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_ONLY;
@@ -1150,7 +1151,7 @@ public final class MqttServerFactory implements StreamFactory
             }
             else
             {
-                onDecodeError(traceId, authorization, TOPIC_FILTER_INVALID);
+                onDecodeError(traceId, authorization, TOPIC_NAME_INVALID);
                 decoder = decodeIgnoreAll;
             }
 
@@ -2236,7 +2237,7 @@ public final class MqttServerFactory implements StreamFactory
                     }
                     else if (hasPublishCapability(capabilities))
                     {
-                        onDecodeError(traceId, authorization, TOPIC_FILTER_INVALID);
+                        onDecodeError(traceId, authorization, TOPIC_NAME_INVALID);
                         decoder = decodeIgnoreAll;
                     }
                 }
