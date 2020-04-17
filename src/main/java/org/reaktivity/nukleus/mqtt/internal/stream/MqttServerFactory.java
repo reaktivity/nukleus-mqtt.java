@@ -2235,7 +2235,8 @@ public final class MqttServerFactory implements StreamFactory
                     {
                         subscription.onSubscribeFailed(traceId, authorization, packetId, subackIndex);
                     }
-                    else if (hasPublishCapability(capabilities))
+
+                    if (hasPublishCapability(capabilities))
                     {
                         onDecodeError(traceId, authorization, TOPIC_NAME_INVALID);
                         decoder = decodeIgnoreAll;
