@@ -114,6 +114,8 @@ public final class MqttServerFactory implements StreamFactory
 
     private static final int PUBLISH_EXPIRED_SIGNAL = 1;
 
+    private static final int PUBLISH_FRAMING = 255;
+
     private final RouteFW routeRO = new RouteFW();
     private final MqttRouteExFW mqttRouteExRO = new MqttRouteExFW();
 
@@ -1052,9 +1054,10 @@ public final class MqttServerFactory implements StreamFactory
             if (encodeSlot != NO_SLOT)
             {
                 final MutableDirectBuffer buffer = bufferPool.buffer(encodeSlot);
+                final int offset = 0;
                 final int limit = encodeSlotOffset;
 
-                encodeNetwork(encodeSlotTraceId, authorization, budgetId, buffer, 0, limit);
+                encodeNetwork(encodeSlotTraceId, authorization, budgetId, buffer, offset, limit);
             }
 
             if (encodeSlot == NO_SLOT)
@@ -1735,7 +1738,8 @@ public final class MqttServerFactory implements StreamFactory
             int offset,
             int limit)
         {
-            final int length = Math.max(Math.min(encodeBudget - encodePadding, limit - offset), 0);
+            final int maxLength = limit - offset;
+            final int length = Math.min(maxLength, Math.max(encodeBudget - encodePadding, 0));
 
             if (length > 0)
             {
@@ -1749,7 +1753,6 @@ public final class MqttServerFactory implements StreamFactory
                        reserved, buffer, offset, length, EMPTY_OCTETS);
             }
 
-            final int maxLength = limit - offset;
             final int remaining = maxLength - length;
             if (remaining > 0)
             {
@@ -2398,7 +2401,7 @@ public final class MqttServerFactory implements StreamFactory
                         replyBudget += replyCredit;
 
                         doWindow(application, routeId, replyId, traceId, authorization,
-                            replyBudgetId, replyCredit, 0);
+                            replyBudgetId, replyCredit, PUBLISH_FRAMING);
                     }
                 }
             }
