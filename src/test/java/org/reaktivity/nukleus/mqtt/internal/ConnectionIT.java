@@ -336,4 +336,24 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${routeExt}/publish.only/server/controller",
+        "${client}/topic.not.routed/client",
+        "${client}/topic.not.routed/server"})
+    public void shouldRejectPublishWithTopicNotRouted() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${routeExt}/publish.only/controller",
+        "${client}/publish.rejected/client",
+        "${client}/publish.rejected/server"})
+    public void shouldRejectPublish() throws Exception
+    {
+        k3po.finish();
+    }
 }
