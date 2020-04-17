@@ -2228,10 +2228,17 @@ public final class MqttServerFactory implements StreamFactory
                 final long traceId = reset.traceId();
                 final long authorization = reset.authorization();
 
-                if (!MqttState.initialOpened(state) &&
-                    hasSubscribeCapability(capabilities))
+                if (!MqttState.initialOpened(state))
                 {
-                    subscription.onSubscribeFailed(traceId, authorization, packetId, subackIndex);
+                    if (hasSubscribeCapability(capabilities))
+                    {
+                        subscription.onSubscribeFailed(traceId, authorization, packetId, subackIndex);
+                    }
+                    else if (hasPublishCapability(capabilities))
+                    {
+                        onDecodeError(traceId, authorization, TOPIC_FILTER_INVALID);
+                        decoder = decodeIgnoreAll;
+                    }
                 }
 
                 decodeNetworkIfNecessary(traceId);
