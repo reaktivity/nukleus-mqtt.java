@@ -42,19 +42,19 @@ public final class MqttReasonCodes
     public static final byte BAD_USER_NAME_OR_PASSWORD = -0x7A;
     public static final byte NOT_AUTHORIZED = -0x79;
     public static final byte SERVER_UNAVAILABLE = -0x78;
-    public static final byte SERVER_BUSY = -0x76;
-    public static final byte BANNED = -0x75;
-    public static final byte SERVER_SHUTTING_DOWN = -0x74;
-    public static final byte BAD_AUTHENTICATION_METHOD = -0x73;
+    public static final byte SERVER_BUSY = -0x77;
+    public static final byte BANNED = -0x76;
+    public static final byte SERVER_SHUTTING_DOWN = -0x75;
+    public static final byte BAD_AUTHENTICATION_METHOD = -0x74;
 
-    public static final byte KEEP_ALIVE_TIMEOUT = -0x72;
-    public static final byte SESSION_TAKEN_OVER = -0x71;
+    public static final byte KEEP_ALIVE_TIMEOUT = -0x73;
+    public static final byte SESSION_TAKEN_OVER = -0x72;
 
-    public static final byte TOPIC_FILTER_INVALID = -0x70;
-    public static final byte TOPIC_NAME_INVALID = -0x6F;
+    public static final byte TOPIC_FILTER_INVALID = -0x71;
+    public static final byte TOPIC_NAME_INVALID = -0x70;
 
-    public static final byte PACKET_IDENTIFIER_IN_USE = -0x6E;
-    public static final byte PACKET_IDENTIFIER_NOT_FOUND = -0x6D;
+    public static final byte PACKET_IDENTIFIER_IN_USE = -0x6F;
+    public static final byte PACKET_IDENTIFIER_NOT_FOUND = -0x6E;
 
     private MqttReasonCodes()
     {

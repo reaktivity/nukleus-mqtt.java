@@ -27,6 +27,7 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NO_SUBSCRIPTI
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.PROTOCOL_ERROR;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.SUCCESS;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.TOPIC_FILTER_INVALID;
+import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.TOPIC_NAME_INVALID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_PROTOCOL_VERSION;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_AND_SUBSCRIBE;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_ONLY;
@@ -339,12 +340,13 @@ public final class MqttServerFactory implements StreamFactory
                 final String topicEx = routeEx.topic().asString();
                 final MqttCapabilities routeCapabilities = routeEx.capabilities().get();
 
-                return topicEx.equals(topicFilter) && (capabilities == PUBLISH_AND_SUBSCRIBE ?
+                return topicFilter.equals(topicEx) && (capabilities == PUBLISH_AND_SUBSCRIBE ?
                                            (capabilities.value() & routeCapabilities.value()) == PUBLISH_AND_SUBSCRIBE.value() :
                                            (capabilities.value() & routeCapabilities.value()) != 0);
             }
             return true;
         };
+
         return router.resolve(routeId, authorization, filter, wrapRoute);
     }
 
@@ -1122,7 +1124,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             MqttServerStream stream = null;
 
-            final RouteFW route = resolveTarget(routeId, authorization, topic, PUBLISH_ONLY);
+            final RouteFW route = resolveTarget(routeId, authorization, topic,  PUBLISH_ONLY);
             if (route != null)
             {
                 final long resolvedId = route.correlationId();
@@ -1130,6 +1132,11 @@ public final class MqttServerFactory implements StreamFactory
 
                 stream = streams.computeIfAbsent(topicKey, s -> new MqttServerStream(resolvedId, 0, topic));
                 stream.doApplicationBeginOrFlush(traceId, authorization, affinity, topic, 0, PUBLISH_ONLY);
+            }
+            else
+            {
+                onDecodeError(traceId, authorization, TOPIC_NAME_INVALID);
+                decoder = decodeIgnoreAll;
             }
 
             return stream;
@@ -2250,10 +2257,18 @@ public final class MqttServerFactory implements StreamFactory
                 final long traceId = reset.traceId();
                 final long authorization = reset.authorization();
 
-                if (!MqttState.initialOpened(state) &&
-                    hasSubscribeCapability(capabilities))
+                if (!MqttState.initialOpened(state))
                 {
-                    subscription.onSubscribeFailed(traceId, authorization, packetId, subackIndex);
+                    if (hasSubscribeCapability(capabilities))
+                    {
+                        subscription.onSubscribeFailed(traceId, authorization, packetId, subackIndex);
+                    }
+
+                    if (hasPublishCapability(capabilities))
+                    {
+                        onDecodeError(traceId, authorization, TOPIC_NAME_INVALID);
+                        decoder = decodeIgnoreAll;
+                    }
                 }
 
                 decodeNetworkIfNecessary(traceId);
