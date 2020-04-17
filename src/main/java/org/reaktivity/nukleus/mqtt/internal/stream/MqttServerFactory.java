@@ -131,7 +131,6 @@ public final class MqttServerFactory implements StreamFactory
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
     private final WindowFW.Builder windowRW = new WindowFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
-    private final SignalFW.Builder signalRW = new SignalFW.Builder();
     private final FlushFW.Builder flushRW = new FlushFW.Builder();
 
     private final MqttDataExFW mqttDataExRO = new MqttDataExFW();
@@ -480,21 +479,6 @@ public final class MqttServerFactory implements StreamFactory
         receiver.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 
-    private void doSignal(
-        MessageConsumer receiver,
-        long routeId,
-        long streamId,
-        long traceId)
-    {
-        final SignalFW signal = signalRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                                        .routeId(routeId)
-                                        .streamId(streamId)
-                                        .traceId(traceId)
-                                        .build();
-
-        receiver.accept(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
-    }
-
     private void doFlush(
         MessageConsumer receiver,
         long routeId,
@@ -645,9 +629,10 @@ public final class MqttServerFactory implements StreamFactory
                 final int payloadSize = payload.sizeof();
 
                 boolean canPublish = MqttState.initialOpened(publisher.state);
-                canPublish &= publisher.initialBudget - publisher.initialPadding >= payloadSize;
 
                 int reserved = payloadSize + publisher.initialPadding;
+                canPublish &= reserved <= publisher.initialBudget;
+
                 if (canPublish && publisher.debitorIndex != NO_DEBITOR_INDEX)
                 {
                     final int minimum = reserved; // TODO: fragmentation
@@ -906,6 +891,8 @@ public final class MqttServerFactory implements StreamFactory
         private int keepAlive;
         private boolean connected;
 
+        private int state;
+
         private MqttServer(
             MessageConsumer network,
             long routeId,
@@ -958,10 +945,6 @@ public final class MqttServerFactory implements StreamFactory
                 final ResetFW reset = resetRO.wrap(buffer, index, index + length);
                 onNetworkReset(reset);
                 break;
-            case SignalFW.TYPE_ID:
-                final SignalFW signal = signalRO.wrap(buffer, index, index + length);
-                onNetworkSignal(signal);
-                break;
             default:
                 break;
             }
@@ -972,6 +955,9 @@ public final class MqttServerFactory implements StreamFactory
         {
             final long traceId = begin.traceId();
             final long authorization = begin.authorization();
+
+            state = MqttState.openingInitial(state);
+
             doNetworkBegin(traceId, authorization);
             doNetworkWindow(traceId, authorization, bufferPool.slotCapacity(), 0, 0L);
         }
@@ -1025,14 +1011,18 @@ public final class MqttServerFactory implements StreamFactory
             EndFW end)
         {
             final long authorization = end.authorization();
+
+            state = MqttState.closeInitial(state);
+
             if (decodeSlot == NO_SLOT)
             {
                 final long traceId = end.traceId();
 
-                cleanupDecodeSlotIfNecessary();
+                cleanupStreams(traceId, authorization);
 
-                doNetworkEnd(traceId, authorization);
+                doNetworkEndIfNecessary(traceId, authorization);
             }
+
             decoder = decodeIgnoreAll;
         }
 
@@ -1041,7 +1031,8 @@ public final class MqttServerFactory implements StreamFactory
         {
             final long traceId = abort.traceId();
             final long authorization = abort.authorization();
-            doNetworkAbort(traceId, authorization);
+
+            cleanupNetwork(traceId, authorization);
         }
 
         private void onNetworkWindow(
@@ -1052,6 +1043,8 @@ public final class MqttServerFactory implements StreamFactory
             final long budgetId = window.budgetId();
             final int credit = window.credit();
             final int padding = window.padding();
+
+            state = MqttState.openReply(state);
 
             encodeBudget += credit;
             encodePadding += padding;
@@ -1092,19 +1085,7 @@ public final class MqttServerFactory implements StreamFactory
             final long traceId = reset.traceId();
             final long authorization = reset.authorization();
 
-            cleanupBudgetCreditorIfNecessary();
-            cleanupEncodeSlotIfNecessary();
-
-            streams.values().forEach(s -> s.cleanup(traceId, authorization));
-
-            doNetworkReset(traceId, authorization);
-        }
-
-        private void onNetworkSignal(
-            SignalFW signal)
-        {
-            final long traceId = signal.traceId();
-            doNetworkSignal(traceId);
+            cleanupNetwork(traceId, authorization);
         }
 
         private void onDecodeConnect(
@@ -1426,6 +1407,8 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization)
         {
+            state = MqttState.openingReply(state);
+
             doBegin(network, routeId, replyId, traceId, authorization, affinity, EMPTY_OCTETS);
             router.setThrottle(replyId, this::onNetwork);
 
@@ -1465,29 +1448,68 @@ public final class MqttServerFactory implements StreamFactory
             encodeNetwork(traceId, authorization, budgetId, buffer, offset, limit);
         }
 
+        private void doNetworkEndIfNecessary(
+            long traceId,
+            long authorization)
+        {
+            if (!MqttState.replyClosed(state))
+            {
+                doNetworkEnd(traceId, authorization);
+            }
+        }
+
         private void doNetworkEnd(
             long traceId,
             long authorization)
         {
+            state = MqttState.closeReply(state);
+
             cleanupBudgetCreditorIfNecessary();
             cleanupEncodeSlotIfNecessary();
+
             doEnd(network, routeId, replyId, traceId, authorization, EMPTY_OCTETS);
+        }
+
+        private void doNetworkAbortIfNecessary(
+            long traceId,
+            long authorization)
+        {
+            if (!MqttState.replyClosed(state))
+            {
+                doNetworkAbort(traceId, authorization);
+            }
         }
 
         private void doNetworkAbort(
             long traceId,
             long authorization)
         {
+            state = MqttState.closeReply(state);
+
             cleanupBudgetCreditorIfNecessary();
             cleanupEncodeSlotIfNecessary();
+
             doAbort(network, routeId, replyId, traceId, authorization, EMPTY_OCTETS);
+        }
+
+        private void doNetworkResetIfNecessary(
+            long traceId,
+            long authorization)
+        {
+            if (!MqttState.initialClosed(state))
+            {
+                doNetworkReset(traceId, authorization);
+            }
         }
 
         private void doNetworkReset(
             long traceId,
             long authorization)
         {
+            state = MqttState.closeInitial(state);
+
             cleanupDecodeSlotIfNecessary();
+
             doReset(network, routeId, initialId, traceId, authorization, EMPTY_OCTETS);
         }
 
@@ -1500,14 +1522,10 @@ public final class MqttServerFactory implements StreamFactory
         {
             assert credit > 0;
 
+            state = MqttState.openInitial(state);
+
             decodeBudget += credit;
             doWindow(network, routeId, initialId, traceId, authorization, budgetId, credit, padding);
-        }
-
-        private void doNetworkSignal(
-            long traceId)
-        {
-            doSignal(network, routeId, initialId, traceId);
         }
 
         private void doEncodePublish(
@@ -1824,6 +1842,12 @@ public final class MqttServerFactory implements StreamFactory
             else
             {
                 cleanupDecodeSlotIfNecessary();
+
+                if (MqttState.initialClosed(state))
+                {
+                    cleanupStreams(traceId, authorization);
+                    doNetworkEndIfNecessary(traceId, authorization);
+                }
             }
         }
 
@@ -1831,9 +1855,10 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization)
         {
-            doNetworkReset(traceId, authorization);
-            doNetworkAbort(traceId, authorization);
             cleanupStreams(traceId, authorization);
+
+            doNetworkResetIfNecessary(traceId, authorization);
+            doNetworkAbortIfNecessary(traceId, authorization);
         }
 
         private void cleanupStreams(
@@ -2463,101 +2488,6 @@ public final class MqttServerFactory implements StreamFactory
                     publishExpiresId = NO_CANCEL_ID;
                 }
             }
-        }
-    }
-
-    private static final class MqttState
-    {
-        private static final int INITIAL_OPENING = 0x10;
-        private static final int INITIAL_OPENED = 0x20;
-        private static final int INITIAL_CLOSING = 0x40;
-        private static final int INITIAL_CLOSED = 0x80;
-        private static final int REPLY_OPENED = 0x01;
-        private static final int REPLY_CLOSING = 0x02;
-        private static final int REPLY_CLOSED = 0x04;
-
-        static int openingInitial(
-            int state)
-        {
-            return state | INITIAL_OPENING;
-        }
-
-        static int openInitial(
-            int state)
-        {
-            return openingInitial(state) | INITIAL_OPENED;
-        }
-
-        static int closingInitial(
-            int state)
-        {
-            return state | INITIAL_CLOSING;
-        }
-
-        static int closeInitial(
-            int state)
-        {
-            return closingInitial(state) | INITIAL_CLOSED;
-        }
-
-        static boolean initialOpening(
-            int state)
-        {
-            return (state & INITIAL_OPENING) != 0;
-        }
-
-        static boolean initialOpened(
-            int state)
-        {
-            return (state & INITIAL_OPENED) != 0;
-        }
-
-        static boolean initialClosing(
-            int state)
-        {
-            return (state & INITIAL_CLOSING) != 0;
-        }
-
-        static boolean initialClosed(
-            int state)
-        {
-            return (state & INITIAL_CLOSED) != 0;
-        }
-
-        static boolean closed(
-            int state)
-        {
-            return initialClosed(state) && replyClosed(state);
-        }
-
-        static int openReply(
-            int state)
-        {
-            return state | REPLY_OPENED;
-        }
-
-        static boolean replyOpened(
-            int state)
-        {
-            return (state & REPLY_OPENED) != 0;
-        }
-
-        static int closingReply(
-            int state)
-        {
-            return state | REPLY_CLOSING;
-        }
-
-        static int closeReply(
-            int state)
-        {
-            return closingReply(state) | REPLY_CLOSED;
-        }
-
-        static boolean replyClosed(
-            int state)
-        {
-            return (state & REPLY_CLOSED) != 0;
         }
     }
 }
