@@ -620,6 +620,7 @@ public final class MqttServerFactory implements StreamFactory
                     publisher = server.resolvePublisher(traceId, authorization, topicName);
                     if (publisher == null)
                     {
+                        server.decodePublisherKey = 0;
                         server.decodeablePacketBytes = 0;
                         server.decoder = decodePacketType;
                         progress = publish.limit();
@@ -646,9 +647,14 @@ public final class MqttServerFactory implements StreamFactory
                 if (canPublish && reserved != 0) // TODO: zero length messages (throttled)
                 {
                     server.onDecodePublish(traceId, authorization, reserved, publish);
+                    server.decodePublisherKey = 0;
                     server.decodeablePacketBytes = 0;
                     server.decoder = decodePacketType;
                     progress = publish.limit();
+                }
+                else
+                {
+                    server.decodePublisherKey = topicKey;
                 }
             }
             else
@@ -890,6 +896,7 @@ public final class MqttServerFactory implements StreamFactory
         private long encodeSlotTraceId;
 
         private MqttServerDecoder decoder;
+        private int decodePublisherKey;
         private int decodeablePacketBytes;
 
         private int keepAlive;
@@ -1971,6 +1978,7 @@ public final class MqttServerFactory implements StreamFactory
         private class MqttServerStream
         {
             private final MessageConsumer application;
+            private final int topicKey;
 
             private long routeId;
             private long initialId;
@@ -2007,6 +2015,7 @@ public final class MqttServerFactory implements StreamFactory
                 this.application = router.supplyReceiver(initialId);
                 this.packetId = packetId;
                 this.topicFilter = topicFilter;
+                this.topicKey = topicKey(topicFilter);
             }
 
             private void onApplicationSubscribe(
@@ -2245,8 +2254,10 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     doApplicationEnd(traceId, authorization, EMPTY_OCTETS);
                 }
-
-                decodeNetworkIfNecessary(traceId);
+                else if (decodePublisherKey == topicKey)
+                {
+                    decodeNetworkIfNecessary(traceId);
+                }
             }
 
             private void onApplicationReset(
