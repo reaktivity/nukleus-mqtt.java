@@ -355,4 +355,34 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/close.reply/client",
+        "${server}/abort.application/server"})
+    public void shouldCloseReply() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/abort.reply/client",
+        "${server}/abort.application/server"})
+    public void shouldAbortReply() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/reset.reply/client",
+        "${server}/abort.application/server"})
+    public void shouldResetReply() throws Exception
+    {
+        k3po.finish();
+    }
 }
