@@ -361,7 +361,7 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/client.sent.close/client",
         "${server}/client.sent.abort/server"})
-    public void shouldDoClientSentClose() throws Exception
+    public void shouldReceiveClientSentClose() throws Exception
     {
         k3po.finish();
     }
@@ -371,7 +371,7 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/client.sent.abort/client",
         "${server}/client.sent.abort/server"})
-    public void shouldDoClientSentAbort() throws Exception
+    public void shouldReceiveClientSentAbort() throws Exception
     {
         k3po.finish();
     }
@@ -381,7 +381,7 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/client.sent.reset/client",
         "${server}/client.sent.abort/server"})
-    public void shouldDoClientSentReset() throws Exception
+    public void shouldReceiveClientSentReset() throws Exception
     {
         k3po.finish();
     }
