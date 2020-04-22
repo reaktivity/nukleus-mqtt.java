@@ -355,4 +355,34 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/client.sent.close/client",
+        "${server}/client.sent.abort/server"})
+    public void shouldReceiveClientSentClose() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/client.sent.abort/client",
+        "${server}/client.sent.abort/server"})
+    public void shouldReceiveClientSentAbort() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/client.sent.reset/client",
+        "${server}/client.sent.abort/server"})
+    public void shouldReceiveClientSentReset() throws Exception
+    {
+        k3po.finish();
+    }
 }
