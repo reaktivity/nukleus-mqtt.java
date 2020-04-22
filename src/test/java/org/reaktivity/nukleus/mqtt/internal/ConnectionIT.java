@@ -359,9 +359,9 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/close.reply/client",
-        "${server}/abort.application/server"})
-    public void shouldCloseReply() throws Exception
+        "${client}/client.sent.close/client",
+        "${server}/client.sent.abort/server"})
+    public void shouldDoClientSentClose() throws Exception
     {
         k3po.finish();
     }
@@ -369,9 +369,9 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/abort.reply/client",
-        "${server}/abort.application/server"})
-    public void shouldAbortReply() throws Exception
+        "${client}/client.sent.abort/client",
+        "${server}/client.sent.abort/server"})
+    public void shouldDoClientSentAbort() throws Exception
     {
         k3po.finish();
     }
@@ -379,9 +379,9 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/reset.reply/client",
-        "${server}/abort.application/server"})
-    public void shouldResetReply() throws Exception
+        "${client}/client.sent.reset/client",
+        "${server}/client.sent.abort/server"})
+    public void shouldDoClientSentReset() throws Exception
     {
         k3po.finish();
     }
