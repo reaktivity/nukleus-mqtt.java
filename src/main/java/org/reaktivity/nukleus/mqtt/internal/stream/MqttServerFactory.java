@@ -42,9 +42,7 @@ import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KI
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_USER_PROPERTY;
 import static org.reaktivity.nukleus.mqtt.internal.types.stream.DataFW.FIELD_OFFSET_PAYLOAD;
 
-import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -170,6 +168,8 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttUnsubackPayloadFW.Builder mqttUnsubackPayloadRW = new MqttUnsubackPayloadFW.Builder();
     private final MqttPingRespFW.Builder mqttPingRespRW = new MqttPingRespFW.Builder();
     private final MqttDisconnectFW.Builder mqttDisconnectRW = new MqttDisconnectFW.Builder();
+    private final Array32FW.Builder<MqttUserPropertyFW.Builder, MqttUserPropertyFW> userPropertiesRW =
+        new Array32FW.Builder<>(new MqttUserPropertyFW.Builder(), new MqttUserPropertyFW());
 
     private final Signaler signaler;
 
@@ -179,6 +179,7 @@ public final class MqttServerFactory implements StreamFactory
     private final MutableDirectBuffer dataExtBuffer;
     private final MutableDirectBuffer payloadBuffer;
     private final MutableDirectBuffer propertyBuffer;
+    private final MutableDirectBuffer userPropertiesBuffer;
     private final LongUnaryOperator supplyInitialId;
     private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyTraceId;
@@ -243,6 +244,7 @@ public final class MqttServerFactory implements StreamFactory
         this.extBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.dataExtBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.propertyBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
+        this.userPropertiesBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.payloadBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.bufferPool = bufferPool;
         this.creditor = creditor;
@@ -1170,7 +1172,8 @@ public final class MqttServerFactory implements StreamFactory
             String contentType = null;
             String responseTopic = null;
             OctetsFW correlationData = null;
-            final List<MqttUserPropertyFW> userProperties = new ArrayList<>();
+
+            userPropertiesRW.wrap(userPropertiesBuffer, 0, userPropertiesBuffer.capacity());
 
             final OctetsFW propertiesValue = properties.value();
             final DirectBuffer decodeBuffer = propertiesValue.buffer();
@@ -1204,7 +1207,7 @@ public final class MqttServerFactory implements StreamFactory
                     break;
                 case KIND_USER_PROPERTY:
                     final MqttUserPropertyFW userProperty = mqttProperty.userProperty();
-                    userProperties.add(userProperty);
+                    userPropertiesRW.item(c -> c.key(userProperty.key()).value(userProperty.value()));
                     break;
                 default:
                     decodeReasonCode = MALFORMED_PACKET;
@@ -1234,7 +1237,8 @@ public final class MqttServerFactory implements StreamFactory
                                                         .responseTopic(responseTopic)
                                                         .correlation(c -> c.bytes(correlationData0));
 
-                userProperties.forEach(up -> builder.propertiesItem(i -> i.key(up.key()).value(up.value())));
+                final Array32FW<MqttUserPropertyFW> userProperties = userPropertiesRW.build();
+                userProperties.forEach(c -> builder.propertiesItem(p -> p.key(c.key()).value(c.value())));
 
                 final MqttDataExFW dataEx = builder.build();
                 stream.doApplicationData(traceId, authorization, reserved, payload, dataEx);
