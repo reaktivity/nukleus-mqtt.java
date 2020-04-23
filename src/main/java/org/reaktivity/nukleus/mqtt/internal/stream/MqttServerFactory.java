@@ -39,10 +39,12 @@ import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KI
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_RESPONSE_TOPIC;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_SUBSCRIPTION_ID;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_TOPIC_ALIAS;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_USER_PROPERTY;
 import static org.reaktivity.nukleus.mqtt.internal.types.stream.DataFW.FIELD_OFFSET_PAYLOAD;
 
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
@@ -65,6 +67,7 @@ import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.mqtt.internal.MqttConfiguration;
 import org.reaktivity.nukleus.mqtt.internal.MqttNukleus;
 import org.reaktivity.nukleus.mqtt.internal.MqttValidator;
+import org.reaktivity.nukleus.mqtt.internal.types.Array32FW;
 import org.reaktivity.nukleus.mqtt.internal.types.Flyweight;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttBinaryFW;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities;
@@ -88,6 +91,7 @@ import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackPayloadFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribeFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribePayloadFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUserPropertyFW;
 import org.reaktivity.nukleus.mqtt.internal.types.control.MqttRouteExFW;
 import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.AbortFW;
@@ -164,6 +168,8 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttUnsubackPayloadFW.Builder mqttUnsubackPayloadRW = new MqttUnsubackPayloadFW.Builder();
     private final MqttPingRespFW.Builder mqttPingRespRW = new MqttPingRespFW.Builder();
     private final MqttDisconnectFW.Builder mqttDisconnectRW = new MqttDisconnectFW.Builder();
+    private final Array32FW.Builder<MqttUserPropertyFW.Builder, MqttUserPropertyFW> userPropertiesRW =
+        new Array32FW.Builder<>(new MqttUserPropertyFW.Builder(), new MqttUserPropertyFW());
 
     private final Signaler signaler;
 
@@ -173,6 +179,7 @@ public final class MqttServerFactory implements StreamFactory
     private final MutableDirectBuffer dataExtBuffer;
     private final MutableDirectBuffer payloadBuffer;
     private final MutableDirectBuffer propertyBuffer;
+    private final MutableDirectBuffer userPropertiesBuffer;
     private final LongUnaryOperator supplyInitialId;
     private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyTraceId;
@@ -237,6 +244,7 @@ public final class MqttServerFactory implements StreamFactory
         this.extBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.dataExtBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.propertyBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
+        this.userPropertiesBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.payloadBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.bufferPool = bufferPool;
         this.creditor = creditor;
@@ -1165,6 +1173,8 @@ public final class MqttServerFactory implements StreamFactory
             String responseTopic = null;
             OctetsFW correlationData = null;
 
+            userPropertiesRW.wrap(userPropertiesBuffer, 0, userPropertiesBuffer.capacity());
+
             final OctetsFW propertiesValue = properties.value();
             final DirectBuffer decodeBuffer = propertiesValue.buffer();
             final int decodeOffset = propertiesValue.offset();
@@ -1195,6 +1205,10 @@ public final class MqttServerFactory implements StreamFactory
                     break;
                 case KIND_TOPIC_ALIAS:
                     break;
+                case KIND_USER_PROPERTY:
+                    final MqttUserPropertyFW userProperty = mqttProperty.userProperty();
+                    userPropertiesRW.item(c -> c.key(userProperty.key()).value(userProperty.value()));
+                    break;
                 default:
                     decodeReasonCode = MALFORMED_PACKET;
                     break decode;
@@ -1214,15 +1228,19 @@ public final class MqttServerFactory implements StreamFactory
 
                 final MqttPayloadFormat payloadFormat0 = payloadFormat;
                 final OctetsFW correlationData0 = correlationData;
-                final MqttDataExFW dataEx = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
+                final MqttDataExFW.Builder builder = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                                         .typeId(mqttTypeId)
                                                         .topic(topic)
                                                         .expiryInterval(expiryInterval)
                                                         .contentType(contentType)
                                                         .format(f -> f.set(payloadFormat0))
                                                         .responseTopic(responseTopic)
-                                                        .correlation(c -> c.bytes(correlationData0))
-                                                        .build();
+                                                        .correlation(c -> c.bytes(correlationData0));
+
+                final Array32FW<MqttUserPropertyFW> userProperties = userPropertiesRW.build();
+                userProperties.forEach(c -> builder.propertiesItem(p -> p.key(c.key()).value(c.value())));
+
+                final MqttDataExFW dataEx = builder.build();
                 stream.doApplicationData(traceId, authorization, reserved, payload, dataEx);
             }
         }
@@ -1563,6 +1581,7 @@ public final class MqttServerFactory implements StreamFactory
                 final String8FW contentType = dataEx.contentType();
                 final String8FW responseTopic = dataEx.responseTopic();
                 final MqttBinaryFW correlation = dataEx.correlation();
+                final Array32FW<org.reaktivity.nukleus.mqtt.internal.types.MqttUserPropertyFW> properties = dataEx.properties();
 
                 String topicName = dataEx.topic().asString();
 
@@ -1573,58 +1592,66 @@ public final class MqttServerFactory implements StreamFactory
 
                 final int topicNameLength = topicName != null ? topicName.length() : 0;
 
-                int propertiesSize = 0;
+                AtomicInteger propertiesSize = new AtomicInteger();
 
                 if (subscriptionId > 0)
                 {
-                    mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                    mqttPropertyRW.wrap(propertyBuffer, propertiesSize.get(), propertyBuffer.capacity())
                         .subscriptionId(v -> v.set(subscriptionId));
-                    propertiesSize = mqttPropertyRW.limit();
+                    propertiesSize.set(mqttPropertyRW.limit());
                 }
 
                 if (expiryInterval != -1)
                 {
-                    mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                    mqttPropertyRW.wrap(propertyBuffer, propertiesSize.get(), propertyBuffer.capacity())
                         .expiryInterval(expiryInterval)
                         .build();
-                    propertiesSize = mqttPropertyRW.limit();
+                    propertiesSize.set(mqttPropertyRW.limit());
                 }
 
                 if (contentType.value() != null)
                 {
-                    mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                    mqttPropertyRW.wrap(propertyBuffer, propertiesSize.get(), propertyBuffer.capacity())
                         .contentType(contentType.asString())
                         .build();
-                    propertiesSize = mqttPropertyRW.limit();
+                    propertiesSize.set(mqttPropertyRW.limit());
                 }
 
                 // TODO: optional format
-                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                mqttPropertyRW.wrap(propertyBuffer, propertiesSize.get(), propertyBuffer.capacity())
                     .payloadFormat((byte) dataEx.format().get().ordinal())
                     .build();
-                propertiesSize = mqttPropertyRW.limit();
+                propertiesSize.set(mqttPropertyRW.limit());
 
                 if (responseTopic.value() != null)
                 {
-                    mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                    mqttPropertyRW.wrap(propertyBuffer, propertiesSize.get(), propertyBuffer.capacity())
                                   .responseTopic(responseTopic.asString())
                                   .build();
-                    propertiesSize = mqttPropertyRW.limit();
+                    propertiesSize.set(mqttPropertyRW.limit());
                 }
 
                 if (correlation.length() != -1)
                 {
-                    mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                    mqttPropertyRW.wrap(propertyBuffer, propertiesSize.get(), propertyBuffer.capacity())
                                   .correlationData(a -> a.bytes(correlation.bytes()))
                                   .build();
-                    propertiesSize = mqttPropertyRW.limit();
+                    propertiesSize.set(mqttPropertyRW.limit());
                 }
 
-                final int propertiesSize0 = propertiesSize;
+                properties.forEach(p ->
+                {
+                    mqttPropertyRW.wrap(propertyBuffer, propertiesSize.get(), propertyBuffer.capacity())
+                                  .userProperty(c -> c.key(p.key()).value(p.value()))
+                                  .build();
+                    propertiesSize.set(mqttPropertyRW.limit());
+                });
+
+                final int propertiesSize0 = propertiesSize.get();
                 final MqttPublishFW publish =
                         mqttPublishRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                      .typeAndFlags(0x30)
-                                     .remainingLength(3 + topicNameLength + propertiesSize + payloadSize + deferred)
+                                     .remainingLength(3 + topicNameLength + propertiesSize.get() + payloadSize + deferred)
                                      .topicName(topicName)
                                      .properties(p -> p.length(propertiesSize0)
                                                        .value(propertyBuffer, 0, propertiesSize0))
