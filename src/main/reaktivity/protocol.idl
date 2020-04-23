@@ -59,8 +59,8 @@
 
         struct MqttUserProperty
         {
-            string8 key;
-            string8 value;
+            string16 key;
+            string16 value;
         }
 
         union MqttProperty switch (uint8)

@@ -17,6 +17,7 @@ package org.reaktivity.nukleus.mqtt.internal;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CLIENT_ID_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
@@ -29,6 +30,7 @@ import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.test.ReaktorRule;
+import org.reaktivity.reaktor.test.annotation.Configure;
 
 public class ConnectionIT
 {
@@ -352,6 +354,69 @@ public class ConnectionIT
         "${client}/publish.rejected/client",
         "${server}/publish.rejected/server"})
     public void shouldRejectPublish() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/client.sent.close/client",
+        "${server}/client.sent.abort/server"})
+    public void shouldReceiveClientSentClose() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/client.sent.abort/client",
+        "${server}/client.sent.abort/server"})
+    public void shouldReceiveClientSentAbort() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/client.sent.reset/client",
+        "${server}/client.sent.abort/server"})
+    public void shouldReceiveClientSentReset() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.with.user.property/client",
+        "${server}/publish.with.user.property/server"})
+    @Configure(name = CLIENT_ID_NAME, value = "755452d5-e2ef-4113-b9c6-2f53de96fd76")
+    public void shouldPublishWithUserProperty() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.with.user.properties.distinct/client",
+        "${server}/publish.with.user.properties.distinct/server"})
+    @Configure(name = CLIENT_ID_NAME, value = "755452d5-e2ef-4113-b9c6-2f53de96fd76")
+    public void shouldPublishWithDistinctUserProperties() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.with.user.properties.repeated/client",
+        "${server}/publish.with.user.properties.repeated/server"})
+    @Configure(name = CLIENT_ID_NAME, value = "755452d5-e2ef-4113-b9c6-2f53de96fd76")
+    public void shouldPublishWithRepeatedUserProperties() throws Exception
     {
         k3po.finish();
     }
