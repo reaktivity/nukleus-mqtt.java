@@ -912,7 +912,8 @@ public final class MqttServerFactory implements StreamFactory
         private long keepAliveTimeoutId = NO_CANCEL_ID;
         private long keepAliveTimeoutAt;
 
-        private int keepAlive;
+        private long keepAlive;
+        private long keepAliveTimeout;
         private boolean connected;
 
         private int state;
@@ -1144,11 +1145,6 @@ public final class MqttServerFactory implements StreamFactory
                 onDecodeError(traceId, authorization, KEEP_ALIVE_TIMEOUT);
                 decoder = decodeIgnoreAll;
             }
-            else
-            {
-                keepAliveTimeoutId = NO_CANCEL_ID;
-                doSignalKeepAliveTimeoutIfNecessary();
-            }
         }
 
         private void onDecodeConnect(
@@ -1168,6 +1164,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 connected = true;
                 keepAlive = packet.keepAlive();
+                keepAliveTimeout = Math.round(keepAlive * 1.5 * 1000);
                 doSignalKeepAliveTimeoutIfNecessary();
             }
             else
@@ -1995,7 +1992,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             if (keepAlive > 0)
             {
-                keepAliveTimeoutAt = System.currentTimeMillis() + Math.round(keepAlive * 1.5 * 1000);
+                keepAliveTimeoutAt = System.currentTimeMillis() + keepAliveTimeout;
 
                 if (keepAliveTimeoutId == NO_CANCEL_ID)
                 {

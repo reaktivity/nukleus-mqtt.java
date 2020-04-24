@@ -431,4 +431,14 @@ public class ConnectionIT
         Thread.sleep(15000);
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/keep.alive.with.pingreq/client",
+        "${server}/subscribe.with.exact.topic.filter/server"})
+    public void shouldKeepAliveWithPingreq() throws Exception
+    {
+        k3po.finish();
+    }
 }
