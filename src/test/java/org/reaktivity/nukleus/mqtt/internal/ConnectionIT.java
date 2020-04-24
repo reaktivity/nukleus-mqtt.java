@@ -40,7 +40,7 @@ public class ConnectionIT
         .addScriptRoot("client", "org/reaktivity/specification/mqtt")
         .addScriptRoot("server", "org/reaktivity/specification/nukleus/mqtt/streams");
 
-    private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
+    private final TestRule timeout = new DisableOnDebug(new Timeout(20, SECONDS));
 
     private final ReaktorRule reaktor = new ReaktorRule()
         .directory("target/nukleus-itests")
@@ -418,6 +418,17 @@ public class ConnectionIT
     @Configure(name = CLIENT_ID_NAME, value = "755452d5-e2ef-4113-b9c6-2f53de96fd76")
     public void shouldPublishWithRepeatedUserProperties() throws Exception
     {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/disconnect.after.keep.alive.timeout/client"})
+    public void shouldDisconnectClientAfterKeepAliveTimeout() throws Exception
+    {
+        k3po.start();
+        Thread.sleep(15000);
         k3po.finish();
     }
 }
