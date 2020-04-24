@@ -972,6 +972,7 @@ public final class MqttServerFactory implements StreamFactory
             case SignalFW.TYPE_ID:
                 final SignalFW signal = signalRO.wrap(buffer, index, index + length);
                 onNetworkSignal(signal);
+                break;
             default:
                 break;
             }
