@@ -1145,6 +1145,10 @@ public final class MqttServerFactory implements StreamFactory
                 onDecodeError(traceId, authorization, KEEP_ALIVE_TIMEOUT);
                 decoder = decodeIgnoreAll;
             }
+            else
+            {
+                keepAliveTimeoutId = signaler.signalAt(keepAliveTimeoutAt, routeId, replyId, KEEP_ALIVE_TIMEOUT_SIGNAL);
+            }
         }
 
         private void onDecodeConnect(
@@ -1283,7 +1287,6 @@ public final class MqttServerFactory implements StreamFactory
 
                 final MqttDataExFW dataEx = builder.build();
                 stream.doApplicationData(traceId, authorization, reserved, payload, dataEx);
-                doSignalKeepAliveTimeoutIfNecessary();
             }
         }
 
