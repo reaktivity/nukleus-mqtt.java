@@ -1844,6 +1844,7 @@ public final class MqttServerFactory implements StreamFactory
                 if (encodeSlot == NO_SLOT)
                 {
                     encodeSlot = bufferPool.acquire(replyId);
+                    assert encodeSlotOffset == 0;
                 }
 
                 if (encodeSlot == NO_SLOT)
