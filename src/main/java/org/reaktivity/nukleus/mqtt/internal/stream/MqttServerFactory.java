@@ -189,6 +189,7 @@ public final class MqttServerFactory implements StreamFactory
 
     private final String clientId;
     private final long publishTimeoutMillis;
+    private final int encodeBudgetMax;
 
     private final MqttValidator validator;
 
@@ -260,6 +261,7 @@ public final class MqttServerFactory implements StreamFactory
         this.signaler = signaler;
         this.clientId = config.getClientId();
         this.publishTimeoutMillis = SECONDS.toMillis(config.getPublishTimeout());
+        this.encodeBudgetMax = bufferPool.slotCapacity();
         this.validator = new MqttValidator();
     }
 
@@ -884,7 +886,7 @@ public final class MqttServerFactory implements StreamFactory
         private final long initialId;
         private final long replyId;
         private final long affinity;
-        private final long replyBudgetId;
+        private final long encodeBudgetId;
 
         private final Int2ObjectHashMap<MqttServerStream> streams;
         private final Int2ObjectHashMap<MutableInteger> activeStreamsByTopic;
@@ -894,8 +896,8 @@ public final class MqttServerFactory implements StreamFactory
         private int encodeBudget;
         private int encodePadding;
 
-        private long replyBudgetIndex = NO_CREDITOR_INDEX;
-        private int sharedReplyBudget;
+        private long encodeBudgetIndex = NO_CREDITOR_INDEX;
+        private int encodeSharedBudget;
 
         private int decodeSlot = NO_SLOT;
         private int decodeSlotOffset;
@@ -931,7 +933,7 @@ public final class MqttServerFactory implements StreamFactory
             this.initialId = initialId;
             this.replyId = replyId;
             this.affinity = affinity;
-            this.replyBudgetId = budgetId;
+            this.encodeBudgetId = budgetId;
             this.decoder = decodePacketType;
             this.streams = new Int2ObjectHashMap<>();
             this.activeStreamsByTopic = new Int2ObjectHashMap<>();
@@ -1076,7 +1078,7 @@ public final class MqttServerFactory implements StreamFactory
             state = MqttState.openReply(state);
 
             encodeBudget += credit;
-            encodePadding += padding;
+            encodePadding = padding;
 
             if (encodeSlot != NO_SLOT)
             {
@@ -1087,25 +1089,19 @@ public final class MqttServerFactory implements StreamFactory
                 encodeNetwork(encodeSlotTraceId, authorization, budgetId, buffer, offset, limit);
             }
 
-            if (encodeSlot == NO_SLOT)
+            final int encodeSharedCredit = Math.min(encodeBudgetMax, encodeBudget - encodeSlotOffset - encodeSharedBudget);
+
+            if (encodeSharedCredit > 0)
             {
-                streams.values().forEach(s -> s.flushReplyWindow(traceId, authorization));
-            }
+                final long encodeSharedBudgetPrevious = creditor.credit(traceId, encodeBudgetIndex, encodeSharedCredit);
+                encodeSharedBudget += encodeSharedCredit;
 
-            final int slotCapacity = bufferPool.slotCapacity();
-            final int sharedReplyCredit = Math.min(slotCapacity, encodeBudget - encodeSlotOffset - sharedReplyBudget);
+                assert encodeSharedBudgetPrevious + encodeSharedCredit <= encodeBudgetMax
+                    : String.format("%d + %d <= %d, encodeBudget = %d",
+                    encodeSharedBudgetPrevious, encodeSharedCredit, encodeBudgetMax, encodeBudget);
 
-            if (sharedReplyCredit > 0)
-            {
-                final long sharedBudgetPrevious = creditor.credit(traceId, replyBudgetIndex, sharedReplyCredit);
-                sharedReplyBudget += sharedReplyCredit;
-
-                assert sharedBudgetPrevious <= slotCapacity
-                    : String.format("%d <= %d, replyBudget = %d",
-                    sharedBudgetPrevious, slotCapacity, encodeBudget);
-
-                assert sharedReplyCredit <= slotCapacity
-                    : String.format("%d <= %d", sharedReplyCredit, slotCapacity);
+                assert encodeSharedCredit <= encodeBudgetMax
+                    : String.format("%d <= %d", encodeSharedCredit, encodeBudgetMax);
             }
         }
 
@@ -1495,8 +1491,8 @@ public final class MqttServerFactory implements StreamFactory
             doBegin(network, routeId, replyId, traceId, authorization, affinity, EMPTY_OCTETS);
             router.setThrottle(replyId, this::onNetwork);
 
-            assert replyBudgetIndex == NO_CREDITOR_INDEX;
-            this.replyBudgetIndex = creditor.acquire(replyBudgetId);
+            assert encodeBudgetIndex == NO_CREDITOR_INDEX;
+            this.encodeBudgetIndex = creditor.acquire(encodeBudgetId);
         }
 
         private void doNetworkData(
@@ -1848,6 +1844,7 @@ public final class MqttServerFactory implements StreamFactory
                 if (encodeSlot == NO_SLOT)
                 {
                     encodeSlot = bufferPool.acquire(replyId);
+                    assert encodeSlotOffset == 0;
                 }
 
                 if (encodeSlot == NO_SLOT)
@@ -1962,10 +1959,10 @@ public final class MqttServerFactory implements StreamFactory
 
         private void cleanupBudgetCreditorIfNecessary()
         {
-            if (replyBudgetIndex != NO_CREDITOR_INDEX)
+            if (encodeBudgetIndex != NO_CREDITOR_INDEX)
             {
-                creditor.release(replyBudgetIndex);
-                replyBudgetIndex = NO_CREDITOR_INDEX;
+                creditor.release(encodeBudgetIndex);
+                encodeBudgetIndex = NO_CREDITOR_INDEX;
             }
         }
 
@@ -2243,9 +2240,9 @@ public final class MqttServerFactory implements StreamFactory
                 long authorization,
                 int reserved)
             {
-                replyBudget -= reserved;
+                initialBudget -= reserved;
 
-                assert replyBudget >= 0;
+                assert initialBudget >= 0;
 
                 doFlush(application, routeId, initialId, traceId, authorization, 0L, reserved,
                     ex -> ex.set((b, o, l) -> mqttFlushExRW.wrap(b, o, l)
@@ -2407,11 +2404,6 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
-            private boolean isReplyOpen()
-            {
-                return MqttState.replyOpened(state);
-            }
-
             private void onApplicationReply(
                 int msgTypeId,
                 DirectBuffer buffer,
@@ -2447,7 +2439,7 @@ public final class MqttServerFactory implements StreamFactory
                 final long traceId = begin.traceId();
                 final long authorization = begin.authorization();
 
-                flushReplyWindow(traceId, authorization);
+                doApplicationWindowIfNecessary(traceId, authorization);
             }
 
             private void onApplicationData(
@@ -2461,15 +2453,18 @@ public final class MqttServerFactory implements StreamFactory
                 final OctetsFW extension = data.extension();
 
                 replyBudget -= reserved;
-                sharedReplyBudget -= reserved;
+                encodeSharedBudget -= reserved;
 
                 if (replyBudget < 0)
                 {
                     doApplicationReset(traceId, authorization);
                     doNetworkAbort(traceId, authorization);
                 }
-
-                doEncodePublish(traceId, authorization, flags, subscription.id, topicFilter, payload, extension);
+                else
+                {
+                    doEncodePublish(traceId, authorization, flags, subscription.id, topicFilter, payload, extension);
+                    doApplicationWindowIfNecessary(traceId, authorization);
+                }
             }
 
             private void onApplicationEnd(
@@ -2502,21 +2497,28 @@ public final class MqttServerFactory implements StreamFactory
                 doEnd(application, routeId, initialId, traceId, authorization, extension);
             }
 
-            private void flushReplyWindow(
+            private void doApplicationWindowIfNecessary(
                 long traceId,
                 long authorization)
             {
-                if (isReplyOpen())
+                if (MqttState.replyOpened(state))
                 {
-                    final int replyCredit = encodeBudget - encodeSlotOffset - replyBudget;
+                    doApplicationWindow(traceId, authorization);
+                }
+            }
 
-                    if (replyCredit > 0)
-                    {
-                        replyBudget += replyCredit;
+            private void doApplicationWindow(
+                long traceId,
+                long authorization)
+            {
+                final int replyCredit = encodeBudgetMax - replyBudget;
 
-                        doWindow(application, routeId, replyId, traceId, authorization,
-                            replyBudgetId, replyCredit, PUBLISH_FRAMING);
-                    }
+                if (replyCredit > 0)
+                {
+                    replyBudget += replyCredit;
+
+                    doWindow(application, routeId, replyId, traceId, authorization,
+                        encodeBudgetId, replyCredit, PUBLISH_FRAMING);
                 }
             }
 
