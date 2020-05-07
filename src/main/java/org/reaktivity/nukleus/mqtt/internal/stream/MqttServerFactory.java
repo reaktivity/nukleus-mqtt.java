@@ -21,6 +21,7 @@ import static org.reaktivity.nukleus.budget.BudgetCreditor.NO_CREDITOR_INDEX;
 import static org.reaktivity.nukleus.budget.BudgetDebitor.NO_DEBITOR_INDEX;
 import static org.reaktivity.nukleus.buffer.BufferPool.NO_SLOT;
 import static org.reaktivity.nukleus.concurrent.Signaler.NO_CANCEL_ID;
+import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.KEEP_ALIVE_TIMEOUT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.MALFORMED_PACKET;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NORMAL_DISCONNECT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NO_SUBSCRIPTION_EXISTED;
@@ -118,6 +119,7 @@ public final class MqttServerFactory implements StreamFactory
     private static final int DISCONNECT_FIXED_HEADER = 0b1110_0000;
 
     private static final int PUBLISH_EXPIRED_SIGNAL = 1;
+    private static final int KEEP_ALIVE_TIMEOUT_SIGNAL = 2;
 
     private static final int PUBLISH_FRAMING = 255;
 
@@ -909,7 +911,11 @@ public final class MqttServerFactory implements StreamFactory
         private int decodePublisherKey;
         private int decodeablePacketBytes;
 
-        private int keepAlive;
+        private long keepAliveTimeoutId = NO_CANCEL_ID;
+        private long keepAliveTimeoutAt;
+
+        private long keepAlive;
+        private long keepAliveTimeout;
         private boolean connected;
 
         private int state;
@@ -965,6 +971,10 @@ public final class MqttServerFactory implements StreamFactory
             case ResetFW.TYPE_ID:
                 final ResetFW reset = resetRO.wrap(buffer, index, index + length);
                 onNetworkReset(reset);
+                break;
+            case SignalFW.TYPE_ID:
+                final SignalFW signal = signalRO.wrap(buffer, index, index + length);
+                onNetworkSignal(signal);
                 break;
             default:
                 break;
@@ -1104,6 +1114,39 @@ public final class MqttServerFactory implements StreamFactory
             cleanupNetwork(traceId, authorization);
         }
 
+        private void onNetworkSignal(
+            SignalFW signal)
+        {
+            final int signalId = signal.signalId();
+
+            switch (signalId)
+            {
+            case KEEP_ALIVE_TIMEOUT_SIGNAL:
+                onKeepAliveTimeoutSignal(signal);
+                break;
+            default:
+                break;
+            }
+        }
+
+        private void onKeepAliveTimeoutSignal(
+            SignalFW signal)
+        {
+            final long traceId = signal.traceId();
+            final long authorization = signal.authorization();
+
+            final long now = System.currentTimeMillis();
+            if (now >= keepAliveTimeoutAt)
+            {
+                onDecodeError(traceId, authorization, KEEP_ALIVE_TIMEOUT);
+                decoder = decodeIgnoreAll;
+            }
+            else
+            {
+                keepAliveTimeoutId = signaler.signalAt(keepAliveTimeoutAt, routeId, replyId, KEEP_ALIVE_TIMEOUT_SIGNAL);
+            }
+        }
+
         private void onDecodeConnect(
             long traceId,
             long authorization,
@@ -1121,6 +1164,8 @@ public final class MqttServerFactory implements StreamFactory
             {
                 connected = true;
                 keepAlive = packet.keepAlive();
+                keepAliveTimeout = Math.round(keepAlive * 1.5 * 1000);
+                doSignalKeepAliveTimeoutIfNecessary();
             }
             else
             {
@@ -1333,6 +1378,7 @@ public final class MqttServerFactory implements StreamFactory
                 }
 
                 subscription.ackMask |= unrouteableMask;
+                doSignalKeepAliveTimeoutIfNecessary();
             }
         }
 
@@ -1396,6 +1442,7 @@ public final class MqttServerFactory implements StreamFactory
             }
             else
             {
+                doSignalKeepAliveTimeoutIfNecessary();
                 final OctetsFW encodePayload = octetsRO.wrap(encodeBuffer, encodeOffset, encodeProgress);
                 doEncodeUnsuback(traceId, authorization, packetId, encodePayload);
             }
@@ -1406,6 +1453,7 @@ public final class MqttServerFactory implements StreamFactory
             long authorization,
             MqttPingReqFW ping)
         {
+            doSignalKeepAliveTimeoutIfNecessary();
             doEncodePingResp(traceId, authorization);
         }
 
@@ -1796,6 +1844,7 @@ public final class MqttServerFactory implements StreamFactory
                 if (encodeSlot == NO_SLOT)
                 {
                     encodeSlot = bufferPool.acquire(replyId);
+                    assert encodeSlotOffset == 0;
                 }
 
                 if (encodeSlot == NO_SLOT)
@@ -1936,6 +1985,19 @@ public final class MqttServerFactory implements StreamFactory
                 encodeSlot = NO_SLOT;
                 encodeSlotOffset = 0;
                 encodeSlotTraceId = 0;
+            }
+        }
+
+        private void doSignalKeepAliveTimeoutIfNecessary()
+        {
+            if (keepAlive > 0)
+            {
+                keepAliveTimeoutAt = System.currentTimeMillis() + keepAliveTimeout;
+
+                if (keepAliveTimeoutId == NO_CANCEL_ID)
+                {
+                    keepAliveTimeoutId = signaler.signalAt(keepAliveTimeoutAt, routeId, replyId, KEEP_ALIVE_TIMEOUT_SIGNAL);
+                }
             }
         }
 
