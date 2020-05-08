@@ -170,6 +170,16 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/subscribe.one.message.then.publish.message/client",
+        "${server}/subscribe.one.message.then.publish.message/server"})
+    public void shouldSubscribeOneMessageThenPublishMessage() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/publish.message.and.subscribe.correlated.message/client",
         "${server}/publish.message.and.subscribe.correlated.message/server"})
     public void shouldReceiveCorrelatedPublishAfterSendingSubscribe() throws Exception
