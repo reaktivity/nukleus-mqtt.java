@@ -640,7 +640,7 @@ public final class MqttServerFactory implements StreamFactory
                     }
                 }
 
-                publisher.updatePublishCapabilityIfNecessary(traceId, authorization);
+                publisher.ensurePublishCapability(traceId, authorization);
 
                 final OctetsFW payload = publish.payload();
                 final int payloadSize = payload.sizeof();
@@ -877,6 +877,18 @@ public final class MqttServerFactory implements StreamFactory
             DirectBuffer buffer,
             int offset,
             int limit);
+    }
+
+    private boolean hasPublishCapability(
+        int capabilities)
+    {
+        return (capabilities & PUBLISH_ONLY.value()) != 0;
+    }
+
+    private boolean hasSubscribeCapability(
+        int capabilities)
+    {
+        return (capabilities & SUBSCRIBE_ONLY.value()) != 0;
     }
 
     private final class MqttServer
@@ -2596,7 +2608,7 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
-            private void updatePublishCapabilityIfNecessary(
+            private void ensurePublishCapability(
                 long traceId,
                 long authorization)
             {
@@ -2605,18 +2617,6 @@ public final class MqttServerFactory implements StreamFactory
                     this.capabilities |= PUBLISH_ONLY.value();
                     doApplicationFlush(traceId, authorization, 0);
                 }
-            }
-
-            private boolean hasPublishCapability(
-                int capabilities)
-            {
-                return (capabilities & PUBLISH_ONLY.value()) != 0;
-            }
-
-            private boolean hasSubscribeCapability(
-                int capabilities)
-            {
-                return (capabilities & SUBSCRIBE_ONLY.value()) != 0;
             }
         }
     }
