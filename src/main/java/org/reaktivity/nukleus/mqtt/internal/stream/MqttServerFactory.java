@@ -1338,6 +1338,7 @@ public final class MqttServerFactory implements StreamFactory
             if (containsSubscriptionId && subscriptionId == 0)
             {
                 onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+                decoder = decodeIgnoreAll;
             }
             else
             {
@@ -1360,6 +1361,7 @@ public final class MqttServerFactory implements StreamFactory
                     if (filter == null)
                     {
                         onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+                        decoder = decodeIgnoreAll;
                         break;
                     }
 
@@ -1367,6 +1369,7 @@ public final class MqttServerFactory implements StreamFactory
                     if (!validTopicFilter)
                     {
                         onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+                        decoder = decodeIgnoreAll;
                         break;
                     }
 
@@ -2267,7 +2270,6 @@ public final class MqttServerFactory implements StreamFactory
                 if (MqttState.closed(state))
                 {
                     capabilities = 0;
-                    final int topicKey = topicKey(topicFilter);
                     streams.remove(topicKey);
 
                     final MutableInteger activeStreams = activeStreamsByTopic.get(topicKey);
@@ -2492,7 +2494,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 setInitialClosed();
                 capabilities = 0;
-                streams.remove(topicKey(topicFilter));
+                streams.remove(topicKey);
 
                 doEnd(application, routeId, initialId, traceId, authorization, extension);
             }
@@ -2552,7 +2554,6 @@ public final class MqttServerFactory implements StreamFactory
                 if (MqttState.closed(state))
                 {
                     capabilities = 0;
-                    final int topicKey = topicKey(topicFilter);
                     streams.remove(topicKey);
                     final MutableInteger count = activeStreamsByTopic.get(topicKey);
 
