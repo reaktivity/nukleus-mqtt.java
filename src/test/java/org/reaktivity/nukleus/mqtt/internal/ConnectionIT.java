@@ -461,4 +461,13 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/timeout.before.connect/client"})
+    public void shouldTimeoutBeforeConnect() throws Exception
+    {
+        k3po.finish();
+    }
 }

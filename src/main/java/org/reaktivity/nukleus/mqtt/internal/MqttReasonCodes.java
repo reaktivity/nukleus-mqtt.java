@@ -56,6 +56,8 @@ public final class MqttReasonCodes
     public static final byte PACKET_IDENTIFIER_IN_USE = -0x6F;
     public static final byte PACKET_IDENTIFIER_NOT_FOUND = -0x6E;
 
+    public static final byte MAXIMUM_CONNECT_TIME = -0x60;
+
     private MqttReasonCodes()
     {
         // Utility

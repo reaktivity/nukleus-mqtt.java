@@ -18,6 +18,8 @@ package org.reaktivity.nukleus.mqtt.internal;
 import static org.junit.Assert.assertEquals;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CLIENT_ID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CLIENT_ID_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CONNECT_TIMEOUT;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CONNECT_TIMEOUT_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT_NAME;
 
@@ -30,5 +32,6 @@ public class ConfigurationTest
     {
         assertEquals(CLIENT_ID.name(), CLIENT_ID_NAME);
         assertEquals(PUBLISH_TIMEOUT.name(), PUBLISH_TIMEOUT_NAME);
+        assertEquals(CONNECT_TIMEOUT.name(), CONNECT_TIMEOUT_NAME);
     }
 }
