@@ -180,6 +180,16 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/subscribe.fails.then.publish.message/client",
+        "${server}/subscribe.fails.then.publish.message/server"})
+    public void shouldFailSubscribeThenPublishMessage() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/publish.message.and.subscribe.correlated.message/client",
         "${server}/publish.message.and.subscribe.correlated.message/server"})
     public void shouldReceiveCorrelatedPublishAfterSendingSubscribe() throws Exception
@@ -448,6 +458,15 @@ public class ConnectionIT
         "${client}/keep.alive.with.pingreq/client",
         "${server}/subscribe.with.exact.topic.filter/server"})
     public void shouldKeepAliveWithPingreq() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/timeout.before.connect/client"})
+    public void shouldTimeoutBeforeConnect() throws Exception
     {
         k3po.finish();
     }
