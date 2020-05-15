@@ -120,6 +120,7 @@ public final class MqttServerFactory implements StreamFactory
 
     private static final int PUBLISH_EXPIRED_SIGNAL = 1;
     private static final int KEEP_ALIVE_TIMEOUT_SIGNAL = 2;
+    private static final int CONNECT_TIMEOUT_SIGNAL = 3;
 
     private static final int PUBLISH_FRAMING = 255;
 
@@ -189,6 +190,7 @@ public final class MqttServerFactory implements StreamFactory
 
     private final String clientId;
     private final long publishTimeoutMillis;
+    private final long connectTimeoutMillis;
     private final int encodeBudgetMax;
 
     private final MqttValidator validator;
@@ -259,8 +261,9 @@ public final class MqttServerFactory implements StreamFactory
         this.correlations = new Long2ObjectHashMap<>();
         this.mqttTypeId = supplyTypeId.applyAsInt(MqttNukleus.NAME);
         this.signaler = signaler;
-        this.clientId = config.getClientId();
-        this.publishTimeoutMillis = SECONDS.toMillis(config.getPublishTimeout());
+        this.clientId = config.clientId();
+        this.publishTimeoutMillis = SECONDS.toMillis(config.publishTimeout());
+        this.connectTimeoutMillis = SECONDS.toMillis(config.connectTimeout());
         this.encodeBudgetMax = bufferPool.slotCapacity();
         this.validator = new MqttValidator();
     }
@@ -923,6 +926,9 @@ public final class MqttServerFactory implements StreamFactory
         private int decodePublisherKey;
         private int decodeablePacketBytes;
 
+        private long connectTimeoutId = NO_CANCEL_ID;
+        private long connectTimeoutAt;
+
         private long keepAliveTimeoutId = NO_CANCEL_ID;
         private long keepAliveTimeoutAt;
 
@@ -1003,6 +1009,7 @@ public final class MqttServerFactory implements StreamFactory
 
             doNetworkBegin(traceId, authorization);
             doNetworkWindow(traceId, authorization, bufferPool.slotCapacity(), 0, 0L);
+            doSignalConnectTimeoutIfNecessary();
         }
 
         private void onNetworkData(
@@ -1136,6 +1143,9 @@ public final class MqttServerFactory implements StreamFactory
             case KEEP_ALIVE_TIMEOUT_SIGNAL:
                 onKeepAliveTimeoutSignal(signal);
                 break;
+            case CONNECT_TIMEOUT_SIGNAL:
+                onConnectTimeoutSignal(signal);
+                break;
             default:
                 break;
             }
@@ -1159,6 +1169,30 @@ public final class MqttServerFactory implements StreamFactory
             }
         }
 
+        private void onConnectTimeoutSignal(
+            SignalFW signal)
+        {
+            final long traceId = signal.traceId();
+            final long authorization = signal.authorization();
+
+            final long now = System.currentTimeMillis();
+            if (now >= connectTimeoutAt)
+            {
+                cleanupStreams(traceId, authorization);
+                doNetworkEnd(traceId, authorization);
+                decoder = decodeIgnoreAll;
+            }
+        }
+
+        private void doCancelConnectTimeoutIfNecessary()
+        {
+            if (connectTimeoutId != NO_CANCEL_ID)
+            {
+                signaler.cancel(connectTimeoutId);
+                connectTimeoutId = NO_CANCEL_ID;
+            }
+        }
+
         private void onDecodeConnect(
             long traceId,
             long authorization,
@@ -1170,6 +1204,7 @@ public final class MqttServerFactory implements StreamFactory
                 reasonCode = PROTOCOL_ERROR;
             }
 
+            doCancelConnectTimeoutIfNecessary();
             doEncodeConnack(traceId, authorization, reasonCode);
 
             if (reasonCode == 0)
@@ -2013,6 +2048,16 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     keepAliveTimeoutId = signaler.signalAt(keepAliveTimeoutAt, routeId, replyId, KEEP_ALIVE_TIMEOUT_SIGNAL);
                 }
+            }
+        }
+
+        private void doSignalConnectTimeoutIfNecessary()
+        {
+            connectTimeoutAt = System.currentTimeMillis() + connectTimeoutMillis;
+
+            if (connectTimeoutId == NO_CANCEL_ID)
+            {
+                connectTimeoutId = signaler.signalAt(connectTimeoutAt, routeId, replyId, CONNECT_TIMEOUT_SIGNAL);
             }
         }
 
