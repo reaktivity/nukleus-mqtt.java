@@ -45,17 +45,17 @@ public class MqttConfiguration extends Configuration
         super(MQTT_CONFIG, config);
     }
 
-    public long getPublishTimeout()
+    public long publishTimeout()
     {
         return PUBLISH_TIMEOUT.get(this);
     }
 
-    public long getConnectTimeout()
+    public long connectTimeout()
     {
         return CONNECT_TIMEOUT.get(this);
     }
 
-    public String getClientId()
+    public String clientId()
     {
         return CLIENT_ID.get(this);
     }

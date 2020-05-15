@@ -261,9 +261,9 @@ public final class MqttServerFactory implements StreamFactory
         this.correlations = new Long2ObjectHashMap<>();
         this.mqttTypeId = supplyTypeId.applyAsInt(MqttNukleus.NAME);
         this.signaler = signaler;
-        this.clientId = config.getClientId();
-        this.publishTimeoutMillis = SECONDS.toMillis(config.getPublishTimeout());
-        this.connectTimeoutMillis = SECONDS.toMillis(config.getConnectTimeout());
+        this.clientId = config.clientId();
+        this.publishTimeoutMillis = SECONDS.toMillis(config.publishTimeout());
+        this.connectTimeoutMillis = SECONDS.toMillis(config.connectTimeout());
         this.encodeBudgetMax = bufferPool.slotCapacity();
         this.validator = new MqttValidator();
     }
