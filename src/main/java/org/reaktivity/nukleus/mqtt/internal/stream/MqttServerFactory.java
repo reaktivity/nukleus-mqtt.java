@@ -2565,7 +2565,7 @@ public final class MqttServerFactory implements StreamFactory
                     replyBudget += replyCredit;
 
                     doWindow(application, routeId, replyId, traceId, authorization,
-                        encodeBudgetId, replyCredit, PUBLISH_FRAMING);
+                        encodeBudgetId, replyCredit, encodePadding + PUBLISH_FRAMING);
                 }
             }
 
