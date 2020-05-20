@@ -1198,7 +1198,7 @@ public final class MqttServerFactory implements StreamFactory
             long authorization,
             MqttConnectFW packet)
         {
-            int reasonCode = SUCCESS;
+            byte reasonCode = SUCCESS;
             if (connected)
             {
                 reasonCode = PROTOCOL_ERROR;
@@ -2509,7 +2509,10 @@ public final class MqttServerFactory implements StreamFactory
                 }
                 else
                 {
-                    doEncodePublish(traceId, authorization, flags, subscription.id, topicFilter, payload, extension);
+                    if (payload != null)
+                    {
+                        doEncodePublish(traceId, authorization, flags, subscription.id, topicFilter, payload, extension);
+                    }
                     doApplicationWindowIfNecessary(traceId, authorization);
                 }
             }

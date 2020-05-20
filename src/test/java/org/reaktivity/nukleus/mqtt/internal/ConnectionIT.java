@@ -180,6 +180,16 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/subscribe.one.message.with.null.payload/client",
+        "${server}/subscribe.one.message.with.null.payload/server"})
+    public void shouldReceivePublishWithNullPayloadAfterSendingSubscribe() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/subscribe.fails.then.publish.message/client",
         "${server}/subscribe.fails.then.publish.message/server"})
     public void shouldFailSubscribeThenPublishMessage() throws Exception
