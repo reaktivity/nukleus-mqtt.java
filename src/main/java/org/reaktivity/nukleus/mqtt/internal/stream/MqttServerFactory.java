@@ -40,6 +40,7 @@ import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KI
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_RESPONSE_TOPIC;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_SUBSCRIPTION_ID;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_TOPIC_ALIAS;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_TOPIC_ALIAS_MAXIMUM;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_USER_PROPERTY;
 import static org.reaktivity.nukleus.mqtt.internal.types.stream.DataFW.FIELD_OFFSET_PAYLOAD;
 
@@ -936,6 +937,8 @@ public final class MqttServerFactory implements StreamFactory
         private long keepAliveTimeout;
         private boolean connected;
 
+        private int topicAliasMaximum;
+
         private int state;
 
         private MqttServer(
@@ -1202,6 +1205,30 @@ public final class MqttServerFactory implements StreamFactory
             if (connected)
             {
                 reasonCode = PROTOCOL_ERROR;
+            }
+
+            final MqttPropertiesFW properties = packet.properties();
+
+            final OctetsFW propertiesValue = properties.value();
+            final DirectBuffer decodeBuffer = propertiesValue.buffer();
+            final int decodeOffset = propertiesValue.offset();
+            final int decodeLimit = propertiesValue.limit();
+
+            decode:
+            for (int decodeProgress = decodeOffset; decodeProgress < decodeLimit; )
+            {
+                final MqttPropertyFW mqttProperty = mqttPropertyRO.wrap(decodeBuffer, decodeProgress, decodeLimit);
+                switch (mqttProperty.kind())
+                {
+                case KIND_TOPIC_ALIAS_MAXIMUM:
+                    topicAliasMaximum = mqttProperty.topicAliasMaximum();
+                    break;
+                default:
+                    reasonCode = MALFORMED_PACKET;
+                    break decode;
+                }
+
+                decodeProgress = mqttProperty.limit();
             }
 
             doCancelConnectTimeoutIfNecessary();
