@@ -126,6 +126,16 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/publish.one.message.with.topic.alias/client",
+        "${server}/publish.one.message.with.topic.alias/server"})
+    public void shouldPublishOneMessageWithTopicAlias() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/publish.multiple.messages/client",
         "${server}/publish.multiple.messages/server"})
     public void shouldPublishMultipleMessages() throws Exception

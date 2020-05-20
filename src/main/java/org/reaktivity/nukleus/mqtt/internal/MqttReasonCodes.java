@@ -55,6 +55,8 @@ public final class MqttReasonCodes
 
     public static final byte PACKET_IDENTIFIER_IN_USE = -0x6F;
     public static final byte PACKET_IDENTIFIER_NOT_FOUND = -0x6E;
+    public static final byte RECEIVE_MAXIMUM_EXCEEDED = -0x6D;
+    public static final byte TOPIC_ALIAS_INVALID = -0x6C;
 
     private MqttReasonCodes()
     {
