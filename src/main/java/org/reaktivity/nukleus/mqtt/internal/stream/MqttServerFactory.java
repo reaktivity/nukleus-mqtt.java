@@ -704,7 +704,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (canPublish && reserved != 0) // TODO: zero length messages (throttled)
                 {
-                    server.onDecodePublish(traceId, authorization, reserved, publish);
+                    server.onDecodePublish(traceId, authorization, reserved, topic, publish);
                     server.decodePublisherKey = 0;
                     server.decodeablePacketBytes = 0;
                     server.decoder = decodePacketType;
@@ -1320,9 +1320,9 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization,
             int reserved,
+            String topic,
             MqttPublishFW publish)
         {
-            String topic = publish.topicName().asString();
             final MqttPropertiesFW properties = publish.properties();
             final OctetsFW payload = publish.payload();
 
@@ -1361,19 +1361,7 @@ public final class MqttServerFactory implements StreamFactory
                     int alias = mqttProperty.topicAlias() & 0xFFFF;
                     if (alias > 0)
                     {
-                        if (topic.isEmpty())
-                        {
-                            if (!topicAliases.containsKey(alias))
-                            {
-                                decodeReasonCode = PROTOCOL_ERROR;
-                                break decode;
-                            }
-                            topic = topicAliases.get(alias);
-                        }
-                        else
-                        {
-                            topicAliases.put(alias, topic);
-                        }
+                        topicAliases.put(alias, topic);
                         topicAlias = alias;
                     }
                     else
