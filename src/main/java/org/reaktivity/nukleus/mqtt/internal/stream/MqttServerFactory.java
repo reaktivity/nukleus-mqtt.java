@@ -622,19 +622,60 @@ public final class MqttServerFactory implements StreamFactory
             }
 
             final String topicName = publish.topicName().asString();
+            String topic = topicName;
             if (topicName == null)
             {
                 reasonCode = PROTOCOL_ERROR;
             }
+            else
+            {
+                if (topic.isEmpty())
+                {
+                    userPropertiesRW.wrap(userPropertiesBuffer, 0, userPropertiesBuffer.capacity());
+
+                    final OctetsFW propertiesValue = publish.properties().value();
+                    final DirectBuffer decodeBuffer = propertiesValue.buffer();
+                    final int decodeOffset = propertiesValue.offset();
+                    final int decodeLimit = propertiesValue.limit();
+
+                    decodeTopicAlias:
+                    for (int decodeProgress = decodeOffset; decodeProgress < decodeLimit; )
+                    {
+                        final MqttPropertyFW mqttProperty = mqttPropertyRO.wrap(decodeBuffer, decodeProgress, decodeLimit);
+                        switch (mqttProperty.kind())
+                        {
+                        case KIND_TOPIC_ALIAS:
+                            int alias = mqttProperty.topicAlias() & 0xFFFF;
+                            if (alias > 0)
+                            {
+                                if (!server.topicAliases.containsKey(alias))
+                                {
+                                    reasonCode = PROTOCOL_ERROR;
+                                    break decodeTopicAlias;
+                                }
+                                topic = server.topicAliases.get(alias);
+                                break decodeTopicAlias;
+                            }
+                            else
+                            {
+                                reasonCode = TOPIC_ALIAS_INVALID;
+                                break decodeTopicAlias;
+                            }
+                        }
+
+                        decodeProgress = mqttProperty.limit();
+                    }
+                }
+            }
 
             if (reasonCode == 0)
             {
-                final int topicKey = topicKey(topicName);
+                final int topicKey = topicKey(topic);
                 MqttServer.MqttServerStream publisher = server.streams.get(topicKey);
 
                 if (publisher == null)
                 {
-                    publisher = server.resolvePublisher(traceId, authorization, topicName);
+                    publisher = server.resolvePublisher(traceId, authorization, topic);
                     if (publisher == null)
                     {
                         server.decodePublisherKey = 0;
@@ -1320,7 +1361,7 @@ public final class MqttServerFactory implements StreamFactory
                     int alias = mqttProperty.topicAlias() & 0xFFFF;
                     if (alias > 0)
                     {
-                        if (topic.length() == 0)
+                        if (topic.isEmpty())
                         {
                             if (!topicAliases.containsKey(alias))
                             {

@@ -160,6 +160,46 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/publish.multiple.messages.with.topic.alias.distinct/client",
+        "${server}/publish.multiple.messages.with.topic.alias.distinct/server"})
+    public void shouldPublishMultipleMessagesWithTopicAliasDistinct() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.multiple.messages.with.topic.alias.repeated/client",
+        "${server}/publish.multiple.messages.with.topic.alias.repeated/server"})
+    public void shouldPublishMultipleMessagesWithTopicAliasRepeated() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.messages.with.topic.aliases.overwrite.one/client",
+        "${server}/publish.messages.with.topic.aliases.overwrite.one/server"})
+    public void shouldPublishMultipleMessagesWithTopicAliasOverwriteOne() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.one.message.with.existing.topic.alias/client",
+        "${server}/publish.one.message.with.existing.topic.alias/server"})
+    public void shouldPublishOneMessageWithExistingTopicAlias() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/subscribe.one.message/client",
         "${server}/subscribe.one.message/server"})
     public void shouldReceivePublishAfterSendingSubscribe() throws Exception
