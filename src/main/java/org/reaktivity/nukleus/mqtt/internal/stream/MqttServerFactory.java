@@ -646,6 +646,12 @@ public final class MqttServerFactory implements StreamFactory
                         {
                         case KIND_TOPIC_ALIAS:
                             int alias = mqttProperty.topicAlias() & 0xFFFF;
+                            if (alias > server.topicAliasMaximum)
+                            {
+                                reasonCode = TOPIC_ALIAS_INVALID;
+                                break decodeTopicAlias;
+                            }
+
                             if (alias > 0)
                             {
                                 if (!server.topicAliases.containsKey(alias))
@@ -1359,6 +1365,12 @@ public final class MqttServerFactory implements StreamFactory
                     break;
                 case KIND_TOPIC_ALIAS:
                     int alias = mqttProperty.topicAlias() & 0xFFFF;
+                    if (alias > topicAliasMaximum)
+                    {
+                        decodeReasonCode = TOPIC_ALIAS_INVALID;
+                        break decode;
+                    }
+
                     if (alias > 0)
                     {
                         topicAliases.put(alias, topic);
