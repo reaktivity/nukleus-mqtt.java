@@ -638,6 +638,8 @@ public final class MqttServerFactory implements StreamFactory
                     final int decodeOffset = propertiesValue.offset();
                     final int decodeLimit = propertiesValue.limit();
 
+                    boolean hasTopicAlias = false;
+
                     decodeTopicAlias:
                     for (int decodeProgress = decodeOffset; decodeProgress < decodeLimit; )
                     {
@@ -645,6 +647,13 @@ public final class MqttServerFactory implements StreamFactory
                         switch (mqttProperty.kind())
                         {
                         case KIND_TOPIC_ALIAS:
+                            if (hasTopicAlias)
+                            {
+                                reasonCode = PROTOCOL_ERROR;
+                                break decodeTopicAlias;
+                            }
+
+                            hasTopicAlias = true;
                             int alias = mqttProperty.topicAlias() & 0xFFFF;
                             if (alias > server.topicAliasMaximum)
                             {
@@ -660,12 +669,10 @@ public final class MqttServerFactory implements StreamFactory
                                     break decodeTopicAlias;
                                 }
                                 topic = server.topicAliases.get(alias);
-                                break decodeTopicAlias;
                             }
                             else
                             {
                                 reasonCode = TOPIC_ALIAS_INVALID;
-                                break decodeTopicAlias;
                             }
                         }
 
@@ -1264,6 +1271,8 @@ public final class MqttServerFactory implements StreamFactory
             final int decodeOffset = propertiesValue.offset();
             final int decodeLimit = propertiesValue.limit();
 
+            boolean topicAliasMaximumSet = false;
+
             decode:
             for (int decodeProgress = decodeOffset; decodeProgress < decodeLimit; )
             {
@@ -1271,7 +1280,14 @@ public final class MqttServerFactory implements StreamFactory
                 switch (mqttProperty.kind())
                 {
                 case KIND_TOPIC_ALIAS_MAXIMUM:
+                    if (topicAliasMaximumSet)
+                    {
+                        topicAliasMaximum = 0;
+                        reasonCode = PROTOCOL_ERROR;
+                        break decode;
+                    }
                     topicAliasMaximum = (short) (mqttProperty.topicAliasMaximum() & 0xFFFF);
+                    topicAliasMaximumSet = true;
                     break;
                 default:
                     reasonCode = MALFORMED_PACKET;
@@ -1346,6 +1362,7 @@ public final class MqttServerFactory implements StreamFactory
             final int decodeOffset = propertiesValue.offset();
             final int decodeLimit = propertiesValue.limit();
 
+            boolean hasTopicAlias = false;
             byte decodeReasonCode = SUCCESS;
 
             decode:
@@ -1364,6 +1381,15 @@ public final class MqttServerFactory implements StreamFactory
                     contentType = mqttProperty.contentType().asString();
                     break;
                 case KIND_TOPIC_ALIAS:
+                    if (hasTopicAlias)
+                    {
+                        onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+                        decoder = decodeIgnoreAll;
+                        return;
+                    }
+
+                    hasTopicAlias = true;
+
                     int alias = mqttProperty.topicAlias() & 0xFFFF;
                     if (alias > topicAliasMaximum)
                     {
