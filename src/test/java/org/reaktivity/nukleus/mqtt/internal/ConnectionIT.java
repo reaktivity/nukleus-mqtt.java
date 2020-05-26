@@ -441,8 +441,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${routeExt}/publish.only/server/controller",
-        "${client}/reject.publish.with.topic.alias.more.than.maximum/client",
-        "${server}/publish.fails/server"})
+        "${client}/reject.publish.when.topic.alias.exceeds.maximum/client"})
     public void shouldRejectPublishWithTopicAliasMoreThanMaximum() throws Exception
     {
         k3po.finish();
@@ -460,8 +459,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${routeExt}/publish.only/server/controller",
-        "${client}/reject.publish.message.with.multiple.topic.aliases/client",
-        "${server}/publish.fails/server"})
+        "${client}/reject.publish.with.multiple.topic.alias/client"})
     public void shouldRejectPublishWithMultipleTopicAliases() throws Exception
     {
         k3po.finish();
