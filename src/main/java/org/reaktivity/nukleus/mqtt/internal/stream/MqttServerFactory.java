@@ -1204,8 +1204,17 @@ public final class MqttServerFactory implements StreamFactory
                 reasonCode = PROTOCOL_ERROR;
             }
 
+            final String clientIdentifier = packet.clientId().asString();
+
+            mqttPropertyRW.wrap(propertyBuffer, 0, propertyBuffer.capacity());
+
+            if (clientIdentifier != null && clientIdentifier.isEmpty())
+            {
+                mqttPropertyRW.assignedClientId(clientId);
+            }
+
             doCancelConnectTimeoutIfNecessary();
-            doEncodeConnack(traceId, authorization, reasonCode);
+            doEncodeConnack(traceId, authorization, reasonCode, mqttPropertyRW.buffer(), 0, mqttPropertyRW.limit());
 
             if (reasonCode == 0)
             {
@@ -1527,7 +1536,7 @@ public final class MqttServerFactory implements StreamFactory
             }
             else
             {
-                doEncodeConnack(traceId, authorization, reasonCode);
+                doEncodeConnack(traceId, authorization, reasonCode, EMPTY_OCTETS.buffer(), 0, 0);
             }
             doNetworkEnd(traceId, authorization);
         }
@@ -1763,15 +1772,19 @@ public final class MqttServerFactory implements StreamFactory
         private void doEncodeConnack(
             long traceId,
             long authorization,
-            int reasonCode)
+            int reasonCode,
+            DirectBuffer buffer,
+            int offset,
+            int sizeof)
         {
             final MqttConnackFW connack =
                     mqttConnackRW.wrap(writeBuffer, FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                        .typeAndFlags(0x20)
-                                       .remainingLength(3)
+                                       .remainingLength(3 + sizeof)
                                        .flags(0x00)
                                        .reasonCode(reasonCode & 0xff)
-                                       .properties(p -> p.length(0).value(EMPTY_OCTETS))
+                                       .properties(p -> p.length(sizeof)
+                                                         .value(buffer, offset, sizeof))
                                        .build();
 
             doNetworkData(traceId, authorization, 0L, connack);
