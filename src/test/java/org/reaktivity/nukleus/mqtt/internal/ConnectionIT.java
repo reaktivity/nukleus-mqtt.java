@@ -126,9 +126,9 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/publish.one.message.with.topic.alias/client",
-        "${server}/publish.one.message.with.topic.alias/server"})
-    public void shouldPublishOneMessageWithTopicAlias() throws Exception
+        "${client}/publish.message.with.topic.alias/client",
+        "${server}/publish.message.with.topic.alias/server"})
+    public void shouldPublishMessageWithTopicAlias() throws Exception
     {
         k3po.finish();
     }
@@ -160,9 +160,9 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/publish.multiple.messages.with.topic.alias.distinct/client",
-        "${server}/publish.multiple.messages.with.topic.alias.distinct/server"})
-    public void shouldPublishMultipleMessagesWithTopicAliasDistinct() throws Exception
+        "${client}/publish.messages.with.topic.alias.distinct/client",
+        "${server}/publish.messages.with.topic.alias.distinct/server"})
+    public void shouldPublishMessagesWithTopicAliasDistinct() throws Exception
     {
         k3po.finish();
     }
@@ -170,9 +170,9 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/publish.multiple.messages.with.topic.alias.repeated/client",
-        "${server}/publish.multiple.messages.with.topic.alias.repeated/server"})
-    public void shouldPublishMultipleMessagesWithTopicAliasRepeated() throws Exception
+        "${client}/publish.messages.with.topic.alias.repeated/client",
+        "${server}/publish.messages.with.topic.alias.repeated/server"})
+    public void shouldPublishMessagesWithTopicAliasRepeated() throws Exception
     {
         k3po.finish();
     }
@@ -180,9 +180,9 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/publish.messages.with.topic.aliases.overwrite.one/client",
-        "${server}/publish.messages.with.topic.aliases.overwrite.one/server"})
-    public void shouldPublishMultipleMessagesWithTopicAliasOverwriteOne() throws Exception
+        "${client}/publish.messages.with.topic.alias.replaced/client",
+        "${server}/publish.messages.with.topic.alias.replaced/server"})
+    public void shouldPublishMessagesWithTopicAliasReplaced() throws Exception
     {
         k3po.finish();
     }
@@ -190,9 +190,9 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/publish.one.message.with.existing.topic.alias/client",
-        "${server}/publish.one.message.with.existing.topic.alias/server"})
-    public void shouldPublishOneMessageWithExistingTopicAlias() throws Exception
+        "${client}/publish.message.with.existing.topic.alias/client",
+        "${server}/publish.message.with.existing.topic.alias/server"})
+    public void shouldPublishMessageWithExistingTopicAlias() throws Exception
     {
         k3po.finish();
     }
@@ -442,7 +442,7 @@ public class ConnectionIT
     @Specification({
         "${routeExt}/publish.only/server/controller",
         "${client}/reject.publish.when.topic.alias.exceeds.maximum/client"})
-    public void shouldRejectPublishWithTopicAliasMoreThanMaximum() throws Exception
+    public void shouldRejectPublishWHenTopicAliasExceedsMaximum() throws Exception
     {
         k3po.finish();
     }
@@ -450,8 +450,8 @@ public class ConnectionIT
     @Test
     @Specification({
         "${routeExt}/publish.only/server/controller",
-        "${client}/reject.connect.with.multiple.topic.alias.maximum/client"})
-    public void shouldRejectConnectWithMultipleTopicAliasMaximum() throws Exception
+        "${client}/reject.connect.when.topic.alias.maximum.repeated/client"})
+    public void shouldRejectConnectWhenTopicAliasMaximumRepeated() throws Exception
     {
         k3po.finish();
     }
@@ -459,7 +459,7 @@ public class ConnectionIT
     @Test
     @Specification({
         "${routeExt}/publish.only/server/controller",
-        "${client}/reject.publish.with.multiple.topic.alias/client"})
+        "${client}/reject.publish.when.topic.alias.repeated/client"})
     public void shouldRejectPublishWithMultipleTopicAliases() throws Exception
     {
         k3po.finish();
