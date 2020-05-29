@@ -190,16 +190,6 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/publish.message.with.existing.topic.alias/client",
-        "${server}/publish.message.with.existing.topic.alias/server"})
-    public void shouldPublishMessageWithExistingTopicAlias() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
-        "${route}/server/controller",
         "${client}/subscribe.one.message/client",
         "${server}/subscribe.one.message/server"})
     public void shouldReceivePublishAfterSendingSubscribe() throws Exception

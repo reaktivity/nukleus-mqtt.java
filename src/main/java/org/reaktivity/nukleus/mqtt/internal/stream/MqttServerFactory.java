@@ -2676,6 +2676,8 @@ public final class MqttServerFactory implements StreamFactory
 
         private void reset()
         {
+            this.topic = null;
+            this.reasonCode = 0;
             this.expiryInterval = DEFAULT_EXPIRY_INTERVAL;
             this.contentType = null;
             this.payloadFormat = DEFAULT_FORMAT;
