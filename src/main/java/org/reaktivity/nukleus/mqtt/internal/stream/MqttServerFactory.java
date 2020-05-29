@@ -74,6 +74,7 @@ import org.reaktivity.nukleus.mqtt.internal.types.MqttBinaryFW;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
+import org.reaktivity.nukleus.mqtt.internal.types.String16FW;
 import org.reaktivity.nukleus.mqtt.internal.types.String8FW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
@@ -1204,11 +1205,12 @@ public final class MqttServerFactory implements StreamFactory
                 reasonCode = PROTOCOL_ERROR;
             }
 
-            final String clientIdentifier = packet.clientId().asString();
+            final String16FW clientIdentifier = packet.clientId();
 
             mqttPropertyRW.wrap(propertyBuffer, 0, propertyBuffer.capacity());
 
-            if (clientIdentifier != null && clientIdentifier.isEmpty())
+            final DirectBuffer value = clientIdentifier.value();
+            if (value != null && value.capacity() == 0)
             {
                 mqttPropertyRW.assignedClientId(clientId);
             }
