@@ -615,6 +615,7 @@ public final class MqttServerFactory implements StreamFactory
         final int length = limit - offset;
         int progress = offset;
 
+        decode:
         if (length >= server.decodeablePacketBytes)
         {
             int reasonCode = SUCCESS;
@@ -649,7 +650,7 @@ public final class MqttServerFactory implements StreamFactory
                         server.decodeablePacketBytes = 0;
                         server.decoder = decodePacketType;
                         progress = publish.limit();
-                        return progress;
+                        break decode;
                     }
                 }
 
@@ -2685,7 +2686,9 @@ public final class MqttServerFactory implements StreamFactory
             this.correlationData = null;
         }
 
-        private void decodeProperties(MqttServer server, MqttPropertiesFW properties)
+        private void decodeProperties(
+            MqttServer server,
+            MqttPropertiesFW properties)
         {
             userPropertiesRW.wrap(userPropertiesBuffer, 0, userPropertiesBuffer.capacity());
 
@@ -2701,6 +2704,7 @@ public final class MqttServerFactory implements StreamFactory
             else
             {
                 int alias = 0;
+                decode:
                 for (int decodeProgress = decodeOffset; decodeProgress < decodeLimit; )
                 {
                     final MqttPropertyFW mqttProperty = mqttPropertyRO.wrap(decodeBuffer, decodeProgress, decodeLimit);
@@ -2728,7 +2732,7 @@ public final class MqttServerFactory implements StreamFactory
                         if (alias <= 0 || alias > server.topicAliasMaximum)
                         {
                             reasonCode = TOPIC_ALIAS_INVALID;
-                            break;
+                            break decode;
                         }
 
                         if (topic.isEmpty())
@@ -2736,7 +2740,7 @@ public final class MqttServerFactory implements StreamFactory
                             if (!server.topicAliases.containsKey(alias))
                             {
                                 reasonCode = PROTOCOL_ERROR;
-                                break;
+                                break decode;
                             }
                             topic = server.topicAliases.get(alias);
                         }
@@ -2765,7 +2769,7 @@ public final class MqttServerFactory implements StreamFactory
                         break;
                     default:
                         reasonCode = MALFORMED_PACKET;
-                        break;
+                        break decode;
                     }
                     decodeProgress = mqttProperty.limit();
                 }
