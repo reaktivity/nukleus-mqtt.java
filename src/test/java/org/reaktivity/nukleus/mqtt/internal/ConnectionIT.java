@@ -77,6 +77,15 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/connect/reject.missing.client.id/client"})
+    public void shouldRejectMissingClientId() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/ping/client"})
     public void shouldExchangeConnectionPacketsThenPingPackets() throws Exception
     {
