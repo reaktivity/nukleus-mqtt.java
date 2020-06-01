@@ -33,28 +33,30 @@ public final class MqttReasonCodes
     public static final byte CONTINUE_AUTHENTICATION = 0x18;
     public static final byte REAUTHENTICATE = 0x19;
 
-    public static final byte UNSPECIFIED_ERROR = -0x80;
-    public static final byte MALFORMED_PACKET = -0x7F;
-    public static final byte PROTOCOL_ERROR = -0x7E;
-    public static final byte IMPLEMENTATION_SPECIFIC_ERROR = -0x7D;
-    public static final byte UNSUPPORTED_PROTOCOL_VERSION = -0x7C;
-    public static final byte CLIENT_IDENTIFIER_NOT_VALID = -0x7B;
-    public static final byte BAD_USER_NAME_OR_PASSWORD = -0x7A;
-    public static final byte NOT_AUTHORIZED = -0x79;
-    public static final byte SERVER_UNAVAILABLE = -0x78;
-    public static final byte SERVER_BUSY = -0x77;
-    public static final byte BANNED = -0x76;
-    public static final byte SERVER_SHUTTING_DOWN = -0x75;
-    public static final byte BAD_AUTHENTICATION_METHOD = -0x74;
+    public static final byte UNSPECIFIED_ERROR = (byte) 0x80;
+    public static final byte MALFORMED_PACKET = (byte) 0x81;
+    public static final byte PROTOCOL_ERROR = (byte) 0x82;
+    public static final byte IMPLEMENTATION_SPECIFIC_ERROR = (byte) 0x83;
+    public static final byte UNSUPPORTED_PROTOCOL_VERSION = (byte) 0x84;
+    public static final byte CLIENT_IDENTIFIER_NOT_VALID = (byte) 0x85;
+    public static final byte BAD_USER_NAME_OR_PASSWORD = (byte) 0x86;
+    public static final byte NOT_AUTHORIZED = (byte) 0x87;
+    public static final byte SERVER_UNAVAILABLE = (byte) 0x88;
+    public static final byte SERVER_BUSY = (byte) 0x89;
+    public static final byte BANNED = (byte) 0x8A;
+    public static final byte SERVER_SHUTTING_DOWN = (byte) 0x8B;
+    public static final byte BAD_AUTHENTICATION_METHOD = (byte) 0x8C;
 
-    public static final byte KEEP_ALIVE_TIMEOUT = -0x73;
-    public static final byte SESSION_TAKEN_OVER = -0x72;
+    public static final byte KEEP_ALIVE_TIMEOUT = (byte) 0x8D;
+    public static final byte SESSION_TAKEN_OVER = (byte) 0x8E;
 
-    public static final byte TOPIC_FILTER_INVALID = -0x71;
-    public static final byte TOPIC_NAME_INVALID = -0x70;
+    public static final byte TOPIC_FILTER_INVALID = (byte) 0x8F;
+    public static final byte TOPIC_NAME_INVALID = (byte) 0x90;
 
-    public static final byte PACKET_IDENTIFIER_IN_USE = -0x6F;
-    public static final byte PACKET_IDENTIFIER_NOT_FOUND = -0x6E;
+    public static final byte PACKET_IDENTIFIER_IN_USE = (byte) 0x91;
+    public static final byte PACKET_IDENTIFIER_NOT_FOUND = (byte) 0x92;
+    public static final byte RECEIVE_MAXIMUM_EXCEEDED = (byte) 0x93;
+    public static final byte TOPIC_ALIAS_INVALID = (byte) 0x94;
 
     private MqttReasonCodes()
     {
