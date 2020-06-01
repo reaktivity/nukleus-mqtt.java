@@ -1253,13 +1253,6 @@ public final class MqttServerFactory implements StreamFactory
 
             final String16FW clientIdentifier = packet.clientId();
 
-            // final DirectBuffer value = clientIdentifier.value();
-            // if (value != null && value.capacity() == 0)
-            // {
-            //     mqttPropertyRW.wrap(propertyBuffer, 0, propertyBuffer.capacity())
-            //                   .assignedClientId(clientId);
-            // }
-
             doCancelConnectTimeoutIfNecessary();
             doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
 
@@ -1521,7 +1514,7 @@ public final class MqttServerFactory implements StreamFactory
             }
             else
             {
-                doEncodeConnack(traceId, authorization, reasonCode, EMPTY_OCTETS.buffer());
+                doEncodeConnack(traceId, authorization, reasonCode, null);
             }
             doNetworkEnd(traceId, authorization);
         }
