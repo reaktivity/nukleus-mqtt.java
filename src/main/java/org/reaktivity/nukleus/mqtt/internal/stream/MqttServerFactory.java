@@ -1751,7 +1751,7 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization,
             int reasonCode,
-            DirectBuffer clientIdValue)
+            DirectBuffer clientId)
         {
             int propertiesSize = 0;
 
@@ -1764,9 +1764,9 @@ public final class MqttServerFactory implements StreamFactory
                 propertiesSize += mqttProperty.limit();
             }
 
-            if (clientIdValue != null && clientIdValue.capacity() == 0)
+            if (clientId != null && clientId.capacity() == 0)
             {
-                mqttProperty.assignedClientId(clientId);
+                mqttProperty.assignedClientId(MqttServerFactory.this.clientId);
                 propertiesSize += mqttProperty.limit();
             }
 
