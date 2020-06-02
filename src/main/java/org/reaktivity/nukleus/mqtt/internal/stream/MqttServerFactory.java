@@ -1755,18 +1755,19 @@ public final class MqttServerFactory implements StreamFactory
         {
             int propertiesSize = 0;
 
+            final MqttPropertyFW.Builder mqttProperty = mqttPropertyRW.wrap(propertyBuffer,
+                propertiesSize, propertyBuffer.capacity());
+
             if (topicAliasMaximum > 0)
             {
-                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                              .topicAliasMaximum(topicAliasMaximum);
-                propertiesSize += mqttPropertyRW.limit();
+                mqttProperty.topicAliasMaximum(topicAliasMaximum);
+                propertiesSize += mqttProperty.limit();
             }
 
             if (clientIdValue != null && clientIdValue.capacity() == 0)
             {
-                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                              .assignedClientId(clientId);
-                propertiesSize += mqttPropertyRW.limit();
+                mqttProperty.assignedClientId(clientId);
+                propertiesSize += mqttProperty.limit();
             }
 
             final int propertiesSize0 = propertiesSize;
