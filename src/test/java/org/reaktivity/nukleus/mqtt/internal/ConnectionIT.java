@@ -68,6 +68,24 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/connect/server.assigned.client.id/client"})
+    public void shouldExchangeConnectAndConnackPacketsWithServerAssignedClientId() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/connect/reject.missing.client.id/client"})
+    public void shouldRejectMissingClientId() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/ping/client"})
     public void shouldExchangeConnectionPacketsThenPingPackets() throws Exception
     {
@@ -126,6 +144,16 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/publish.message.with.topic.alias/client",
+        "${server}/publish.message.with.topic.alias/server"})
+    public void shouldPublishMessageWithTopicAlias() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/publish.multiple.messages/client",
         "${server}/publish.multiple.messages/server"})
     public void shouldPublishMultipleMessages() throws Exception
@@ -144,6 +172,36 @@ public class ConnectionIT
         k3po.awaitBarrier("PUBLISHED_MESSAGE_TWO");
         Thread.sleep(6000);
         k3po.notifyBarrier("PUBLISH_MESSAGE_THREE");
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.messages.with.topic.alias.distinct/client",
+        "${server}/publish.messages.with.topic.alias.distinct/server"})
+    public void shouldPublishMessagesWithTopicAliasDistinct() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.messages.with.topic.alias.repeated/client",
+        "${server}/publish.messages.with.topic.alias.repeated/server"})
+    public void shouldPublishMessagesWithTopicAliasRepeated() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.messages.with.topic.alias.replaced/client",
+        "${server}/publish.messages.with.topic.alias.replaced/server"})
+    public void shouldPublishMessagesWithTopicAliasReplaced() throws Exception
+    {
         k3po.finish();
     }
 
@@ -384,6 +442,33 @@ public class ConnectionIT
         "${client}/publish.rejected/client",
         "${server}/publish.rejected/server"})
     public void shouldRejectPublish() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${routeExt}/publish.only/server/controller",
+        "${client}/reject.publish.when.topic.alias.exceeds.maximum/client"})
+    public void shouldRejectPublishWHenTopicAliasExceedsMaximum() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${routeExt}/publish.only/server/controller",
+        "${client}/reject.connect.when.topic.alias.maximum.repeated/client"})
+    public void shouldRejectConnectWhenTopicAliasMaximumRepeated() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${routeExt}/publish.only/server/controller",
+        "${client}/reject.publish.when.topic.alias.repeated/client"})
+    public void shouldRejectPublishWithMultipleTopicAliases() throws Exception
     {
         k3po.finish();
     }
