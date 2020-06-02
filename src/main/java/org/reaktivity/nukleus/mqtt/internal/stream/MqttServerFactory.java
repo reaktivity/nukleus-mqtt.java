@@ -78,6 +78,7 @@ import org.reaktivity.nukleus.mqtt.internal.types.MqttBinaryFW;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
+import org.reaktivity.nukleus.mqtt.internal.types.String16FW;
 import org.reaktivity.nukleus.mqtt.internal.types.String8FW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
@@ -613,6 +614,7 @@ public final class MqttServerFactory implements StreamFactory
         final int limit)
     {
         final int length = limit - offset;
+
         int progress = offset;
 
         decode:
@@ -1249,8 +1251,10 @@ public final class MqttServerFactory implements StreamFactory
                 decodeProgress = mqttProperty.limit();
             }
 
+            final String16FW clientIdentifier = packet.clientId();
+
             doCancelConnectTimeoutIfNecessary();
-            doEncodeConnack(traceId, authorization, reasonCode);
+            doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
 
             if (reasonCode == 0)
             {
@@ -1510,7 +1514,7 @@ public final class MqttServerFactory implements StreamFactory
             }
             else
             {
-                doEncodeConnack(traceId, authorization, reasonCode);
+                doEncodeConnack(traceId, authorization, reasonCode, null);
             }
             doNetworkEnd(traceId, authorization);
         }
@@ -1746,15 +1750,24 @@ public final class MqttServerFactory implements StreamFactory
         private void doEncodeConnack(
             long traceId,
             long authorization,
-            int reasonCode)
+            int reasonCode,
+            DirectBuffer clientId)
         {
             int propertiesSize = 0;
 
+            final MqttPropertyFW.Builder mqttProperty = mqttPropertyRW.wrap(propertyBuffer,
+                propertiesSize, propertyBuffer.capacity());
+
             if (topicAliasMaximum > 0)
             {
-                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                              .topicAliasMaximum(topicAliasMaximum);
-                propertiesSize += mqttPropertyRW.limit();
+                mqttProperty.topicAliasMaximum(topicAliasMaximum);
+                propertiesSize += mqttProperty.limit();
+            }
+
+            if (clientId != null && clientId.capacity() == 0)
+            {
+                mqttProperty.assignedClientId(MqttServerFactory.this.clientId);
+                propertiesSize += mqttProperty.limit();
             }
 
             final int propertiesSize0 = propertiesSize;
