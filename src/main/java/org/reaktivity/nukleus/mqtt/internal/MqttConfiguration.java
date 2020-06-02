@@ -30,7 +30,7 @@ public class MqttConfiguration extends Configuration
     public static final LongPropertyDef CONNECT_TIMEOUT;
     public static final LongPropertyDef PUBLISH_TIMEOUT;
     public static final PropertyDef<String> CLIENT_ID;
-    public static final BytePropertyDef RETAIN_AVAILABLE;
+    public static final BooleanPropertyDef RETAIN_AVAILABLE;
 
     static
     {
@@ -38,7 +38,7 @@ public class MqttConfiguration extends Configuration
         PUBLISH_TIMEOUT = config.property("publish.timeout", TimeUnit.SECONDS.toSeconds(30));
         CONNECT_TIMEOUT = config.property("connect.timeout", TimeUnit.SECONDS.toSeconds(3));
         CLIENT_ID = config.property("client.id", "client");
-        RETAIN_AVAILABLE = config.property("retain.available", (byte) 0x01);
+        RETAIN_AVAILABLE = config.property("retain.available", true);
         MQTT_CONFIG = config;
     }
 
@@ -63,7 +63,7 @@ public class MqttConfiguration extends Configuration
         return CLIENT_ID.get(this);
     }
 
-    public byte retainAvailable()
+    public boolean retainAvailable()
     {
         return RETAIN_AVAILABLE.get(this);
     }
