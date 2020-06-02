@@ -58,6 +58,8 @@ public final class MqttReasonCodes
     public static final byte RECEIVE_MAXIMUM_EXCEEDED = (byte) 0x93;
     public static final byte TOPIC_ALIAS_INVALID = (byte) 0x94;
 
+    public static final byte RETAIN_NOT_SUPPORTED = (byte) 0x9A;
+
     private MqttReasonCodes()
     {
         // Utility
