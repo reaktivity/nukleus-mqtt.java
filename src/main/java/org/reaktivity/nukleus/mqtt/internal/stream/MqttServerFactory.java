@@ -586,8 +586,8 @@ public final class MqttServerFactory implements StreamFactory
             {
                 reasonCode = PROTOCOL_ERROR;
             }
-            else if ((mqttConnect.flags() & 0b0000_0001) != 0b0000_0000 ||
-                         (mqttConnect.typeAndFlags() & 0b1111_1111) != CONNECT_FIXED_HEADER)
+            else if ((mqttConnect.typeAndFlags() & 0b1111_1111) != CONNECT_FIXED_HEADER ||
+                     (mqttConnect.flags() & 0b0000_0001) != 0b0000_0000)
             {
                 reasonCode = MALFORMED_PACKET;
             }
