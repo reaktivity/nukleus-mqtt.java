@@ -34,11 +34,18 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_P
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_AND_SUBSCRIBE;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_ONLY;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.SUBSCRIBE_ONLY;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_AUTHENTICATION_DATA;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_AUTHENTICATION_METHOD;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CONTENT_TYPE;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CORRELATION_DATA;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_EXPIRY_INTERVAL;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_MAXIMUM_PACKET_SIZE;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_PAYLOAD_FORMAT;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_RECEIVE_MAXIMUM;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_REQUEST_PROBLEM_INFORMATION;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_REQUEST_RESPONSE_INFORMATION;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_RESPONSE_TOPIC;
+import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_SESSION_EXPIRY;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_SUBSCRIPTION_ID;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_TOPIC_ALIAS;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_TOPIC_ALIAS_MAXIMUM;
@@ -118,7 +125,7 @@ public final class MqttServerFactory implements StreamFactory
 {
     private static final OctetsFW EMPTY_OCTETS = new OctetsFW().wrap(new UnsafeBuffer(new byte[0]), 0, 0);
 
-    private static final int CONNECT_FIXED_HEADER = 0b0000_0000;
+    private static final int CONNECT_FIXED_HEADER = 0b0001_0000;
     private static final int SUBSCRIBE_FIXED_HEADER = 0b1000_0010;
     private static final int UNSUBSCRIBE_FIXED_HEADER = 0b1010_0010;
     private static final int DISCONNECT_FIXED_HEADER = 0b1110_0000;
@@ -579,7 +586,8 @@ public final class MqttServerFactory implements StreamFactory
             {
                 reasonCode = PROTOCOL_ERROR;
             }
-            else if ((mqttConnect.flags() & 0b0000_0001) != CONNECT_FIXED_HEADER)
+            else if ((mqttConnect.flags() & 0b0000_0001) != 0b0000_0000 ||
+                         (mqttConnect.typeAndFlags() & 0b1111_1111) != CONNECT_FIXED_HEADER)
             {
                 reasonCode = MALFORMED_PACKET;
             }
@@ -1242,6 +1250,16 @@ public final class MqttServerFactory implements StreamFactory
                         break decode;
                     }
                     topicAliasMaximum = (short) (mqttProperty.topicAliasMaximum() & 0xFFFF);
+                    break;
+                case KIND_SESSION_EXPIRY:
+                case KIND_RECEIVE_MAXIMUM:
+                case KIND_MAXIMUM_PACKET_SIZE:
+                case KIND_REQUEST_RESPONSE_INFORMATION:
+                case KIND_REQUEST_PROBLEM_INFORMATION:
+                case KIND_USER_PROPERTY:
+                case KIND_AUTHENTICATION_METHOD:
+                case KIND_AUTHENTICATION_DATA:
+                    // TODO
                     break;
                 default:
                     reasonCode = MALFORMED_PACKET;
