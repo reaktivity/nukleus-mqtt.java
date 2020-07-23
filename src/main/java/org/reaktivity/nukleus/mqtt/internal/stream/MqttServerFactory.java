@@ -1464,7 +1464,6 @@ public final class MqttServerFactory implements StreamFactory
                     decodeReasonCode = PROTOCOL_ERROR;
                     break;
                 }
-
                 final String topic = mqttUnsubscribePayload.filter().asString();
                 if (topic == null)
                 {
@@ -1838,27 +1837,16 @@ public final class MqttServerFactory implements StreamFactory
             int packetId,
             OctetsFW payload)
         {
-            final MutableDirectBuffer encodeBuffer = writeBuffer;
-            final int encodeOffset = FIELD_OFFSET_PAYLOAD;
-            final int encodeLimit = writeBuffer.capacity();
-
-            int encodeProgress = encodeOffset;
-
             final MqttUnsubackFW unsuback =
-                    mqttUnsubackRW.wrap(encodeBuffer, encodeProgress, encodeLimit)
-                                        .typeAndFlags(0xa0)
+                    mqttUnsubackRW.wrap(writeBuffer, FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
+                                        .typeAndFlags(0xb0)
                                         .remainingLength(3 + payload.sizeof())
                                         .packetId(packetId)
                                         .properties(p -> p.length(0).value(EMPTY_OCTETS))
                                         .payload(payload)
                                         .build();
-            encodeProgress = unsuback.limit();
 
-            final int sizeofPayload = payload.sizeof();
-            encodeBuffer.putBytes(encodeProgress, payload.buffer(), payload.offset(), sizeofPayload);
-            encodeProgress += sizeofPayload;
-
-            doNetworkData(traceId, authorization, 0L, encodeBuffer, encodeOffset, encodeProgress);
+            doNetworkData(traceId, authorization, 0L, unsuback);
         }
 
         private void doEncodePingResp(
