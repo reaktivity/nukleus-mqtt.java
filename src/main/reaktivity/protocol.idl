@@ -67,20 +67,20 @@
         {
             case 0x01: uint8 payloadFormat;
             case 0x02: int32 expiryInterval;
-            case 0x03: string8 contentType;
-            case 0x08: string8 responseTopic;
+            case 0x03: string16 contentType;
+            case 0x08: string16 responseTopic;
             case 0x09: Binary correlationData;
             case 0x0b: varbyteuint32 subscriptionId;
             case 0x11: uint32 sessionExpiry;
-            case 0x12: string8 assignedClientId;
+            case 0x12: string16 assignedClientId;
             case 0x13: uint16 serverKeepAlive;
-            case 0x15: string8 authenticationMethod;
+            case 0x15: string16 authenticationMethod;
             case 0x16: Binary authenticationData;
             case 0x17: uint8 requestProblemInformation;
             case 0x19: uint8 requestResponseInformation;
-            case 0x1A: string8 responseInformation;
-            case 0x1C: string8 serverReference;
-            case 0x1F: string8 reasonString;
+            case 0x1A: string16 responseInformation;
+            case 0x1C: string16 serverReference;
+            case 0x1F: string16 reasonString;
             case 0x21: uint16 receiveMaximum;
             case 0x22: uint16 topicAliasMaximum;
             case 0x23: uint16 topicAlias;

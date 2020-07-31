@@ -15,6 +15,7 @@
  */
 package org.reaktivity.nukleus.mqtt.internal.stream;
 
+import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.reaktivity.nukleus.budget.BudgetCreditor.NO_CREDITOR_INDEX;
@@ -86,7 +87,6 @@ import org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.mqtt.internal.types.String16FW;
-import org.reaktivity.nukleus.mqtt.internal.types.String8FW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttDisconnectFW;
@@ -176,8 +176,8 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttPropertyFW mqttPropertyRO = new MqttPropertyFW();
     private final MqttPropertyFW.Builder mqttPropertyRW = new MqttPropertyFW.Builder();
 
-    private final String8FW contentTypeRO = new String8FW();
-    private final String8FW responseTopicRO = new String8FW();
+    private final String16FW contentTypeRO = new String16FW(BIG_ENDIAN);
+    private final String16FW responseTopicRO = new String16FW(BIG_ENDIAN);
 
     private final MqttPublishHeader mqttPublishHeaderRO = new MqttPublishHeader();
 
@@ -1676,8 +1676,8 @@ public final class MqttServerFactory implements StreamFactory
                 final int payloadSize = payload.sizeof();
                 final int deferred = dataEx.deferred();
                 final int expiryInterval = dataEx.expiryInterval();
-                final String8FW contentType = dataEx.contentType();
-                final String8FW responseTopic = dataEx.responseTopic();
+                final String16FW contentType = dataEx.contentType();
+                final String16FW responseTopic = dataEx.responseTopic();
                 final MqttBinaryFW correlation = dataEx.correlation();
                 final Array32FW<org.reaktivity.nukleus.mqtt.internal.types.MqttUserPropertyFW> properties = dataEx.properties();
 
@@ -2689,9 +2689,9 @@ public final class MqttServerFactory implements StreamFactory
         private int reasonCode;
 
         private int expiryInterval = DEFAULT_EXPIRY_INTERVAL;
-        private String8FW contentType = null;
+        private String16FW contentType = null;
         private MqttPayloadFormat payloadFormat = DEFAULT_FORMAT;
-        private String8FW responseTopic = null;
+        private String16FW responseTopic = null;
         private OctetsFW correlationData = null;
 
         private void reset()
@@ -2733,10 +2733,13 @@ public final class MqttServerFactory implements StreamFactory
                         expiryInterval = mqttProperty.expiryInterval();
                         break;
                     case KIND_CONTENT_TYPE:
-                        final String8FW mContentType = mqttProperty.contentType();
+                        final String16FW mContentType = mqttProperty.contentType();
                         if (mContentType.value() != null)
                         {
-                            contentType = contentTypeRO.wrap(mContentType.buffer(), mContentType.offset(), mContentType.limit());
+                            final int offset = mContentType.offset();
+                            final int limit = mContentType.limit();
+
+                            contentType = contentTypeRO.wrap(mContentType.buffer(), offset, limit);
                         }
                         break;
                     case KIND_TOPIC_ALIAS:
@@ -2772,11 +2775,13 @@ public final class MqttServerFactory implements StreamFactory
                         payloadFormat = MqttPayloadFormat.valueOf(mqttProperty.payloadFormat());
                         break;
                     case KIND_RESPONSE_TOPIC:
-                        final String8FW mResponseTopic = mqttProperty.responseTopic();
+                        final String16FW mResponseTopic = mqttProperty.responseTopic();
                         if (mResponseTopic.value() != null)
                         {
-                            responseTopic = responseTopicRO.wrap(mResponseTopic.buffer(), mResponseTopic.offset(),
-                                mResponseTopic.limit());
+                            final int offset = mResponseTopic.offset();
+                            final int limit = mResponseTopic.limit();
+
+                            responseTopic = responseTopicRO.wrap(mResponseTopic.buffer(), offset, limit);
                         }
                         break;
                     case KIND_CORRELATION_DATA:
