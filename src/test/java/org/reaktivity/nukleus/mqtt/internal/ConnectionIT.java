@@ -144,6 +144,16 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/publish.retained/client",
+        "${server}/publish.retained/server"})
+    public void shouldPublishRetainedMessage() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/publish.message.with.topic.alias/client",
         "${server}/publish.message.with.topic.alias/server"})
     public void shouldPublishMessageWithTopicAlias() throws Exception
@@ -261,6 +271,16 @@ public class ConnectionIT
         "${client}/publish.message.and.subscribe.correlated.message/client",
         "${server}/publish.message.and.subscribe.correlated.message/server"})
     public void shouldReceiveCorrelatedPublishAfterSendingSubscribe() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe.retained/client",
+        "${server}/subscribe.retained/server"})
+    public void shouldSubscribeRetainedMessage() throws Exception
     {
         k3po.finish();
     }
