@@ -131,6 +131,14 @@ public final class MqttServerFactory implements StreamFactory
     private static final int UNSUBSCRIBE_FIXED_HEADER = 0b1010_0010;
     private static final int DISCONNECT_FIXED_HEADER = 0b1110_0000;
 
+    private static final int NO_FLAGS = 0b0000_0000;
+    private static final int PUBLISH_FLAGS_MASK = 0b0000_1111;
+    private static final int RETAIN_HANDLING_MASK = 0b0011_0000;
+
+    private static final int RETAIN_HANDLING_SEND = 0;
+
+    private static final int PUBLISH_TYPE = 0x03;
+
     private static final int PUBLISH_EXPIRED_SIGNAL = 1;
     private static final int KEEP_ALIVE_TIMEOUT_SIGNAL = 2;
     private static final int CONNECT_TIMEOUT_SIGNAL = 3;
@@ -648,7 +656,7 @@ public final class MqttServerFactory implements StreamFactory
 
             if (reasonCode == SUCCESS)
             {
-                final int flags = publish.typeAndFlags() & 0b1111;
+                final int flags = publish.typeAndFlags() & PUBLISH_FLAGS_MASK;
                 final String topic = mqttPublishHeaderRO.topic;
                 final int topicKey = topicKey(topic);
                 MqttServer.MqttServerStream publisher = server.streams.get(topicKey);
@@ -1303,7 +1311,7 @@ public final class MqttServerFactory implements StreamFactory
                 final int topicKey = topicKey(topic);
 
                 stream = streams.computeIfAbsent(topicKey, s -> new MqttServerStream(resolvedId, 0, topic));
-                stream.doApplicationBeginOrFlush(traceId, authorization, affinity, topic, 0, 0, PUBLISH_ONLY);
+                stream.doApplicationBeginOrFlush(traceId, authorization, affinity, topic, NO_FLAGS, 0, PUBLISH_ONLY);
             }
             else
             {
@@ -1484,7 +1492,7 @@ public final class MqttServerFactory implements StreamFactory
                 if (stream != null)
                 {
                     encodeReasonCode = SUCCESS;
-                    stream.doApplicationFlushOrEnd(traceId, authorization, 0, SUBSCRIBE_ONLY);
+                    stream.doApplicationFlushOrEnd(traceId, authorization, NO_FLAGS, SUBSCRIBE_ONLY);
                 }
 
                 final MqttUnsubackPayloadFW mqttUnsubackPayload =
@@ -1755,7 +1763,7 @@ public final class MqttServerFactory implements StreamFactory
                 final int propertiesSize0 = propertiesSize.get();
                 final MqttPublishFW publish =
                         mqttPublishRW.wrap(writeBuffer, DataFW.FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
-                                     .typeAndFlags(0x30 | publishFlags)
+                                     .typeAndFlags(PUBLISH_TYPE << 4 | publishFlags)
                                      .remainingLength(3 + topicNameLength + propertiesSize.get() + payloadSize + deferred)
                                      .topicName(topicName)
                                      .properties(p -> p.length(propertiesSize0)
@@ -2088,13 +2096,13 @@ public final class MqttServerFactory implements StreamFactory
         {
             int flags = 0;
 
-            final int retained = options & 0b0011_0000;
+            final int retainHandling = options & RETAIN_HANDLING_MASK;
 
-            if (retained == 0)
+            if (retainHandling == RETAIN_HANDLING_SEND)
             {
-                flags |= RETAIN.value();
+                flags |= 1 << RETAIN.ordinal();
             }
-            else if (retained == 0b0011_0000)
+            else if (retainHandling == RETAIN_HANDLING_MASK)
             {
                 onDecodeError(traceId, authorization, PROTOCOL_ERROR);
             }
@@ -2174,8 +2182,6 @@ public final class MqttServerFactory implements StreamFactory
 
             private int state;
             private int capabilities;
-
-            private int subscribeFlags;
 
             private long publishExpiresId = NO_CANCEL_ID;
             private long publishExpiresAt;
@@ -2491,7 +2497,7 @@ public final class MqttServerFactory implements StreamFactory
                 final long now = System.currentTimeMillis();
                 if (now >= publishExpiresAt)
                 {
-                    doApplicationFlushOrEnd(traceId, authorization, 0, PUBLISH_ONLY);
+                    doApplicationFlushOrEnd(traceId, authorization, NO_FLAGS, PUBLISH_ONLY);
                 }
                 else
                 {
@@ -2713,7 +2719,7 @@ public final class MqttServerFactory implements StreamFactory
                 if (!hasPublishCapability(capabilities))
                 {
                     this.capabilities |= PUBLISH_ONLY.value();
-                    doApplicationFlush(traceId, authorization, 0, 0);
+                    doApplicationFlush(traceId, authorization, 0, NO_FLAGS);
                 }
             }
         }
