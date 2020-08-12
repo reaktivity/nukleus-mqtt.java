@@ -35,7 +35,9 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_P
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_AND_SUBSCRIBE;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_ONLY;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.SUBSCRIBE_ONLY;
+import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.valueOf;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttSubscribeFlags.RETAIN;
+import static org.reaktivity.nukleus.mqtt.internal.types.MqttSubscribeFlags.RETAIN_AS_PUBLISHED;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_AUTHENTICATION_DATA;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_AUTHENTICATION_METHOD;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CONTENT_TYPE;
@@ -86,6 +88,7 @@ import org.reaktivity.nukleus.mqtt.internal.types.Flyweight;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttBinaryFW;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
+import org.reaktivity.nukleus.mqtt.internal.types.MqttSubscribeFlags;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.mqtt.internal.types.String16FW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
@@ -134,8 +137,12 @@ public final class MqttServerFactory implements StreamFactory
     private static final int NO_FLAGS = 0b0000_0000;
     private static final int PUBLISH_FLAGS_MASK = 0b0000_1111;
     private static final int RETAIN_HANDLING_MASK = 0b0011_0000;
+    private static final int RETAIN_AS_PUBLISHED_MASK = 0b0000_1000;
 
     private static final int RETAIN_HANDLING_SEND = 0;
+
+    private static final int RETAIN_FLAG = 1 << RETAIN.ordinal();
+    private static final int RETAIN_AS_PUBLISHED_FLAG = 1 << RETAIN_AS_PUBLISHED.ordinal();
 
     private static final int PUBLISH_TYPE = 0x03;
 
@@ -1433,6 +1440,7 @@ public final class MqttServerFactory implements StreamFactory
                         final int topicKey = topicKey(filter);
                         final int options = mqttSubscribePayload.options();
                         final int flags = calculateSubscribeFlags(traceId, authorization, options);
+                        subscription.flags = flags;
 
                         MqttServerStream stream = streams.computeIfAbsent(topicKey, s ->
                                                     new MqttServerStream(resolvedId, packetId, filter));
@@ -1680,6 +1688,7 @@ public final class MqttServerFactory implements StreamFactory
             long authorization,
             int flags,
             int subscriptionId,
+            boolean retainAsPublished,
             String topic,
             OctetsFW payload,
             OctetsFW extension)
@@ -1689,7 +1698,7 @@ public final class MqttServerFactory implements StreamFactory
                 final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
                 final int payloadSize = payload.sizeof();
                 final int deferred = dataEx.deferred();
-                final int publishFlags = dataEx.flags();
+                final int publishFlags = retainAsPublished ? dataEx.flags() : dataEx.flags() & ~RETAIN_FLAG;
                 final int expiryInterval = dataEx.expiryInterval();
                 final String16FW contentType = dataEx.contentType();
                 final String16FW responseTopic = dataEx.responseTopic();
@@ -2096,6 +2105,13 @@ public final class MqttServerFactory implements StreamFactory
         {
             int flags = 0;
 
+            final int retainAsPublished = options & RETAIN_AS_PUBLISHED_MASK;
+
+            if (retainAsPublished == RETAIN_AS_PUBLISHED_MASK)
+            {
+                flags |= RETAIN_AS_PUBLISHED_FLAG;
+            }
+
             final int retainHandling = options & RETAIN_HANDLING_MASK;
 
             if (retainHandling == RETAIN_HANDLING_SEND)
@@ -2113,6 +2129,7 @@ public final class MqttServerFactory implements StreamFactory
         private final class Subscription
         {
             private int id = 0;
+            private int flags;
             private int ackCount;
             private int successMask;
             private int ackMask;
@@ -2154,6 +2171,11 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     doEncodeSuback(traceId, authorization, packetId, ackMask, successMask);
                 }
+            }
+
+            private boolean retainAsPublished()
+            {
+                return (flags & RETAIN_AS_PUBLISHED_FLAG) == RETAIN_AS_PUBLISHED_FLAG;
             }
         }
 
@@ -2242,7 +2264,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 final MqttBeginExFW beginEx = mqttBeginExRW.wrap(extBuffer, 0, extBuffer.capacity())
                                                            .typeId(mqttTypeId)
-                                                           .capabilities(r -> r.set(MqttCapabilities.valueOf(capabilities)))
+                                                           .capabilities(r -> r.set(valueOf(capabilities)))
                                                            .clientId(clientId)
                                                            .topic(topicFilter)
                                                            .flags(flags)
@@ -2350,7 +2372,7 @@ public final class MqttServerFactory implements StreamFactory
                     ex -> ex.set((b, o, l) -> mqttFlushExRW.wrap(b, o, l)
                                                            .typeId(mqttTypeId)
                                                            .flags(flags)
-                                                           .capabilities(c -> c.set(MqttCapabilities.valueOf(capabilities)))
+                                                           .capabilities(c -> c.set(valueOf(capabilities)))
                                                            .build()
                                                            .sizeof()));
             }
@@ -2566,7 +2588,9 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     if (payload != null)
                     {
-                        doEncodePublish(traceId, authorization, flags, subscription.id, topicFilter, payload, extension);
+                        final boolean retainAsPublished = subscription.retainAsPublished();
+                        doEncodePublish(traceId, authorization, flags, subscription.id, retainAsPublished,
+                            topicFilter, payload, extension);
                     }
                     doApplicationWindowIfNecessary(traceId, authorization);
                 }

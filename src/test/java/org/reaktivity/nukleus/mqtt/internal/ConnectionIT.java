@@ -230,7 +230,7 @@ public class ConnectionIT
         "${routeExt}/subscribe.only/server/controller",
         "${client}/subscribe.one.message/client",
         "${server}/subscribe.one.message/server"})
-    public void shouldReceivePublishAfterSendingSubscribeWtihRouteExtension() throws Exception
+    public void shouldReceivePublishAfterSendingSubscribeWithRouteExtension() throws Exception
     {
         k3po.finish();
     }
@@ -582,6 +582,26 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/timeout.before.connect/client"})
     public void shouldTimeoutBeforeConnect() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe.retain.as.published/client",
+        "${server}/subscribe.retain.as.published/server"})
+    public void shouldSubscribeRetainAsPublished() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe.ignore.retain.as.published/client",
+        "${server}/subscribe.ignore.retain.as.published/server"})
+    public void shouldSubscribeIgnoreRetainAsPublished() throws Exception
     {
         k3po.finish();
     }
