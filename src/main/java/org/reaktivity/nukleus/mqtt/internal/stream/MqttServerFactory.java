@@ -36,8 +36,9 @@ import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLIS
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_ONLY;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.SUBSCRIBE_ONLY;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.valueOf;
-import static org.reaktivity.nukleus.mqtt.internal.types.MqttSubscribeFlags.RETAIN;
+import static org.reaktivity.nukleus.mqtt.internal.types.MqttPublishFlags.RETAIN;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttSubscribeFlags.RETAIN_AS_PUBLISHED;
+import static org.reaktivity.nukleus.mqtt.internal.types.MqttSubscribeFlags.SEND_RETAINED;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_AUTHENTICATION_DATA;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_AUTHENTICATION_METHOD;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_CONTENT_TYPE;
@@ -141,6 +142,7 @@ public final class MqttServerFactory implements StreamFactory
     private static final int RETAIN_HANDLING_SEND = 0;
 
     private static final int RETAIN_FLAG = 1 << RETAIN.ordinal();
+    private static final int SEND_RETAINED_FLAG = 1 << SEND_RETAINED.ordinal();
     private static final int RETAIN_AS_PUBLISHED_FLAG = 1 << RETAIN_AS_PUBLISHED.ordinal();
 
     private static final int PUBLISH_TYPE = 0x03;
@@ -690,13 +692,13 @@ public final class MqttServerFactory implements StreamFactory
                 int reserved = payloadSize + publisher.initialPadding;
                 canPublish &= reserved <= publisher.initialBudget;
 
-                if (canPublish && publisher.debitorIndex != NO_DEBITOR_INDEX)
+                if (canPublish && publisher.debitorIndex != NO_DEBITOR_INDEX && reserved != 0)
                 {
                     final int minimum = reserved; // TODO: fragmentation
                     reserved = publisher.debitor.claim(publisher.debitorIndex, publisher.initialId, minimum, reserved);
                 }
 
-                if (canPublish && reserved != 0) // TODO: zero length messages (throttled)
+                if (canPublish && (reserved != 0 || payloadSize == 0))
                 {
                     server.onDecodePublish(traceId, authorization, reserved, flags, payload);
                     server.decodePublisherKey = 0;
@@ -2104,22 +2106,21 @@ public final class MqttServerFactory implements StreamFactory
         {
             int flags = 0;
 
-            final int retainAsPublished = options & RETAIN_AS_PUBLISHED_MASK;
-
-            if (retainAsPublished == RETAIN_AS_PUBLISHED_MASK)
+            if ((options & RETAIN_AS_PUBLISHED_MASK) != 0)
             {
                 flags |= RETAIN_AS_PUBLISHED_FLAG;
             }
 
             final int retainHandling = options & RETAIN_HANDLING_MASK;
 
-            if (retainHandling == RETAIN_HANDLING_SEND)
+            switch (retainHandling)
             {
-                flags |= 1 << RETAIN.ordinal();
-            }
-            else if (retainHandling == RETAIN_HANDLING_MASK)
-            {
+            case RETAIN_HANDLING_SEND:
+                flags |= SEND_RETAINED_FLAG;
+                break;
+            case RETAIN_HANDLING_MASK:
                 onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+                break;
             }
 
             return flags;

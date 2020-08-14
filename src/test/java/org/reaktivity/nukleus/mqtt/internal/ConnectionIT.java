@@ -605,4 +605,24 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.remove.retained/client",
+        "${server}/publish.remove.retained/server"})
+    public void shouldPublishToRemoveRetainedMessage() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.empty.message/client",
+        "${server}/publish.empty.message/server"})
+    public void shouldPublishEmptyMessage() throws Exception
+    {
+        k3po.finish();
+    }
 }
