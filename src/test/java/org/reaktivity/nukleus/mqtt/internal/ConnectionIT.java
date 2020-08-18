@@ -565,4 +565,15 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/window.test/client",
+        "${server}/window.test/server"})
+    public void windowTest() throws Exception
+    {
+        k3po.finish();
+    }
 }
