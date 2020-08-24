@@ -2743,7 +2743,7 @@ public final class MqttServerFactory implements StreamFactory
                 if (!hasPublishCapability(capabilities))
                 {
                     this.capabilities |= PUBLISH_ONLY.value();
-                    doApplicationFlush(traceId, authorization, 0, NO_FLAGS);
+                    doApplicationFlush(traceId, authorization, 0, subscription.flags);
                 }
             }
         }
