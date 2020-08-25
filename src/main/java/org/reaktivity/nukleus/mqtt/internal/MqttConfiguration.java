@@ -25,12 +25,23 @@ public class MqttConfiguration extends Configuration
     public static final String CONNECT_TIMEOUT_NAME = "nukleus.mqtt.connect.timeout";
     public static final String CLIENT_ID_NAME = "nukleus.mqtt.client.id";
     public static final String RETAIN_AVAILABLE_NAME = "nukleus.mqtt.retain.available";
+    public static final String SESSION_EXPIRY_INTERVAL_NAME = "nukleus.mqtt.session.expiry.interval";
+    public static final String MAXIMUM_QOS_NAME = "nukleus.mqtt.maximum.qos";
+    public static final String WILDCARD_SUBSCRIPTION_AVAILABLE_NAME = "nukleus.mqtt.wildcard.subscription.available";
+    public static final String SUBSCRIPTION_IDENTIFIER_AVAILABLE_NAME = "nukleus.mqtt.subscription.identifier.available";
+    public static final String SHARED_SUBSCRIPTION_AVAILABLE_NAME = "nukleus.mqtt.shared.subscription.available";
+    public static final String TOPIC_ALIAS_MAXIMUM_NAME = "nukleus.mqtt.topic.alias.maximum";
 
     private static final ConfigurationDef MQTT_CONFIG;
     public static final LongPropertyDef CONNECT_TIMEOUT;
     public static final LongPropertyDef PUBLISH_TIMEOUT;
     public static final PropertyDef<String> CLIENT_ID;
     public static final BooleanPropertyDef RETAIN_AVAILABLE;
+    public static final IntPropertyDef SESSION_EXPIRY_INTERVAL;
+    public static final BytePropertyDef MAXIMUM_QOS;
+    public static final BooleanPropertyDef WILDCARD_SUBSCRIPTION_AVAILABLE;
+    public static final BooleanPropertyDef SUBSCRIPTION_IDENTIFIER_AVAILABLE;
+    public static final BooleanPropertyDef SHARED_SUBSCRIPTION_AVAILABLE;
 
     static
     {
@@ -39,6 +50,11 @@ public class MqttConfiguration extends Configuration
         CONNECT_TIMEOUT = config.property("connect.timeout", TimeUnit.SECONDS.toSeconds(3));
         CLIENT_ID = config.property("client.id", "client");
         RETAIN_AVAILABLE = config.property("retain.available", true);
+        SESSION_EXPIRY_INTERVAL = config.property("session.expiry.interval", 0);
+        MAXIMUM_QOS = config.property("maximum.qos", (byte) 0);
+        WILDCARD_SUBSCRIPTION_AVAILABLE = config.property("wildcard.subscription.available", false);
+        SUBSCRIPTION_IDENTIFIER_AVAILABLE = config.property("subscription.identifier.available", true);
+        SHARED_SUBSCRIPTION_AVAILABLE = config.property("shared.subscription.available", false);
         MQTT_CONFIG = config;
     }
 
@@ -66,5 +82,30 @@ public class MqttConfiguration extends Configuration
     public boolean retainAvailable()
     {
         return RETAIN_AVAILABLE.get(this);
+    }
+
+    public int sessionExpiryInterval()
+    {
+        return SESSION_EXPIRY_INTERVAL.get(this);
+    }
+
+    public byte maximumQos()
+    {
+        return MAXIMUM_QOS.get(this);
+    }
+
+    public boolean wildcardSubscriptionAvailable()
+    {
+        return WILDCARD_SUBSCRIPTION_AVAILABLE.get(this);
+    }
+
+    public boolean subscriptionIdentifierAvailable()
+    {
+        return SUBSCRIPTION_IDENTIFIER_AVAILABLE.get(this);
+    }
+
+    public boolean sharedSubscriptionAvailable()
+    {
+        return SHARED_SUBSCRIPTION_AVAILABLE.get(this);
     }
 }
