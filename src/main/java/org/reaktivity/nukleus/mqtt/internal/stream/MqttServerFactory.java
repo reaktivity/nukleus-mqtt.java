@@ -210,6 +210,14 @@ public final class MqttServerFactory implements StreamFactory
     private final long connectTimeoutMillis;
     private final int encodeBudgetMax;
 
+    private final int sessionExpiryInterval;
+    private final byte maximumQos;
+    private final byte retainAvailable;
+    private final byte wildcardSubscriptionAvailable;
+    private final byte subscriptionIdentifierAvailable;
+    private final byte sharedSubscriptionAvailable;
+    private final boolean topicAliasMaximumAvailable;
+
     private final MqttValidator validator;
 
     private final Long2ObjectHashMap<MessageConsumer> correlations;
@@ -281,6 +289,13 @@ public final class MqttServerFactory implements StreamFactory
         this.clientId = config.clientId();
         this.publishTimeoutMillis = SECONDS.toMillis(config.publishTimeout());
         this.connectTimeoutMillis = SECONDS.toMillis(config.connectTimeout());
+        this.sessionExpiryInterval = config.sessionExpiryInterval();
+        this.maximumQos = config.maximumQos();
+        this.retainAvailable = config.retainAvailable() ? (byte) 1 : 0;
+        this.wildcardSubscriptionAvailable = config.wildcardSubscriptionAvailable() ? (byte) 1 : 0;
+        this.subscriptionIdentifierAvailable = config.subscriptionIdentifierAvailable() ? (byte) 1 : 0;
+        this.sharedSubscriptionAvailable = config.sharedSubscriptionAvailable() ? (byte) 1 : 0;
+        this.topicAliasMaximumAvailable = config.topicAliasMaximumAvailable();
         this.encodeBudgetMax = bufferPool.slotCapacity();
         this.validator = new MqttValidator();
     }
@@ -1772,26 +1787,56 @@ public final class MqttServerFactory implements StreamFactory
         {
             int propertiesSize = 0;
 
-            final MqttPropertyFW.Builder mqttProperty = mqttPropertyRW.wrap(propertyBuffer,
-                propertiesSize, propertyBuffer.capacity());
+            mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                          .sessionExpiry(sessionExpiryInterval)
+                          .build();
+            propertiesSize = mqttPropertyRW.limit();
+
+            mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                          .maximumQoS(maximumQos)
+                          .build();
+            propertiesSize = mqttPropertyRW.limit();
+
+            mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                          .retainAvailable(retainAvailable)
+                          .build();
+            propertiesSize = mqttPropertyRW.limit();
 
             if (topicAliasMaximum > 0)
             {
-                mqttProperty.topicAliasMaximum(topicAliasMaximum);
-                propertiesSize += mqttProperty.limit();
+                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                              .topicAliasMaximum(topicAliasMaximum)
+                              .build();
+                propertiesSize = mqttPropertyRW.limit();
             }
+
+            mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                          .wildcardSubscriptionAvailable(wildcardSubscriptionAvailable)
+                          .build();
+            propertiesSize = mqttPropertyRW.limit();
+
+            mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                          .subscriptionIdsAvailable(subscriptionIdentifierAvailable)
+                          .build();
+            propertiesSize = mqttPropertyRW.limit();
+
+            mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                          .sharedSubscriptionAvailable(sharedSubscriptionAvailable)
+                          .build();
+            propertiesSize = mqttPropertyRW.limit();
 
             if (clientId != null && clientId.capacity() == 0)
             {
-                mqttProperty.assignedClientId(MqttServerFactory.this.clientId);
-                propertiesSize += mqttProperty.limit();
+                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                              .assignedClientId(MqttServerFactory.this.clientId);
+                propertiesSize = mqttPropertyRW.limit();
             }
 
             final int propertiesSize0 = propertiesSize;
             final MqttConnackFW connack =
                     mqttConnackRW.wrap(writeBuffer, FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                        .typeAndFlags(0x20)
-                                       .remainingLength(3 + propertiesSize)
+                                       .remainingLength(3 + propertiesSize0)
                                        .flags(0x00)
                                        .reasonCode(reasonCode & 0xff)
                                        .properties(p -> p.length(propertiesSize0)
