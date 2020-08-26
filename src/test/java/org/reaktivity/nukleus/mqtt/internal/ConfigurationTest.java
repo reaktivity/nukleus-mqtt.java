@@ -20,8 +20,22 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CLIENT_ID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CLIENT_ID_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CONNECT_TIMEOUT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CONNECT_TIMEOUT_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.MAXIMUM_QOS;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.MAXIMUM_QOS_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.RETAIN_AVAILABLE;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.RETAIN_AVAILABLE_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SESSION_EXPIRY_INTERVAL;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SESSION_EXPIRY_INTERVAL_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SHARED_SUBSCRIPTION_AVAILABLE;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SHARED_SUBSCRIPTION_AVAILABLE_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SUBSCRIPTION_IDENTIFIERS_AVAILABLE;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.TOPIC_ALIAS_MAXIMUM_AVAILABLE;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.TOPIC_ALIAS_MAXIMUM_AVAILABLE_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.WILDCARD_SUBSCRIPTION_AVAILABLE;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.WILDCARD_SUBSCRIPTION_AVAILABLE_NAME;
 
 import org.junit.Test;
 
@@ -33,5 +47,12 @@ public class ConfigurationTest
         assertEquals(CLIENT_ID.name(), CLIENT_ID_NAME);
         assertEquals(PUBLISH_TIMEOUT.name(), PUBLISH_TIMEOUT_NAME);
         assertEquals(CONNECT_TIMEOUT.name(), CONNECT_TIMEOUT_NAME);
+        assertEquals(RETAIN_AVAILABLE.name(), RETAIN_AVAILABLE_NAME);
+        assertEquals(SESSION_EXPIRY_INTERVAL.name(), SESSION_EXPIRY_INTERVAL_NAME);
+        assertEquals(MAXIMUM_QOS.name(), MAXIMUM_QOS_NAME);
+        assertEquals(TOPIC_ALIAS_MAXIMUM_AVAILABLE.name(), TOPIC_ALIAS_MAXIMUM_AVAILABLE_NAME);
+        assertEquals(WILDCARD_SUBSCRIPTION_AVAILABLE.name(), WILDCARD_SUBSCRIPTION_AVAILABLE_NAME);
+        assertEquals(SUBSCRIPTION_IDENTIFIERS_AVAILABLE.name(), SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME);
+        assertEquals(SHARED_SUBSCRIPTION_AVAILABLE.name(), SHARED_SUBSCRIPTION_AVAILABLE_NAME);
     }
 }
