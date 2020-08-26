@@ -1264,7 +1264,7 @@ public final class MqttServerFactory implements StreamFactory
                         reasonCode = PROTOCOL_ERROR;
                         break decode;
                     }
-                    topicAliasMaximum = (short) (mqttProperty.topicAliasMaximum() & 0xFFFF);
+                    topicAliasMaximum = topicAliasMaximumAvailable ? (short) (mqttProperty.topicAliasMaximum() & 0xFFFF) : 0;
                     break;
                 case KIND_SESSION_EXPIRY:
                 case KIND_RECEIVE_MAXIMUM:
