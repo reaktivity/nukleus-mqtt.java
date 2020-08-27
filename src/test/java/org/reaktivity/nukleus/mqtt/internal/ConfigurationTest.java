@@ -17,40 +17,41 @@ package org.reaktivity.nukleus.mqtt.internal;
 
 import static org.junit.Assert.assertEquals;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CLIENT_ID;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CLIENT_ID_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CONNECT_TIMEOUT;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CONNECT_TIMEOUT_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.MAXIMUM_QOS;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.MAXIMUM_QOS_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.RETAIN_AVAILABLE;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.RETAIN_AVAILABLE_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SESSION_EXPIRY_INTERVAL;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SESSION_EXPIRY_INTERVAL_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SHARED_SUBSCRIPTION_AVAILABLE;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SHARED_SUBSCRIPTION_AVAILABLE_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SUBSCRIPTION_IDENTIFIERS_AVAILABLE;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.TOPIC_ALIAS_MAXIMUM_AVAILABLE;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.TOPIC_ALIAS_MAXIMUM_AVAILABLE_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.TOPIC_ALIAS_MAXIMUM;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.WILDCARD_SUBSCRIPTION_AVAILABLE;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.WILDCARD_SUBSCRIPTION_AVAILABLE_NAME;
 
 import org.junit.Test;
 
 public class ConfigurationTest
 {
+    static final String PUBLISH_TIMEOUT_NAME = "nukleus.mqtt.publish.timeout";
+    static final String CONNECT_TIMEOUT_NAME = "nukleus.mqtt.connect.timeout";
+    static final String CLIENT_ID_NAME = "nukleus.mqtt.client.id";
+    static final String SESSION_EXPIRY_INTERVAL_NAME = "nukleus.mqtt.session.expiry.interval";
+    static final String MAXIMUM_QOS_NAME = "nukleus.mqtt.maximum.qos";
+    static final String RETAIN_AVAILABLE_NAME = "nukleus.mqtt.retain.available";
+    static final String TOPIC_ALIAS_MAXIMUM_NAME = "nukleus.mqtt.topic.alias.maximum";
+    static final String WILDCARD_SUBSCRIPTION_AVAILABLE_NAME = "nukleus.mqtt.wildcard.subscription.available";
+    static final String SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME = "nukleus.mqtt.subscription.identifiers.available";
+    static final String SHARED_SUBSCRIPTION_AVAILABLE_NAME = "nukleus.mqtt.shared.subscription.available";
+
     @Test
     public void shouldVerifyConstants() throws Exception
     {
         assertEquals(CLIENT_ID.name(), CLIENT_ID_NAME);
         assertEquals(PUBLISH_TIMEOUT.name(), PUBLISH_TIMEOUT_NAME);
         assertEquals(CONNECT_TIMEOUT.name(), CONNECT_TIMEOUT_NAME);
-        assertEquals(RETAIN_AVAILABLE.name(), RETAIN_AVAILABLE_NAME);
         assertEquals(SESSION_EXPIRY_INTERVAL.name(), SESSION_EXPIRY_INTERVAL_NAME);
         assertEquals(MAXIMUM_QOS.name(), MAXIMUM_QOS_NAME);
-        assertEquals(TOPIC_ALIAS_MAXIMUM_AVAILABLE.name(), TOPIC_ALIAS_MAXIMUM_AVAILABLE_NAME);
+        assertEquals(RETAIN_AVAILABLE.name(), RETAIN_AVAILABLE_NAME);
+        assertEquals(TOPIC_ALIAS_MAXIMUM.name(), TOPIC_ALIAS_MAXIMUM_NAME);
         assertEquals(WILDCARD_SUBSCRIPTION_AVAILABLE.name(), WILDCARD_SUBSCRIPTION_AVAILABLE_NAME);
         assertEquals(SUBSCRIPTION_IDENTIFIERS_AVAILABLE.name(), SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME);
         assertEquals(SHARED_SUBSCRIPTION_AVAILABLE.name(), SHARED_SUBSCRIPTION_AVAILABLE_NAME);

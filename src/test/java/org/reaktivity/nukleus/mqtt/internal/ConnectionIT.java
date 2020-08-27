@@ -17,9 +17,9 @@ package org.reaktivity.nukleus.mqtt.internal;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CLIENT_ID_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.CLIENT_ID_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.TOPIC_ALIAS_MAXIMUM_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.TOPIC_ALIAS_MAXIMUM_AVAILABLE_NAME;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
 import org.junit.Rule;
@@ -147,7 +147,7 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/publish.message.with.topic.alias/client",
         "${server}/publish.message.with.topic.alias/server"})
-    @Configure(name = TOPIC_ALIAS_MAXIMUM_AVAILABLE_NAME, value = "true")
+    @Configure(name = TOPIC_ALIAS_MAXIMUM_NAME, value = "true")
     public void shouldPublishMessageWithTopicAlias() throws Exception
     {
         k3po.finish();

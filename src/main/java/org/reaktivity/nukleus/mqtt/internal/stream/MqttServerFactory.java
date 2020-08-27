@@ -212,11 +212,11 @@ public final class MqttServerFactory implements StreamFactory
 
     private final int sessionExpiryInterval;
     private final byte maximumQos;
-    private final byte retainAvailable;
-    private final byte wildcardSubscriptionAvailable;
-    private final byte subscriptionIdentifierAvailable;
-    private final byte sharedSubscriptionAvailable;
-    private final boolean topicAliasMaximumAvailable;
+    private final byte retainedMessages;
+    private final short topicAliasMaximumDefault;
+    private final byte wildcardSubscriptions;
+    private final byte subscriptionIdentifiers;
+    private final byte sharedSubscriptions;
 
     private final MqttValidator validator;
 
@@ -291,11 +291,11 @@ public final class MqttServerFactory implements StreamFactory
         this.connectTimeoutMillis = SECONDS.toMillis(config.connectTimeout());
         this.sessionExpiryInterval = config.sessionExpiryInterval();
         this.maximumQos = config.maximumQos();
-        this.retainAvailable = config.retainAvailable() ? (byte) 1 : 0;
-        this.wildcardSubscriptionAvailable = config.wildcardSubscriptionAvailable() ? (byte) 1 : 0;
-        this.subscriptionIdentifierAvailable = config.subscriptionIdentifierAvailable() ? (byte) 1 : 0;
-        this.sharedSubscriptionAvailable = config.sharedSubscriptionAvailable() ? (byte) 1 : 0;
-        this.topicAliasMaximumAvailable = config.topicAliasMaximumAvailable();
+        this.retainedMessages = config.retainAvailable() ? (byte) 1 : 0;
+        this.wildcardSubscriptions = config.wildcardSubscriptionAvailable() ? (byte) 1 : 0;
+        this.subscriptionIdentifiers = config.subscriptionIdentifierAvailable() ? (byte) 1 : 0;
+        this.sharedSubscriptions = config.sharedSubscriptionAvailable() ? (byte) 1 : 0;
+        this.topicAliasMaximumDefault = config.topicAliasMaximum();
         this.encodeBudgetMax = bufferPool.slotCapacity();
         this.validator = new MqttValidator();
     }
@@ -1264,7 +1264,9 @@ public final class MqttServerFactory implements StreamFactory
                         reasonCode = PROTOCOL_ERROR;
                         break decode;
                     }
-                    topicAliasMaximum = topicAliasMaximumAvailable ? (short) (mqttProperty.topicAliasMaximum() & 0xFFFF) : 0;
+                    final short topicAliasMaximum = (short) (mqttProperty.topicAliasMaximum() & 0xFFFF);
+                    this.topicAliasMaximum = topicAliasMaximum > topicAliasMaximumDefault ? topicAliasMaximumDefault :
+                                                 topicAliasMaximum;
                     break;
                 case KIND_SESSION_EXPIRY:
                 case KIND_RECEIVE_MAXIMUM:
@@ -1797,10 +1799,13 @@ public final class MqttServerFactory implements StreamFactory
                           .build();
             propertiesSize = mqttPropertyRW.limit();
 
-            mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                          .retainAvailable(retainAvailable)
-                          .build();
-            propertiesSize = mqttPropertyRW.limit();
+            if (retainedMessages == 0)
+            {
+                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                              .retainAvailable(retainedMessages)
+                              .build();
+                propertiesSize = mqttPropertyRW.limit();
+            }
 
             if (topicAliasMaximum > 0)
             {
@@ -1811,19 +1816,25 @@ public final class MqttServerFactory implements StreamFactory
             }
 
             mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                          .wildcardSubscriptionAvailable(wildcardSubscriptionAvailable)
+                          .wildcardSubscriptionAvailable(wildcardSubscriptions)
                           .build();
             propertiesSize = mqttPropertyRW.limit();
 
-            mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                          .subscriptionIdsAvailable(subscriptionIdentifierAvailable)
-                          .build();
-            propertiesSize = mqttPropertyRW.limit();
+            if (subscriptionIdentifiers == 0)
+            {
+                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                              .subscriptionIdsAvailable(subscriptionIdentifiers)
+                              .build();
+                propertiesSize = mqttPropertyRW.limit();
+            }
 
-            mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                          .sharedSubscriptionAvailable(sharedSubscriptionAvailable)
-                          .build();
-            propertiesSize = mqttPropertyRW.limit();
+            if (sharedSubscriptions > 0)
+            {
+                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                              .sharedSubscriptionAvailable(sharedSubscriptions)
+                              .build();
+                propertiesSize = mqttPropertyRW.limit();
+            }
 
             if (clientId != null && clientId.capacity() == 0)
             {
