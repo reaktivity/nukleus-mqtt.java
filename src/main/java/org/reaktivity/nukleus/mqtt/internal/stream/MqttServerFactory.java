@@ -1284,7 +1284,8 @@ public final class MqttServerFactory implements StreamFactory
                         break decode;
                     }
                     final short topicAliasMaximum = (short) (mqttProperty.topicAliasMaximum() & 0xFFFF);
-                    this.topicAliasMaximum = topicAliasMaximum > topicAliasMaximumDefault ? topicAliasMaximumDefault :
+                    this.topicAliasMaximum = topicAliasMaximumDefault >= 0 && topicAliasMaximum > topicAliasMaximumDefault ?
+                                                 topicAliasMaximumDefault :
                                                  topicAliasMaximum;
                     break;
                 case KIND_SESSION_EXPIRY:
@@ -1817,15 +1818,21 @@ public final class MqttServerFactory implements StreamFactory
         {
             int propertiesSize = 0;
 
-            mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                          .sessionExpiry(sessionExpiryInterval)
-                          .build();
-            propertiesSize = mqttPropertyRW.limit();
+            if (sessionExpiryInterval >= 0)
+            {
+                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                              .sessionExpiry(sessionExpiryInterval)
+                              .build();
+                propertiesSize = mqttPropertyRW.limit();
+            }
 
-            mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                          .maximumQoS(maximumQos)
-                          .build();
-            propertiesSize = mqttPropertyRW.limit();
+            if (maximumQos >= 0)
+            {
+                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                              .maximumQoS(maximumQos)
+                              .build();
+                propertiesSize = mqttPropertyRW.limit();
+            }
 
             if (retainedMessages == 0)
             {
@@ -1843,10 +1850,13 @@ public final class MqttServerFactory implements StreamFactory
                 propertiesSize = mqttPropertyRW.limit();
             }
 
-            mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                          .wildcardSubscriptionAvailable(wildcardSubscriptions)
-                          .build();
-            propertiesSize = mqttPropertyRW.limit();
+            if (wildcardSubscriptions == 0)
+            {
+                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                              .wildcardSubscriptionAvailable(wildcardSubscriptions)
+                              .build();
+                propertiesSize = mqttPropertyRW.limit();
+            }
 
             if (subscriptionIdentifiers == 0)
             {
@@ -1856,7 +1866,7 @@ public final class MqttServerFactory implements StreamFactory
                 propertiesSize = mqttPropertyRW.limit();
             }
 
-            if (sharedSubscriptions > 0)
+            if (sharedSubscriptions == 0)
             {
                 mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
                               .sharedSubscriptionAvailable(sharedSubscriptions)

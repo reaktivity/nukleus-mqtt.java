@@ -39,10 +39,10 @@ public class MqttConfiguration extends Configuration
         PUBLISH_TIMEOUT = config.property("publish.timeout", TimeUnit.SECONDS.toSeconds(30));
         CONNECT_TIMEOUT = config.property("connect.timeout", TimeUnit.SECONDS.toSeconds(3));
         CLIENT_ID = config.property("client.id", "client");
-        SESSION_EXPIRY_INTERVAL = config.property("session.expiry.interval", 0);
-        MAXIMUM_QOS = config.property("maximum.qos", (byte) 0);
+        SESSION_EXPIRY_INTERVAL = config.property("session.expiry.interval", -1);
+        MAXIMUM_QOS = config.property("maximum.qos", (byte) -1);
         RETAIN_AVAILABLE = config.property("retain.available", true);
-        TOPIC_ALIAS_MAXIMUM = config.property("topic.alias.maximum", (short) 0);
+        TOPIC_ALIAS_MAXIMUM = config.property("topic.alias.maximum", (short) -1);
         WILDCARD_SUBSCRIPTION_AVAILABLE = config.property("wildcard.subscription.available", false);
         SUBSCRIPTION_IDENTIFIERS_AVAILABLE = config.property("subscription.identifiers.available", true);
         SHARED_SUBSCRIPTION_AVAILABLE = config.property("shared.subscription.available", false);
