@@ -297,6 +297,15 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
+        "${client}/connect/invalid.authentication.method/client"})
+    public void shouldRejectBadAuthenticationMethod() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
         "${client}/subscribe/invalid.fixed.header.flags/client"})
     public void shouldRejectMalformedSubscribePacket() throws Exception
     {

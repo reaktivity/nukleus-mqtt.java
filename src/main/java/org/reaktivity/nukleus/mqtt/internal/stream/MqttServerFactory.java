@@ -22,6 +22,7 @@ import static org.reaktivity.nukleus.budget.BudgetCreditor.NO_CREDITOR_INDEX;
 import static org.reaktivity.nukleus.budget.BudgetDebitor.NO_DEBITOR_INDEX;
 import static org.reaktivity.nukleus.buffer.BufferPool.NO_SLOT;
 import static org.reaktivity.nukleus.concurrent.Signaler.NO_CANCEL_ID;
+import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.BAD_AUTHENTICATION_METHOD;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.KEEP_ALIVE_TIMEOUT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.MALFORMED_PACKET;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NORMAL_DISCONNECT;
@@ -1275,6 +1276,8 @@ public final class MqttServerFactory implements StreamFactory
                 case KIND_REQUEST_PROBLEM_INFORMATION:
                 case KIND_USER_PROPERTY:
                 case KIND_AUTHENTICATION_METHOD:
+                    reasonCode = BAD_AUTHENTICATION_METHOD;
+                    break decode;
                 case KIND_AUTHENTICATION_DATA:
                     // TODO
                     break;
