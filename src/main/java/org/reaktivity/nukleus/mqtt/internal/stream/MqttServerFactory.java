@@ -26,6 +26,7 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.BAD_AUTHENTIC
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.KEEP_ALIVE_TIMEOUT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.MALFORMED_PACKET;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NORMAL_DISCONNECT;
+import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NOT_AUTHORIZED;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.NO_SUBSCRIPTION_EXISTED;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.PROTOCOL_ERROR;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.SUCCESS;
@@ -38,6 +39,7 @@ import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLIS
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.SUBSCRIBE_ONLY;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.valueOf;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttPublishFlags.RETAIN;
+import static org.reaktivity.nukleus.mqtt.internal.types.MqttSubscribeFlags.NO_LOCAL;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttSubscribeFlags.RETAIN_AS_PUBLISHED;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttSubscribeFlags.SEND_RETAINED;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_AUTHENTICATION_DATA;
@@ -137,14 +139,18 @@ public final class MqttServerFactory implements StreamFactory
 
     private static final int NO_FLAGS = 0b0000_0000;
     private static final int PUBLISH_FLAGS_MASK = 0b0000_1111;
-    private static final int RETAIN_HANDLING_MASK = 0b0011_0000;
+    private static final int NO_LOCAL_FLAG_MASK = 0b0000_0100;
     private static final int RETAIN_AS_PUBLISHED_MASK = 0b0000_1000;
+    private static final int RETAIN_HANDLING_MASK = 0b0011_0000;
+    private static final int WILL_QOS_MASK = 0b0001_1000;
+    private static final int WILL_RETAIN_MASK = 0b0010_0000;
 
     private static final int RETAIN_HANDLING_SEND = 0;
 
     private static final int RETAIN_FLAG = 1 << RETAIN.ordinal();
     private static final int SEND_RETAINED_FLAG = 1 << SEND_RETAINED.ordinal();
     private static final int RETAIN_AS_PUBLISHED_FLAG = 1 << RETAIN_AS_PUBLISHED.ordinal();
+    private static final int NO_LOCAL_FLAG = 1 << NO_LOCAL.ordinal();
 
     private static final int PUBLISH_TYPE = 0x03;
 
@@ -235,6 +241,7 @@ public final class MqttServerFactory implements StreamFactory
     private final byte wildcardSubscriptions;
     private final byte subscriptionIdentifiers;
     private final byte sharedSubscriptions;
+    private final boolean noLocal;
 
     private final MqttValidator validator;
 
@@ -314,6 +321,7 @@ public final class MqttServerFactory implements StreamFactory
         this.subscriptionIdentifiers = config.subscriptionIdentifierAvailable() ? (byte) 1 : 0;
         this.sharedSubscriptions = config.sharedSubscriptionAvailable() ? (byte) 1 : 0;
         this.topicAliasMaximumDefault = config.topicAliasMaximum();
+        this.noLocal = config.noLocal();
         this.encodeBudgetMax = bufferPool.slotCapacity();
         this.validator = new MqttValidator();
     }
@@ -615,18 +623,33 @@ public final class MqttServerFactory implements StreamFactory
             int reasonCode = SUCCESS;
 
             final MqttConnectFW mqttConnect = mqttConnectRO.tryWrap(buffer, offset, limit);
+            int flags;
             if (mqttConnect == null)
             {
                 reasonCode = PROTOCOL_ERROR;
             }
             else if ((mqttConnect.typeAndFlags() & 0b1111_1111) != CONNECT_FIXED_HEADER ||
-                     (mqttConnect.flags() & 0b0000_0001) != 0b0000_0000)
+                     ((flags = mqttConnect.flags()) & 0b0000_0001) != 0b0000_0000)
             {
                 reasonCode = MALFORMED_PACKET;
+            }
+            else if ((flags & WILL_QOS_MASK) == WILL_QOS_MASK ||
+                         ((flags & WILL_QOS_MASK) != 0b0000_0000 || (flags & WILL_RETAIN_MASK) == WILL_RETAIN_MASK) &&
+                         !checkWillFlag(flags))
+            {
+                reasonCode = MALFORMED_PACKET;
+            }
+            else if ((flags & 0b1100_0000) != 0b0000_0000)
+            {
+                reasonCode = NOT_AUTHORIZED;
             }
             else if (!"MQTT".equals(mqttConnect.protocolName().asString()) || mqttConnect.protocolVersion() != 5)
             {
                 reasonCode = UNSUPPORTED_PROTOCOL_VERSION;
+            }
+            else if (checkWillFlag(flags))
+            {
+                reasonCode = MALFORMED_PACKET;
             }
 
             if (reasonCode == 0)
@@ -643,6 +666,12 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         return progress;
+    }
+
+    private boolean checkWillFlag(
+        int flags)
+    {
+        return (flags & 0b0000_0100) == 0b0000_0100;
     }
 
     private int decodePublish(
@@ -1466,6 +1495,13 @@ public final class MqttServerFactory implements StreamFactory
                         final int flags = calculateSubscribeFlags(traceId, authorization, options);
                         subscription.flags = flags;
 
+                        if (!noLocal && (flags & NO_LOCAL_FLAG) != 0)
+                        {
+                            onDecodeError(traceId, authorization, PROTOCOL_ERROR);
+                            decoder = decodeIgnoreAll;
+                            break;
+                        }
+
                         MqttServerStream stream = streams.computeIfAbsent(topicKey, s ->
                                                     new MqttServerStream(resolvedId, packetId, filter));
                         stream.onApplicationSubscribe(subscription);
@@ -2176,6 +2212,11 @@ public final class MqttServerFactory implements StreamFactory
             int options)
         {
             int flags = 0;
+
+            if ((options & NO_LOCAL_FLAG_MASK) != 0)
+            {
+                flags |= NO_LOCAL_FLAG;
+            }
 
             if ((options & RETAIN_AS_PUBLISHED_MASK) != 0)
             {

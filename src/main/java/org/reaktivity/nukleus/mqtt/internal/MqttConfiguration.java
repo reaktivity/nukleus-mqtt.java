@@ -32,6 +32,7 @@ public class MqttConfiguration extends Configuration
     public static final BooleanPropertyDef WILDCARD_SUBSCRIPTION_AVAILABLE;
     public static final BooleanPropertyDef SUBSCRIPTION_IDENTIFIERS_AVAILABLE;
     public static final BooleanPropertyDef SHARED_SUBSCRIPTION_AVAILABLE;
+    public static final BooleanPropertyDef NO_LOCAL;
 
     static
     {
@@ -46,6 +47,7 @@ public class MqttConfiguration extends Configuration
         WILDCARD_SUBSCRIPTION_AVAILABLE = config.property("wildcard.subscription.available", false);
         SUBSCRIPTION_IDENTIFIERS_AVAILABLE = config.property("subscription.identifiers.available", true);
         SHARED_SUBSCRIPTION_AVAILABLE = config.property("shared.subscription.available", false);
+        NO_LOCAL = config.property("no.local", true);
         MQTT_CONFIG = config;
     }
 
@@ -103,5 +105,10 @@ public class MqttConfiguration extends Configuration
     public boolean sharedSubscriptionAvailable()
     {
         return SHARED_SUBSCRIPTION_AVAILABLE.get(this);
+    }
+
+    public boolean noLocal()
+    {
+        return NO_LOCAL.get(this);
     }
 }
