@@ -1294,6 +1294,8 @@ public final class MqttServerFactory implements StreamFactory
                 case KIND_REQUEST_RESPONSE_INFORMATION:
                 case KIND_REQUEST_PROBLEM_INFORMATION:
                 case KIND_USER_PROPERTY:
+                    // TODO
+                    break;
                 case KIND_AUTHENTICATION_METHOD:
                     reasonCode = BAD_AUTHENTICATION_METHOD;
                     break decode;
