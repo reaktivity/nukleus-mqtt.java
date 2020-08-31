@@ -18,7 +18,11 @@ package org.reaktivity.nukleus.mqtt.internal;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.CLIENT_ID_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.MAXIMUM_QOS_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.RETAIN_AVAILABLE_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.SESSION_EXPIRY_INTERVAL_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.SHARED_SUBSCRIPTION_AVAILABLE_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.WILDCARD_SUBSCRIPTION_AVAILABLE_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
@@ -749,6 +753,74 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     public void shouldPublishEmptyMessage() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/connect/session.expires.on.close/client"})
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
+    public void shouldConnectWithSessionExpireOnNetworkClose() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/connect/no.qos/client"})
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = MAXIMUM_QOS_NAME, value = "0")
+    public void shouldConnectWithNoQos() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/connect/no.retain/client"})
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = RETAIN_AVAILABLE_NAME, value = "false")
+    public void shouldConnectWithNoRetain() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/connect/no.wildcard.subscriptions/client"})
+    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    public void shouldConnectWithNoWildcardSubscriptions() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/connect/no.subscription.identifiers/client"})
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    public void shouldConnectWithNoSubscriptionIdentifiers() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/connect/no.shared.subscriptions/client"})
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    public void shouldConnectWithNoSharedSubscriptions() throws Exception
     {
         k3po.finish();
     }
