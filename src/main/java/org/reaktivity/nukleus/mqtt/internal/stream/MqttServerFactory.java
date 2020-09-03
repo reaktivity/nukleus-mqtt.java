@@ -213,6 +213,9 @@ public final class MqttServerFactory implements StreamFactory
     private final String16FW willTopicRO = new String16FW(BIG_ENDIAN);
     private final String16FW usernameRO = new String16FW(BIG_ENDIAN);
 
+    private final OctetsFW willPayloadRO = new OctetsFW();
+    private final OctetsFW passwordRO = new OctetsFW();
+
     private final MqttPublishHeader mqttPublishHeaderRO = new MqttPublishHeader();
     private final MqttConnectPayload mqttConnectPayloadRO = new MqttConnectPayload();
 
@@ -2915,8 +2918,8 @@ public final class MqttServerFactory implements StreamFactory
                 willTopic = willTopicRO.tryWrap(buffer, payloadOffset, limit);
                 payloadOffset = willTopicRO.limit();
 
-                willPayload = octetsRO.tryWrap(buffer, payloadOffset, limit);
-                payloadOffset = octetsRO.limit();
+                willPayload = willPayloadRO.tryWrap(buffer, payloadOffset, limit);
+                payloadOffset = willPayloadRO.limit();
             }
 
             if ((flags & USERNAME_MASK) != 0)
@@ -2927,8 +2930,8 @@ public final class MqttServerFactory implements StreamFactory
 
             if ((flags & PASSWORD_MASK) != 0)
             {
-                password = octetsRO.tryWrap(buffer, payloadOffset, limit);
-                payloadOffset = octetsRO.limit();
+                password = passwordRO.tryWrap(buffer, payloadOffset, limit);
+                payloadOffset = passwordRO.limit();
             }
         }
     }
