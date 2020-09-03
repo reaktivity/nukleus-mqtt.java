@@ -143,6 +143,7 @@ public final class MqttServerFactory implements StreamFactory
     private static final int NO_LOCAL_FLAG_MASK = 0b0000_0100;
     private static final int RETAIN_AS_PUBLISHED_MASK = 0b0000_1000;
     private static final int RETAIN_HANDLING_MASK = 0b0011_0000;
+    private static final int BASIC_AUTHENTICATION_MASK = 0b1100_0000;
 
     private static final int WILL_FLAG_MASK = 0b0000_0100;
     private static final int WILL_QOS_MASK = 0b0001_1000;
@@ -649,10 +650,6 @@ public final class MqttServerFactory implements StreamFactory
             {
                 reasonCode = MALFORMED_PACKET;
             }
-            else if ((flags & 0b1100_0000) != 0b0000_0000)
-            {
-                reasonCode = NOT_AUTHORIZED;
-            }
             else if (!"MQTT".equals(mqttConnect.protocolName().asString()) || mqttConnect.protocolVersion() != 5)
             {
                 reasonCode = UNSUPPORTED_PROTOCOL_VERSION;
@@ -660,6 +657,10 @@ public final class MqttServerFactory implements StreamFactory
             else if (checkWillFlag(flags))
             {
                 reasonCode = MALFORMED_PACKET;
+            }
+            else if ((flags & BASIC_AUTHENTICATION_MASK) != 0b0000_0000)
+            {
+                reasonCode = NOT_AUTHORIZED;
             }
 
             if (reasonCode == 0)
@@ -2905,29 +2906,29 @@ public final class MqttServerFactory implements StreamFactory
             final int offset = payload.offset();
             final int limit = payload.limit();
 
-            int payloadSize = 0;
+            int payloadOffset = offset;
             if ((flags & WILL_FLAG_MASK) != 0)
             {
-                willPropertiesRO.decodeProperties(buffer, offset, limit);
-                payloadSize = mqttPropertiesRO.limit();
+                willPropertiesRO.decodeProperties(buffer, payloadOffset, limit);
+                payloadOffset = mqttPropertiesRO.limit();
 
-                willTopic = willTopicRO.tryWrap(buffer, payloadSize, limit);
-                payloadSize = willTopicRO.limit();
+                willTopic = willTopicRO.tryWrap(buffer, payloadOffset, limit);
+                payloadOffset = willTopicRO.limit();
 
-                willPayload = octetsRO.tryWrap(buffer, payloadSize, limit);
-                payloadSize = octetsRO.limit();
+                willPayload = octetsRO.tryWrap(buffer, payloadOffset, limit);
+                payloadOffset = octetsRO.limit();
             }
 
             if ((flags & USERNAME_MASK) != 0)
             {
-                username = usernameRO.tryWrap(buffer, payloadSize, limit);
-                payloadSize = usernameRO.limit();
+                username = usernameRO.tryWrap(buffer, payloadOffset, limit);
+                payloadOffset = usernameRO.limit();
             }
 
             if ((flags & PASSWORD_MASK) != 0)
             {
-                password = octetsRO.tryWrap(buffer, payloadSize, limit);
-                payloadSize = octetsRO.limit();
+                password = octetsRO.tryWrap(buffer, payloadOffset, limit);
+                payloadOffset = octetsRO.limit();
             }
         }
     }
