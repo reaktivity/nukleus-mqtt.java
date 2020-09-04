@@ -648,12 +648,11 @@ public final class MqttServerFactory implements StreamFactory
                 }
 
                 int flags = mqttConnect.flags();
-                if ((mqttConnect.typeAndFlags() & 0b1111_1111) != CONNECT_FIXED_HEADER ||
-                        (flags & CONNECT_RESERVED_MASK) != 0b0000_0000)
+                if ((mqttConnect.typeAndFlags() & 0b1111_1111) != CONNECT_FIXED_HEADER || (flags & CONNECT_RESERVED_MASK) != 0)
                 {
                     reasonCode = MALFORMED_PACKET;
                 }
-                else if ((invalidWillQos(flags) || isSetWillQos(flags) || isSetWillRetain(flags)) && !isSetWillFlag(flags))
+                else if (!isSetWillFlag(flags) && (isSetWillQos(flags) || isSetWillRetain(flags)) || invalidWillQos(flags))
                 {
                     reasonCode = MALFORMED_PACKET;
                 }
@@ -665,7 +664,7 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     reasonCode = MALFORMED_PACKET;
                 }
-                else if ((flags & BASIC_AUTHENTICATION_MASK) != 0b0000_0000)
+                else if (isSetBasicAuthentication(flags))
                 {
                     reasonCode = NOT_AUTHORIZED;
                 }
@@ -1354,7 +1353,11 @@ public final class MqttServerFactory implements StreamFactory
 
             final String16FW clientIdentifier = packet.clientId();
 
-            MqttConnectPayload payload = mqttConnectPayloadRO.decode(packet);
+            if (reasonCode == 0)
+            {
+                MqttConnectPayload payload = mqttConnectPayloadRO.decode(packet);
+                reasonCode = payload.reasonCode;
+            }
 
             doCancelConnectTimeoutIfNecessary();
             doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
@@ -2900,8 +2903,27 @@ public final class MqttServerFactory implements StreamFactory
         return (flags & WILL_FLAG_MASK) != 0;
     }
 
+    private static boolean isSetUsername(
+        int flags)
+    {
+        return (flags & USERNAME_MASK) != 0;
+    }
+
+    private static boolean isSetPassword(
+        int flags)
+    {
+        return (flags & PASSWORD_MASK) != 0;
+    }
+
+    private static boolean isSetBasicAuthentication(
+        int flags)
+    {
+        return (flags & BASIC_AUTHENTICATION_MASK) != 0;
+    }
+
     private final class MqttConnectPayload
     {
+        private byte reasonCode = SUCCESS;
         private MqttWillProperties willProperties = null;
         private String16FW willTopic = null;
         private OctetsFW willPayload = null;
@@ -2910,6 +2932,7 @@ public final class MqttServerFactory implements StreamFactory
 
         private void reset()
         {
+            this.reasonCode = SUCCESS;
             this.willTopic = null;
             this.willPayload = null;
             this.username = null;
@@ -2928,28 +2951,56 @@ public final class MqttServerFactory implements StreamFactory
             final int limit = payload.limit();
 
             int progress = offset;
-            if ((flags & WILL_FLAG_MASK) != 0)
+            decode:
             {
-                willProperties = willPropertiesRO.decode(buffer, progress, limit);
-                progress = mqttPropertiesRO.limit();
+                if (isSetWillFlag(flags))
+                {
+                    willProperties = willPropertiesRO.decode(buffer, progress, limit);
+                    if (willProperties == null)
+                    {
+                        reasonCode = MALFORMED_PACKET;
+                        break decode;
+                    }
+                    progress = mqttPropertiesRO.limit();
 
-                willTopic = willTopicRO.tryWrap(buffer, progress, limit);
-                progress = willTopicRO.limit();
+                    willTopic = willTopicRO.tryWrap(buffer, progress, limit);
+                    if (willTopic == null)
+                    {
+                        reasonCode = MALFORMED_PACKET;
+                        break decode;
+                    }
+                    progress = willTopicRO.limit();
 
-                willPayload = willPayloadRO.tryWrap(buffer, progress, limit);
-                progress = willPayloadRO.limit();
-            }
+                    willPayload = willPayloadRO.tryWrap(buffer, progress, limit);
+                    if (willPayload == null)
+                    {
+                        reasonCode = MALFORMED_PACKET;
+                        break decode;
+                    }
+                    progress = willPayloadRO.limit();
+                }
 
-            if ((flags & USERNAME_MASK) != 0)
-            {
-                username = usernameRO.tryWrap(buffer, progress, limit);
-                progress = usernameRO.limit();
-            }
+                if (isSetUsername(flags))
+                {
+                    username = usernameRO.tryWrap(buffer, progress, limit);
+                    if (username == null)
+                    {
+                        reasonCode = MALFORMED_PACKET;
+                        break decode;
+                    }
+                    progress = usernameRO.limit();
+                }
 
-            if ((flags & PASSWORD_MASK) != 0)
-            {
-                password = passwordRO.tryWrap(buffer, progress, limit);
-                progress = passwordRO.limit();
+                if (isSetPassword(flags))
+                {
+                    password = passwordRO.tryWrap(buffer, progress, limit);
+                    if (password == null)
+                    {
+                        reasonCode = MALFORMED_PACKET;
+                        break decode;
+                    }
+                    progress = passwordRO.limit();
+                }
             }
             return this;
         }
@@ -3044,12 +3095,13 @@ public final class MqttServerFactory implements StreamFactory
                     }
                     decodeProgress = mqttProperty.limit();
                 }
+                return this;
             }
             else
             {
                 reasonCode = MALFORMED_PACKET;
+                return null;
             }
-            return this;
         }
     }
 
