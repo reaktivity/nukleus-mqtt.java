@@ -43,7 +43,7 @@ public class MqttConfiguration extends Configuration
         SESSION_EXPIRY_INTERVAL = config.property("session.expiry.interval", 0);
         MAXIMUM_QOS = config.property("maximum.qos", (byte) 0);
         RETAIN_AVAILABLE = config.property("retain.available", true);
-        TOPIC_ALIAS_MAXIMUM = config.property("topic.alias.maximum", (short) -1);
+        TOPIC_ALIAS_MAXIMUM = config.property("topic.alias.maximum", (short) 0);
         WILDCARD_SUBSCRIPTION_AVAILABLE = config.property("wildcard.subscription.available", false);
         SUBSCRIPTION_IDENTIFIERS_AVAILABLE = config.property("subscription.identifiers.available", true);
         SHARED_SUBSCRIPTION_AVAILABLE = config.property("shared.subscription.available", false);

@@ -253,7 +253,7 @@ public final class MqttServerFactory implements StreamFactory
     private final int sessionExpiryInterval;
     private final byte maximumQos;
     private final byte retainedMessages;
-    private final short topicAliasMaximumDefault;
+    private final short topicAliasMaximumLimit;
     private final byte wildcardSubscriptions;
     private final byte subscriptionIdentifiers;
     private final byte sharedSubscriptions;
@@ -336,7 +336,7 @@ public final class MqttServerFactory implements StreamFactory
         this.wildcardSubscriptions = config.wildcardSubscriptionAvailable() ? (byte) 1 : 0;
         this.subscriptionIdentifiers = config.subscriptionIdentifierAvailable() ? (byte) 1 : 0;
         this.sharedSubscriptions = config.sharedSubscriptionAvailable() ? (byte) 1 : 0;
-        this.topicAliasMaximumDefault = config.topicAliasMaximum();
+        this.topicAliasMaximumLimit = (short) Math.max(config.topicAliasMaximum(), 0);
         this.noLocal = config.noLocal();
         this.encodeBudgetMax = bufferPool.slotCapacity();
         this.validator = new MqttValidator();
@@ -1325,9 +1325,7 @@ public final class MqttServerFactory implements StreamFactory
                         break decode;
                     }
                     final short topicAliasMaximum = (short) (mqttProperty.topicAliasMaximum() & 0xFFFF);
-                    this.topicAliasMaximum = topicAliasMaximumDefault >= 0 && topicAliasMaximum > topicAliasMaximumDefault ?
-                                                 topicAliasMaximumDefault :
-                                                 topicAliasMaximum;
+                    this.topicAliasMaximum = (short) Math.min(topicAliasMaximum, topicAliasMaximumLimit);
                     break;
                 case KIND_SESSION_EXPIRY:
                 case KIND_RECEIVE_MAXIMUM:

@@ -22,6 +22,7 @@ import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.MAXIMUM_QOS
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.RETAIN_AVAILABLE_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.SHARED_SUBSCRIPTION_AVAILABLE_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.TOPIC_ALIAS_MAXIMUM_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.WILDCARD_SUBSCRIPTION_AVAILABLE_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
@@ -194,6 +195,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    @Configure(name = TOPIC_ALIAS_MAXIMUM_NAME, value = "2")
     public void shouldPublishMessageWithTopicAlias() throws Exception
     {
         k3po.finish();
@@ -237,6 +239,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    @Configure(name = TOPIC_ALIAS_MAXIMUM_NAME, value = "2")
     public void shouldPublishMessagesWithTopicAliasDistinct() throws Exception
     {
         k3po.finish();
@@ -250,6 +253,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    @Configure(name = TOPIC_ALIAS_MAXIMUM_NAME, value = "2")
     public void shouldPublishMessagesWithTopicAliasRepeated() throws Exception
     {
         k3po.finish();
@@ -263,6 +267,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    @Configure(name = TOPIC_ALIAS_MAXIMUM_NAME, value = "1")
     public void shouldPublishMessagesWithTopicAliasReplaced() throws Exception
     {
         k3po.finish();
@@ -640,6 +645,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    @Configure(name = TOPIC_ALIAS_MAXIMUM_NAME, value = "2")
     public void shouldRejectPublishWithMultipleTopicAliases() throws Exception
     {
         k3po.finish();
