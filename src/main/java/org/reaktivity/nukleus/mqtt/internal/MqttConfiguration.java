@@ -21,16 +21,18 @@ import org.reaktivity.nukleus.Configuration;
 
 public class MqttConfiguration extends Configuration
 {
-    public static final String PUBLISH_TIMEOUT_NAME = "nukleus.mqtt.publish.timeout";
-    public static final String CONNECT_TIMEOUT_NAME = "nukleus.mqtt.connect.timeout";
-    public static final String CLIENT_ID_NAME = "nukleus.mqtt.client.id";
-    public static final String RETAIN_AVAILABLE_NAME = "nukleus.mqtt.retain.available";
-
     private static final ConfigurationDef MQTT_CONFIG;
     public static final LongPropertyDef CONNECT_TIMEOUT;
     public static final LongPropertyDef PUBLISH_TIMEOUT;
     public static final PropertyDef<String> CLIENT_ID;
+    public static final IntPropertyDef SESSION_EXPIRY_INTERVAL;
+    public static final BytePropertyDef MAXIMUM_QOS;
     public static final BooleanPropertyDef RETAIN_AVAILABLE;
+    public static final ShortPropertyDef TOPIC_ALIAS_MAXIMUM;
+    public static final BooleanPropertyDef WILDCARD_SUBSCRIPTION_AVAILABLE;
+    public static final BooleanPropertyDef SUBSCRIPTION_IDENTIFIERS_AVAILABLE;
+    public static final BooleanPropertyDef SHARED_SUBSCRIPTION_AVAILABLE;
+    public static final BooleanPropertyDef NO_LOCAL;
 
     static
     {
@@ -38,7 +40,14 @@ public class MqttConfiguration extends Configuration
         PUBLISH_TIMEOUT = config.property("publish.timeout", TimeUnit.SECONDS.toSeconds(30));
         CONNECT_TIMEOUT = config.property("connect.timeout", TimeUnit.SECONDS.toSeconds(3));
         CLIENT_ID = config.property("client.id", "client");
+        SESSION_EXPIRY_INTERVAL = config.property("session.expiry.interval", 0);
+        MAXIMUM_QOS = config.property("maximum.qos", (byte) 0);
         RETAIN_AVAILABLE = config.property("retain.available", true);
+        TOPIC_ALIAS_MAXIMUM = config.property("topic.alias.maximum", (short) 0);
+        WILDCARD_SUBSCRIPTION_AVAILABLE = config.property("wildcard.subscription.available", false);
+        SUBSCRIPTION_IDENTIFIERS_AVAILABLE = config.property("subscription.identifiers.available", true);
+        SHARED_SUBSCRIPTION_AVAILABLE = config.property("shared.subscription.available", false);
+        NO_LOCAL = config.property("no.local", false);
         MQTT_CONFIG = config;
     }
 
@@ -66,5 +75,40 @@ public class MqttConfiguration extends Configuration
     public boolean retainAvailable()
     {
         return RETAIN_AVAILABLE.get(this);
+    }
+
+    public int sessionExpiryInterval()
+    {
+        return SESSION_EXPIRY_INTERVAL.get(this);
+    }
+
+    public byte maximumQos()
+    {
+        return MAXIMUM_QOS.get(this);
+    }
+
+    public short topicAliasMaximum()
+    {
+        return TOPIC_ALIAS_MAXIMUM.get(this);
+    }
+
+    public boolean wildcardSubscriptionAvailable()
+    {
+        return WILDCARD_SUBSCRIPTION_AVAILABLE.get(this);
+    }
+
+    public boolean subscriptionIdentifierAvailable()
+    {
+        return SUBSCRIPTION_IDENTIFIERS_AVAILABLE.get(this);
+    }
+
+    public boolean sharedSubscriptionAvailable()
+    {
+        return SHARED_SUBSCRIPTION_AVAILABLE.get(this);
+    }
+
+    public boolean noLocal()
+    {
+        return NO_LOCAL.get(this);
     }
 }
