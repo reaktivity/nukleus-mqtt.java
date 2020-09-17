@@ -63,6 +63,7 @@
             string16 value;
         }
 
+
         union MqttProperty switch (uint8)
         {
             case 0x01: uint8 payloadFormat;
@@ -92,6 +93,34 @@
             case 0x28: uint8 wildcardSubscriptionAvailable;
             case 0x29: uint8 subscriptionIdsAvailable;
             case 0x2A: uint8 sharedSubscriptionAvailable;
+        }
+
+        struct MqttSubscription
+        {
+            string16 topic;
+            varbyteuint32 identifier;
+            uint8 flags;
+        }
+
+        struct MqttSubscriptions
+        {
+            MqttSubscription[] subscriptions;
+        }
+
+        struct MqttWill
+        {
+            string16 topic;
+            uint8 qos;
+            uint8 retained;
+            MqttProperties properties;
+            octets payload;
+        }
+
+        list<uint32, uint32> MqttSession
+        {
+            required uint64 expiresAt;
+            required MqttSubscriptions subscriptions;
+            MqttWill will;
         }
 
         struct MqttConnect extends MqttPacketHeader

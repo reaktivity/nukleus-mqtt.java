@@ -58,7 +58,6 @@ import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KI
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_TOPIC_ALIAS;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_TOPIC_ALIAS_MAXIMUM;
 import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_USER_PROPERTY;
-import static org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW.KIND_WILL_DELAY_INTERVAL;
 import static org.reaktivity.nukleus.mqtt.internal.types.stream.DataFW.FIELD_OFFSET_PAYLOAD;
 import static org.reaktivity.nukleus.mqtt.internal.types.stream.MqttDataExFW.Builder.DEFAULT_EXPIRY_INTERVAL;
 import static org.reaktivity.nukleus.mqtt.internal.types.stream.MqttDataExFW.Builder.DEFAULT_FORMAT;
@@ -105,14 +104,17 @@ import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPingRespFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertiesFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPropertyFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPublishFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSessionFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscribeFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscribePayloadFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscriptionsFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackPayloadFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribeFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribePayloadFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUserPropertyFW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttWillFW;
 import org.reaktivity.nukleus.mqtt.internal.types.control.MqttRouteExFW;
 import org.reaktivity.nukleus.mqtt.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.mqtt.internal.types.stream.AbortFW;
@@ -132,6 +134,8 @@ import org.reaktivity.nukleus.stream.StreamFactory;
 public final class MqttServerFactory implements StreamFactory
 {
     private static final OctetsFW EMPTY_OCTETS = new OctetsFW().wrap(new UnsafeBuffer(new byte[0]), 0, 0);
+
+    private static final String SESSION_TOPIC_FORMAT = "$SYS/sessions/%s";
 
     private static final int CONNECT_FIXED_HEADER = 0b0001_0000;
     private static final int SUBSCRIBE_FIXED_HEADER = 0b1000_0010;
@@ -166,6 +170,8 @@ public final class MqttServerFactory implements StreamFactory
     private static final int CONNECT_TIMEOUT_SIGNAL = 3;
 
     private static final int PUBLISH_FRAMING = 255;
+
+    private static final String16FW NULL_STRING = new String16FW((String) null);
 
     private final RouteFW routeRO = new RouteFW();
     private final MqttRouteExFW mqttRouteExRO = new MqttRouteExFW();
@@ -219,7 +225,6 @@ public final class MqttServerFactory implements StreamFactory
 
     private final MqttPublishHeader mqttPublishHeaderRO = new MqttPublishHeader();
     private final MqttConnectPayload mqttConnectPayloadRO = new MqttConnectPayload();
-    private final MqttWillProperties willPropertiesRO = new MqttWillProperties();
 
     private final MqttConnackFW.Builder mqttConnackRW = new MqttConnackFW.Builder();
     private final MqttPublishFW.Builder mqttPublishRW = new MqttPublishFW.Builder();
@@ -231,6 +236,10 @@ public final class MqttServerFactory implements StreamFactory
     private final Array32FW.Builder<MqttUserPropertyFW.Builder, MqttUserPropertyFW> userPropertiesRW =
         new Array32FW.Builder<>(new MqttUserPropertyFW.Builder(), new MqttUserPropertyFW());
 
+    private final MqttSubscriptionsFW.Builder subscriptionsRW = new MqttSubscriptionsFW.Builder();
+    private final MqttWillFW.Builder willRW = new MqttWillFW.Builder();
+    private final MqttSessionFW.Builder sessionRW = new MqttSessionFW.Builder();
+
     private final Signaler signaler;
 
     private final RouteManager router;
@@ -240,6 +249,9 @@ public final class MqttServerFactory implements StreamFactory
     private final MutableDirectBuffer payloadBuffer;
     private final MutableDirectBuffer propertyBuffer;
     private final MutableDirectBuffer userPropertiesBuffer;
+    private final MutableDirectBuffer sessionBuffer;
+    private final MutableDirectBuffer subscriptionsBuffer;
+    private final MutableDirectBuffer willBuffer;
     private final LongUnaryOperator supplyInitialId;
     private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyTraceId;
@@ -250,7 +262,7 @@ public final class MqttServerFactory implements StreamFactory
     private final long connectTimeoutMillis;
     private final int encodeBudgetMax;
 
-    private final int sessionExpiryInterval;
+    private final int sessionExpiryIntervalLimit;
     private final byte maximumQos;
     private final byte retainedMessages;
     private final short topicAliasMaximumLimit;
@@ -317,6 +329,9 @@ public final class MqttServerFactory implements StreamFactory
         this.propertyBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.userPropertiesBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.payloadBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
+        this.sessionBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
+        this.subscriptionsBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
+        this.willBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.bufferPool = bufferPool;
         this.creditor = creditor;
         this.supplyDebitor = supplyDebitor;
@@ -330,7 +345,7 @@ public final class MqttServerFactory implements StreamFactory
         this.clientId = config.clientId();
         this.publishTimeoutMillis = SECONDS.toMillis(config.publishTimeout());
         this.connectTimeoutMillis = SECONDS.toMillis(config.connectTimeout());
-        this.sessionExpiryInterval = config.sessionExpiryInterval();
+        this.sessionExpiryIntervalLimit = config.sessionExpiryInterval();
         this.maximumQos = config.maximumQos();
         this.retainedMessages = config.retainAvailable() ? (byte) 1 : 0;
         this.wildcardSubscriptions = config.wildcardSubscriptionAvailable() ? (byte) 1 : 0;
@@ -1034,6 +1049,8 @@ public final class MqttServerFactory implements StreamFactory
         private boolean connected;
 
         private short topicAliasMaximum = -1;
+        private int sessionExpiryInterval = -1;
+        private long sessionExpiresAt = 0;
 
         private int state;
 
@@ -1328,6 +1345,16 @@ public final class MqttServerFactory implements StreamFactory
                     this.topicAliasMaximum = (short) Math.min(topicAliasMaximum, topicAliasMaximumLimit);
                     break;
                 case KIND_SESSION_EXPIRY:
+                    if (sessionExpiryInterval != -1)
+                    {
+                        sessionExpiryInterval = 0;
+                        reasonCode = PROTOCOL_ERROR;
+                        break decode;
+                    }
+                    final int sessionExpiryInterval = mqttProperty.expiryInterval();
+                    this.sessionExpiryInterval = Math.min(sessionExpiryInterval, sessionExpiryIntervalLimit);
+                    this.sessionExpiresAt = System.currentTimeMillis() + sessionExpiryInterval * 1000;
+                    break;
                 case KIND_RECEIVE_MAXIMUM:
                 case KIND_MAXIMUM_PACKET_SIZE:
                 case KIND_REQUEST_RESPONSE_INFORMATION:
@@ -1348,6 +1375,20 @@ public final class MqttServerFactory implements StreamFactory
 
                 decodeProgress = mqttProperty.limit();
             }
+
+            sessionRW.wrap(sessionBuffer, 0, sessionBuffer.capacity())
+                     .expiresAt(sessionExpiresAt);
+
+            subscriptionsRW.wrap(subscriptionsBuffer, 0, subscriptionsBuffer.capacity())
+                           .subscriptions(ss -> streams.forEach((tk, s) ->
+                           {
+                               if (hasSubscribeCapability(s.capabilities))
+                               {
+                                   ss.item(i -> i.topic(s.topicFilter)
+                                                 .identifier(s.subscription.id)
+                                                 .flags(s.subscription.flags));
+                               }
+                           }));
 
             final String16FW clientIdentifier = packet.clientId();
 
@@ -1529,6 +1570,17 @@ public final class MqttServerFactory implements StreamFactory
                         unrouteableMask |= 1 << subscription.ackCount;
                     }
                 }
+
+                subscriptionsRW.wrap(subscriptionsBuffer, 0, subscriptionsBuffer.capacity())
+                               .subscriptions(ss -> streams.forEach((tk, s) ->
+                               {
+                                   if (hasSubscribeCapability(s.capabilities))
+                                   {
+                                       ss.item(i -> i.topic(s.topicFilter)
+                                                     .identifier(s.subscription.id)
+                                                     .flags(s.subscription.flags));
+                                   }
+                               }));
 
                 subscription.ackMask |= unrouteableMask;
                 doSignalKeepAliveTimeoutIfNecessary();
@@ -1872,10 +1924,10 @@ public final class MqttServerFactory implements StreamFactory
         {
             int propertiesSize = 0;
 
-            if (sessionExpiryInterval > 0)
+            if (sessionExpiryIntervalLimit > 0)
             {
                 mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                              .sessionExpiry(sessionExpiryInterval)
+                              .sessionExpiry(sessionExpiryIntervalLimit)
                               .build();
                 propertiesSize = mqttPropertyRW.limit();
             }
@@ -2922,7 +2974,7 @@ public final class MqttServerFactory implements StreamFactory
     private final class MqttConnectPayload
     {
         private byte reasonCode = SUCCESS;
-        private MqttWillProperties willProperties = null;
+        private MqttPropertiesFW willProperties = null;
         private String16FW willTopic = null;
         private OctetsFW willPayload = null;
         private String16FW username = null;
@@ -2953,7 +3005,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 if (isSetWillFlag(flags))
                 {
-                    willProperties = willPropertiesRO.decode(buffer, progress, limit);
+                    willProperties = mqttPropertiesRO.tryWrap(buffer, progress, limit);
                     if (willProperties == null)
                     {
                         reasonCode = MALFORMED_PACKET;
@@ -2976,6 +3028,13 @@ public final class MqttServerFactory implements StreamFactory
                         break decode;
                     }
                     progress = willPayloadRO.limit();
+
+                    willRW.wrap(willBuffer, 0, willBuffer.capacity())
+                          .topic(willTopic)
+                          .qos(flags & WILL_QOS_MASK)
+                          .retained(flags & WILL_RETAIN_MASK)
+                          .properties(willProperties)
+                          .payload(willPayload);
                 }
 
                 if (isSetUsername(flags))
@@ -3004,114 +3063,15 @@ public final class MqttServerFactory implements StreamFactory
         }
     }
 
-    private final class MqttWillProperties
-    {
-        private String topic;
-        private int reasonCode;
-
-        private int willDelayInterval = 0;
-        private MqttPayloadFormat payloadFormat = DEFAULT_FORMAT;
-        private int expiryInterval = DEFAULT_EXPIRY_INTERVAL;
-        private String16FW contentType = null;
-        private String16FW responseTopic = null;
-        private OctetsFW correlationData = null;
-
-        private void reset()
-        {
-            this.topic = null;
-            this.reasonCode = SUCCESS;
-            this.willDelayInterval = 0;
-            this.expiryInterval = DEFAULT_EXPIRY_INTERVAL;
-            this.contentType = null;
-            this.payloadFormat = DEFAULT_FORMAT;
-            this.responseTopic = null;
-            this.correlationData = null;
-        }
-
-        private MqttWillProperties decode(
-            DirectBuffer payloadBuffer,
-            int payloadOffset,
-            int payloadLimit)
-        {
-            reset();
-            userPropertiesRW.wrap(userPropertiesBuffer, 0, userPropertiesBuffer.capacity());
-
-            MqttPropertiesFW properties = mqttPropertiesRO.tryWrap(payloadBuffer, payloadOffset, payloadLimit);
-
-            if (properties != null)
-            {
-                final OctetsFW propertiesValue = properties.value();
-                final DirectBuffer decodeBuffer = propertiesValue.buffer();
-                final int decodeOffset = propertiesValue.offset();
-                final int decodeLimit = propertiesValue.limit();
-
-                decode:
-                for (int decodeProgress = decodeOffset; decodeProgress < decodeLimit; )
-                {
-                    final MqttPropertyFW mqttProperty = mqttPropertyRO.wrap(decodeBuffer, decodeProgress, decodeLimit);
-                    switch (mqttProperty.kind())
-                    {
-                    case KIND_WILL_DELAY_INTERVAL:
-                        willDelayInterval = mqttProperty.willDelayInterval();
-                        break;
-                    case KIND_PAYLOAD_FORMAT:
-                        payloadFormat = MqttPayloadFormat.valueOf(mqttProperty.payloadFormat());
-                        break;
-                    case KIND_EXPIRY_INTERVAL:
-                        expiryInterval = mqttProperty.expiryInterval();
-                        break;
-                    case KIND_CONTENT_TYPE:
-                        final String16FW mContentType = mqttProperty.contentType();
-                        if (mContentType.value() != null)
-                        {
-                            final int offset = mContentType.offset();
-                            final int limit = mContentType.limit();
-
-                            contentType = contentTypeRO.wrap(mContentType.buffer(), offset, limit);
-                        }
-                        break;
-                    case KIND_RESPONSE_TOPIC:
-                        final String16FW mResponseTopic = mqttProperty.responseTopic();
-                        if (mResponseTopic.value() != null)
-                        {
-                            final int offset = mResponseTopic.offset();
-                            final int limit = mResponseTopic.limit();
-
-                            responseTopic = responseTopicRO.wrap(mResponseTopic.buffer(), offset, limit);
-                        }
-                        break;
-                    case KIND_CORRELATION_DATA:
-                        correlationData = mqttProperty.correlationData().bytes();
-                        break;
-                    case KIND_USER_PROPERTY:
-                        final MqttUserPropertyFW userProperty = mqttProperty.userProperty();
-                        userPropertiesRW.item(c -> c.key(userProperty.key()).value(userProperty.value()));
-                        break;
-                    default:
-                        reasonCode = MALFORMED_PACKET;
-                        break decode;
-                    }
-                    decodeProgress = mqttProperty.limit();
-                }
-                return this;
-            }
-            else
-            {
-                reasonCode = MALFORMED_PACKET;
-                return null;
-            }
-        }
-    }
-
     private final class MqttPublishHeader
     {
         private String topic;
         private int reasonCode;
 
         private int expiryInterval = DEFAULT_EXPIRY_INTERVAL;
-        private String16FW contentType = null;
+        private String16FW contentType = NULL_STRING;
         private MqttPayloadFormat payloadFormat = DEFAULT_FORMAT;
-        private String16FW responseTopic = null;
+        private String16FW responseTopic = NULL_STRING;
         private OctetsFW correlationData = null;
 
         private void reset()
@@ -3119,9 +3079,9 @@ public final class MqttServerFactory implements StreamFactory
             this.topic = null;
             this.reasonCode = SUCCESS;
             this.expiryInterval = DEFAULT_EXPIRY_INTERVAL;
-            this.contentType = null;
+            this.contentType = NULL_STRING;
             this.payloadFormat = DEFAULT_FORMAT;
-            this.responseTopic = null;
+            this.responseTopic = NULL_STRING;
             this.correlationData = null;
         }
 
