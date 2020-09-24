@@ -102,11 +102,6 @@
             uint8 flags;
         }
 
-        struct MqttSubscriptions
-        {
-            MqttSubscription[] subscriptions;
-        }
-
         struct MqttWill
         {
             string16 topic;
@@ -119,8 +114,7 @@
         list<uint32, uint32> MqttSession
         {
             required uint64 expiresAt;
-            required MqttSubscriptions subscriptions;
-            MqttWill will;
+            required MqttSubscription[] subscriptions;
         }
 
         struct MqttConnect extends MqttPacketHeader
