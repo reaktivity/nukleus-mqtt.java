@@ -115,7 +115,6 @@ import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttPublishFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscribeFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscribePayloadFW;
-import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttSubscriptionFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubackPayloadFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttUnsubscribeFW;
@@ -144,7 +143,7 @@ public final class MqttServerFactory implements StreamFactory
     private static final JsonBuilderFactory json = Json.createBuilderFactory(new HashMap<>());
 
     private static final String SESSION_TOPIC_FORMAT = "$SYS/clients/%s";
-    private static final String SESSION_WILDCARD_TOPIC_FORMAT = "$SYS/clients/#";
+    private static final String SESSION_WILDCARD_TOPIC_FORMAT = "$SYS/clients/%s/#";
     private static final String SUBSCRIPTIONS_TOPIC_FORMAT = "$SYS/clients/%s/subscriptions/%s";
     private static final String WILL_TOPIC_FORMAT = "$SYS/clients/%s/will";
 
@@ -1440,7 +1439,7 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization)
         {
-            final String topic = SESSION_WILDCARD_TOPIC_FORMAT;
+            final String topic = String.format(SESSION_WILDCARD_TOPIC_FORMAT, clientId);
             final int topicKey = topicKey(topic);
 
             MqttServerStream stream = null;
@@ -1466,7 +1465,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 final MqttDataExFW dataEx = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                                         .typeId(mqttTypeId)
-                                                        .topic(topic)
+                                                        .topic(String.format(SESSION_TOPIC_FORMAT, clientId))
                                                         .build();
 
                 stream.doApplicationData(traceId, authorization, reserved, payload, dataEx);
@@ -1488,7 +1487,7 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization)
         {
-            final String topic = SESSION_WILDCARD_TOPIC_FORMAT;
+            final String topic = String.format(SESSION_WILDCARD_TOPIC_FORMAT, clientId);
             final int topicKey = topicKey(topic);
 
             MqttServerStream stream = null;
@@ -1517,7 +1516,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 final MqttDataExFW.Builder builder = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                                                  .typeId(mqttTypeId)
-                                                                 .topic(topic)
+                                                                 .topic(String.format(WILL_TOPIC_FORMAT, clientId))
                                                                  .flags(flags)
                                                                  .expiryInterval(mqttConnectPayloadRO.expiryInterval)
                                                                  .contentType(mqttConnectPayloadRO.contentType)
