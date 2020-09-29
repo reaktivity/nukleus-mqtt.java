@@ -67,6 +67,7 @@ import static org.reaktivity.nukleus.mqtt.internal.types.stream.MqttDataExFW.Bui
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -140,9 +141,6 @@ public final class MqttServerFactory implements StreamFactory
 {
     private static final OctetsFW EMPTY_OCTETS = new OctetsFW().wrap(new UnsafeBuffer(new byte[0]), 0, 0);
 
-    private static final JsonBuilderFactory JSON = Json.createBuilderFactory(new HashMap<>());
-    private static final JsonObjectBuilder OBJECT_BUILDER = JSON.createObjectBuilder();
-
     private static final String SESSION_TOPIC_FORMAT = "$SYS/clients/%s";
     private static final String SESSION_WILDCARD_TOPIC_FORMAT = "$SYS/clients/%s/#";
     private static final String WILL_TOPIC_FORMAT = "$SYS/clients/%s/will";
@@ -187,6 +185,9 @@ public final class MqttServerFactory implements StreamFactory
     private static final int PUBLISH_FRAMING = 255;
 
     private static final String16FW NULL_STRING = new String16FW((String) null);
+
+    private final JsonBuilderFactory json = Json.createBuilderFactory(new HashMap<>());
+    private final JsonObjectBuilder objectBuilder = json.createObjectBuilder();
 
     private final RouteFW routeRO = new RouteFW();
     private final MqttRouteExFW mqttRouteExRO = new MqttRouteExFW();
@@ -1362,7 +1363,7 @@ public final class MqttServerFactory implements StreamFactory
                     }
                     final int sessionExpiryInterval = mqttProperty.expiryInterval();
                     this.sessionExpiryInterval = Math.min(sessionExpiryInterval, sessionExpiryIntervalLimit);
-                    this.sessionExpiresAt = System.currentTimeMillis() + sessionExpiryInterval * 1000;
+                    this.sessionExpiresAt = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(sessionExpiryInterval);
                     break;
                 case KIND_RECEIVE_MAXIMUM:
                 case KIND_MAXIMUM_PACKET_SIZE:
@@ -1402,7 +1403,10 @@ public final class MqttServerFactory implements StreamFactory
                 keepAlive = packet.keepAlive();
                 keepAliveTimeout = Math.round(keepAlive * 1.5 * 1000);
                 doSignalKeepAliveTimeoutIfNecessary();
-                decodeSession(traceId, authorization, packet.flags());
+                decodeSession(traceId, authorization, packet.flags(),
+                    mqttConnectPayloadRO.willDelay, mqttConnectPayloadRO.willQos, mqttConnectPayloadRO.willRetain,
+                    mqttConnectPayloadRO.expiryInterval, mqttConnectPayloadRO.contentType, mqttConnectPayloadRO.payloadFormat,
+                    mqttConnectPayloadRO.responseTopic, mqttConnectPayloadRO.correlationData, mqttConnectPayloadRO.willPayload);
             }
             else
             {
@@ -1438,7 +1442,16 @@ public final class MqttServerFactory implements StreamFactory
         private void decodeSession(
             long traceId,
             long authorization,
-            int flags)
+            int flags,
+            int willDelay,
+            byte willQos,
+            byte willRetain,
+            int expiryInterval,
+            String16FW contentType,
+            MqttPayloadFormat payloadFormat,
+            String16FW responseTopic,
+            OctetsFW correlationData,
+            OctetsFW willPayload)
         {
             final String topic = String.format(SESSION_WILDCARD_TOPIC_FORMAT, clientId);
             final int topicKey = topicKey(topic);
@@ -1450,9 +1463,9 @@ public final class MqttServerFactory implements StreamFactory
             {
                 final long resolvedId = route.correlationId();
 
-                final JsonObject sessionObj = OBJECT_BUILDER.add(SESSION_EXPIRES_AT_NAME, sessionExpiresAt)
-                                                            .add(WILL_DELAY_NAME, mqttConnectPayloadRO.willDelay)
-                                                            .build();
+                final JsonObject sessionObj = objectBuilder.add(SESSION_EXPIRES_AT_NAME, sessionExpiresAt)
+                                                           .add(WILL_DELAY_NAME, willDelay)
+                                                           .build();
 
                 final OctetsFW payload = sessionPayloadRW.wrap(payloadBuffer, 0, payloadBuffer.capacity())
                                                          .set(sessionObj.toString().getBytes(UTF_8))
@@ -1464,42 +1477,41 @@ public final class MqttServerFactory implements StreamFactory
                                                         .build();
 
                 stream = streams.computeIfAbsent(topicKey, s -> new MqttServerStream(resolvedId, 0, topic));
-
-                final int reserved = payload.sizeof() + mqttConnectPayloadRO.willPayload.sizeof() + stream.initialPadding;
-
                 stream.doApplicationBeginOrFlush(traceId, authorization, affinity, topic, NO_FLAGS, 0, PUBLISH_AND_SUBSCRIBE);
+
+                final int reserved = payload.sizeof() + willPayload.sizeof() + stream.initialPadding;
+
                 stream.doApplicationData(traceId, authorization, reserved, payload, dataEx);
 
                 if ((flags & WILL_FLAG_MASK) != 0)
                 {
                     int willDataFlags = 0;
 
-                    if (mqttConnectPayloadRO.willRetain != 0)
+                    if (willRetain != 0)
                     {
-                        willDataFlags = willDataFlags & mqttConnectPayloadRO.willRetain;
+                        willDataFlags = willDataFlags & willRetain;
                     }
 
-                    if (mqttConnectPayloadRO.willQos != 0)
+                    if (willQos != 0)
                     {
-                        willDataFlags = willDataFlags & mqttConnectPayloadRO.willQos;
+                        willDataFlags = willDataFlags & willQos;
                     }
 
                     final MqttDataExFW.Builder builder = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                                                      .typeId(mqttTypeId)
                                                                      .topic(String.format(WILL_TOPIC_FORMAT, clientId))
                                                                      .flags(willDataFlags)
-                                                                     .expiryInterval(mqttConnectPayloadRO.expiryInterval)
-                                                                     .contentType(mqttConnectPayloadRO.contentType)
-                                                                     .format(f -> f.set(mqttConnectPayloadRO.payloadFormat))
-                                                                     .responseTopic(mqttConnectPayloadRO.responseTopic)
-                                                                     .correlation(c ->
-                                                                                c.bytes(mqttConnectPayloadRO.correlationData));
+                                                                     .expiryInterval(expiryInterval)
+                                                                     .contentType(contentType)
+                                                                     .format(f -> f.set(payloadFormat))
+                                                                     .responseTopic(responseTopic)
+                                                                     .correlation(c -> c.bytes(correlationData));
 
                     final Array32FW<MqttUserPropertyFW> userProperties = userPropertiesRW.build();
                     userProperties.forEach(c -> builder.propertiesItem(p -> p.key(c.key()).value(c.value())));
 
                     final MqttDataExFW willDataEx = builder.build();
-                    stream.doApplicationData(traceId, authorization, reserved, mqttConnectPayloadRO.willPayload, willDataEx);
+                    stream.doApplicationData(traceId, authorization, reserved, willPayload, willDataEx);
                 }
             }
         }

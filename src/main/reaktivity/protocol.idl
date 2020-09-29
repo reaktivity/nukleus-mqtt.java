@@ -95,28 +95,6 @@
             case 0x2A: uint8 sharedSubscriptionAvailable;
         }
 
-        struct MqttSubscription
-        {
-            string16 topic;
-            varbyteuint32 identifier;
-            uint8 flags;
-        }
-
-        struct MqttWill
-        {
-            string16 topic;
-            uint8 qos;
-            uint8 retained;
-            MqttProperties properties;
-            octets payload;
-        }
-
-        list<uint32, uint32> MqttSession
-        {
-            required uint64 expiresAt;
-            required MqttSubscription[] subscriptions;
-        }
-
         struct MqttConnect extends MqttPacketHeader
         {
             string16 protocolName;
