@@ -22,6 +22,7 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.MAXIMUM_QOS
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.NO_LOCAL;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.RETAIN_AVAILABLE;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SESSIONS_AVAILABLE;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SESSION_EXPIRY_INTERVAL;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SHARED_SUBSCRIPTION_AVAILABLE;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.SUBSCRIPTION_IDENTIFIERS_AVAILABLE;
@@ -43,6 +44,7 @@ public class ConfigurationTest
     static final String SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME = "nukleus.mqtt.subscription.identifiers.available";
     static final String SHARED_SUBSCRIPTION_AVAILABLE_NAME = "nukleus.mqtt.shared.subscription.available";
     static final String NO_LOCAL_NAME = "nukleus.mqtt.no.local";
+    static final String SESSIONS_AVAILABLE_NAME = "nukleus.mqtt.sessions.available";
 
     @Test
     public void shouldVerifyConstants() throws Exception
@@ -58,5 +60,6 @@ public class ConfigurationTest
         assertEquals(SUBSCRIPTION_IDENTIFIERS_AVAILABLE.name(), SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME);
         assertEquals(SHARED_SUBSCRIPTION_AVAILABLE.name(), SHARED_SUBSCRIPTION_AVAILABLE_NAME);
         assertEquals(NO_LOCAL.name(), NO_LOCAL_NAME);
+        assertEquals(SESSIONS_AVAILABLE.name(), SESSIONS_AVAILABLE_NAME);
     }
 }
