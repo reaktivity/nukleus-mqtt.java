@@ -20,7 +20,7 @@ import static org.junit.rules.RuleChain.outerRule;
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.CLIENT_ID_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.MAXIMUM_QOS_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.RETAIN_AVAILABLE_NAME;
-import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.SESSIONS_AVAILABLE_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.SESSION_EXPIRY_INTERVAL_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.SHARED_SUBSCRIPTION_AVAILABLE_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.TOPIC_ALIAS_MAXIMUM_NAME;
@@ -70,7 +70,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldExchangeConnectAndConnackPackets() throws Exception
     {
         k3po.finish();
@@ -83,7 +83,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldExchangeConnectAndConnackPacketsWithServerAssignedClientId() throws Exception
     {
         k3po.finish();
@@ -96,7 +96,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectMissingClientId() throws Exception
     {
         k3po.finish();
@@ -109,7 +109,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldExchangeConnectionPacketsThenPingPackets() throws Exception
     {
         k3po.finish();
@@ -122,7 +122,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldExchangeConnectionPacketsThenDisconnect() throws Exception
     {
         k3po.finish();
@@ -136,7 +136,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldExchangeConnectionPacketsThenUnsubscribeAfterSubscribe() throws Exception
     {
         k3po.finish();
@@ -150,7 +150,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldUnsubscribeFromTwoTopicsBothExactOneUnsubackPacket() throws Exception
     {
         k3po.finish();
@@ -164,7 +164,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishOneMessage() throws Exception
     {
         k3po.finish();
@@ -178,7 +178,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishOneMessageWithRouteExtension() throws Exception
     {
         k3po.finish();
@@ -192,7 +192,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishRetainedMessage() throws Exception
     {
         k3po.finish();
@@ -207,7 +207,7 @@ public class ConnectionIT
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = TOPIC_ALIAS_MAXIMUM_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishMessageWithTopicAlias() throws Exception
     {
         k3po.finish();
@@ -221,7 +221,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishMultipleMessages() throws Exception
     {
         k3po.finish();
@@ -235,7 +235,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishMultipleMessagesWithDelay() throws Exception
     {
         k3po.start();
@@ -254,7 +254,7 @@ public class ConnectionIT
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = TOPIC_ALIAS_MAXIMUM_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishMessagesWithTopicAliasDistinct() throws Exception
     {
         k3po.finish();
@@ -269,7 +269,7 @@ public class ConnectionIT
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = TOPIC_ALIAS_MAXIMUM_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishMessagesWithTopicAliasRepeated() throws Exception
     {
         k3po.finish();
@@ -284,7 +284,7 @@ public class ConnectionIT
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = TOPIC_ALIAS_MAXIMUM_NAME, value = "1")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishMessagesWithTopicAliasReplaced() throws Exception
     {
         k3po.finish();
@@ -298,7 +298,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldReceivePublishAfterSendingSubscribe() throws Exception
     {
         k3po.finish();
@@ -312,7 +312,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldReceivePublishAfterSendingSubscribeWithRouteExtension() throws Exception
     {
         k3po.finish();
@@ -326,7 +326,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldSubscribeOneMessageThenPublishMessage() throws Exception
     {
         k3po.finish();
@@ -340,7 +340,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldReceivePublishWithNullPayloadAfterSendingSubscribe() throws Exception
     {
         k3po.finish();
@@ -354,7 +354,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldFailSubscribeThenPublishMessage() throws Exception
     {
         k3po.finish();
@@ -368,7 +368,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldReceiveCorrelatedPublishAfterSendingSubscribe() throws Exception
     {
         k3po.finish();
@@ -382,7 +382,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldSubscribeRetainedMessage() throws Exception
     {
         k3po.finish();
@@ -395,7 +395,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldReceivePublishWithInvalidSubscriptionIdAfterSendingSubscribe() throws Exception
     {
         k3po.finish();
@@ -408,7 +408,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectInvalidMqttProtocolVersion() throws Exception
     {
         k3po.finish();
@@ -421,7 +421,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectMalformedConnectPacket() throws Exception
     {
         k3po.finish();
@@ -434,7 +434,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectBadAuthenticationMethod() throws Exception
     {
         k3po.finish();
@@ -447,7 +447,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectMalformedSubscribePacket() throws Exception
     {
         k3po.finish();
@@ -460,7 +460,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectSubscribePacketWithInvalidTopicFilter() throws Exception
     {
         k3po.finish();
@@ -474,7 +474,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldExchangeConnectionPacketsThenRejectMalformedUnsubscribePacket() throws Exception
     {
         k3po.finish();
@@ -487,7 +487,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectMalformedDisconnectPacket() throws Exception
     {
         k3po.finish();
@@ -500,7 +500,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectSecondConnectPacket() throws Exception
     {
         k3po.finish();
@@ -513,7 +513,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldProcessFragmentedConnectPacket() throws Exception
     {
         k3po.finish();
@@ -527,7 +527,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldSubscribeToOneExactTopic() throws Exception
     {
         k3po.finish();
@@ -541,7 +541,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldSubscribeToWildcardTopic() throws Exception
     {
         k3po.finish();
@@ -555,7 +555,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldSubscribeWithTwoTopicsBothExactOneSubscribePacket() throws Exception
     {
         k3po.finish();
@@ -569,7 +569,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldSubscribeWithTwoTopicsBothExactTwoSubscribePackets() throws Exception
     {
         k3po.finish();
@@ -583,7 +583,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldSubscribeWithTwoTopicsBothWildcardOneSubscribePacket() throws Exception
     {
         k3po.finish();
@@ -597,7 +597,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldSubscribeWithTwoTopicsBothWildcardTwoSubscribePackets() throws Exception
     {
         k3po.finish();
@@ -611,7 +611,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldSubscribeWithTwoTopicsOneExactOneSubscribePacket() throws Exception
     {
         k3po.finish();
@@ -625,7 +625,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldSubscribeWithTwoTopicsOneExactTwoSubscribePackets() throws Exception
     {
         k3po.finish();
@@ -638,7 +638,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectPublishWithTopicNotRouted() throws Exception
     {
         k3po.finish();
@@ -652,7 +652,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectPublish() throws Exception
     {
         k3po.finish();
@@ -665,7 +665,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectPublishWHenTopicAliasExceedsMaximum() throws Exception
     {
         k3po.finish();
@@ -678,7 +678,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectConnectWhenTopicAliasMaximumRepeated() throws Exception
     {
         k3po.finish();
@@ -692,7 +692,7 @@ public class ConnectionIT
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = TOPIC_ALIAS_MAXIMUM_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectPublishWithMultipleTopicAliases() throws Exception
     {
         k3po.finish();
@@ -706,7 +706,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldReceiveClientSentClose() throws Exception
     {
         k3po.finish();
@@ -720,7 +720,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldReceiveClientSentAbort() throws Exception
     {
         k3po.finish();
@@ -734,7 +734,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldReceiveClientSentReset() throws Exception
     {
         k3po.finish();
@@ -749,7 +749,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishWithUserProperty() throws Exception
     {
         k3po.finish();
@@ -764,7 +764,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishWithDistinctUserProperties() throws Exception
     {
         k3po.finish();
@@ -779,7 +779,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishWithRepeatedUserProperties() throws Exception
     {
         k3po.finish();
@@ -792,7 +792,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldDisconnectClientAfterKeepAliveTimeout() throws Exception
     {
         k3po.start();
@@ -808,7 +808,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldKeepAliveWithPingreq() throws Exception
     {
         k3po.finish();
@@ -818,7 +818,7 @@ public class ConnectionIT
     @Specification({
         "${route}/server/controller",
         "${client}/timeout.before.connect/client"})
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldTimeoutBeforeConnect() throws Exception
     {
         k3po.finish();
@@ -832,7 +832,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldSubscribeRetainAsPublished() throws Exception
     {
         k3po.finish();
@@ -846,7 +846,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldSubscribeIgnoreRetainAsPublished() throws Exception
     {
         k3po.finish();
@@ -860,7 +860,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishEmptyRetainedMessage() throws Exception
     {
         k3po.finish();
@@ -874,7 +874,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldPublishEmptyMessage() throws Exception
     {
         k3po.finish();
@@ -886,7 +886,7 @@ public class ConnectionIT
         "${client}/connect/maximum.qos.0/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldConnectWithMaximumQos0() throws Exception
     {
         k3po.finish();
@@ -900,7 +900,7 @@ public class ConnectionIT
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = RETAIN_AVAILABLE_NAME, value = "false")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldConnectWithNoRetain() throws Exception
     {
         k3po.finish();
@@ -912,7 +912,7 @@ public class ConnectionIT
         "${client}/connect/wildcard.subscriptions.unavailable/client"})
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldConnectWithNoWildcardSubscriptions() throws Exception
     {
         k3po.finish();
@@ -926,7 +926,7 @@ public class ConnectionIT
     @Configure(name = SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME, value = "false")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldConnectWithNoSubscriptionIdentifiers() throws Exception
     {
         k3po.finish();
@@ -938,7 +938,7 @@ public class ConnectionIT
         "${client}/connect/shared.subscriptions.unavailable/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldConnectWithNoSharedSubscriptions() throws Exception
     {
         k3po.finish();
@@ -951,7 +951,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectConnectWithUsername() throws Exception
     {
         k3po.finish();
@@ -964,7 +964,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectConnectWithPassword() throws Exception
     {
         k3po.finish();
@@ -977,7 +977,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectWillFlag() throws Exception
     {
         k3po.finish();
@@ -990,7 +990,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectInvalidWillQos() throws Exception
     {
         k3po.finish();
@@ -1003,7 +1003,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectWillQos1WithoutWillFlag() throws Exception
     {
         k3po.finish();
@@ -1016,7 +1016,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectWillQos2WithoutWillFlag() throws Exception
     {
         k3po.finish();
@@ -1029,7 +1029,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectWillRetainWithoutWillFlag() throws Exception
     {
         k3po.finish();
@@ -1042,7 +1042,7 @@ public class ConnectionIT
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSIONS_AVAILABLE_NAME, value = "false")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldRejectSubscribeWithNoLocal() throws Exception
     {
         k3po.finish();

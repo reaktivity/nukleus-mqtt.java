@@ -250,7 +250,6 @@ public final class MqttServerFactory implements StreamFactory
     private final OctetsFW passwordRO = new OctetsFW();
 
     private final MqttPublishHeader mqttPublishHeaderRO = new MqttPublishHeader();
-    private final MqttConnectPayload mqttConnectPayloadRO = new MqttConnectPayload();
 
     private final MqttConnackFW.Builder mqttConnackRW = new MqttConnackFW.Builder();
     private final MqttPublishFW.Builder mqttPublishRW = new MqttPublishFW.Builder();
@@ -290,7 +289,6 @@ public final class MqttServerFactory implements StreamFactory
     private final byte subscriptionIdentifiers;
     private final byte sharedSubscriptions;
     private final boolean noLocal;
-    private final boolean sessionsAvailable;
 
     private final MqttValidator validator;
 
@@ -372,7 +370,6 @@ public final class MqttServerFactory implements StreamFactory
         this.sharedSubscriptions = config.sharedSubscriptionAvailable() ? (byte) 1 : 0;
         this.topicAliasMaximumLimit = (short) Math.max(config.topicAliasMaximum(), 0);
         this.noLocal = config.noLocal();
-        this.sessionsAvailable = config.sessionsAvailable();
         this.encodeBudgetMax = bufferPool.slotCapacity();
         this.validator = new MqttValidator();
     }
@@ -1035,7 +1032,6 @@ public final class MqttServerFactory implements StreamFactory
         private final long encodeBudgetId;
 
         private final Int2ObjectHashMap<MqttServerStream> streams;
-        private final Int2ObjectHashMap<MqttSessionStateStream> sessionStreams;
         private final Int2ObjectHashMap<MutableInteger> activeStreamsByTopic;
         private final Int2ObjectHashMap<Subscription> subscriptionsByPacketId;
         private final Int2ObjectHashMap<String> topicAliases;
@@ -1091,7 +1087,6 @@ public final class MqttServerFactory implements StreamFactory
             this.encodeBudgetId = budgetId;
             this.decoder = decodePacketType;
             this.streams = new Int2ObjectHashMap<>();
-            this.sessionStreams = new Int2ObjectHashMap<>();
             this.activeStreamsByTopic = new Int2ObjectHashMap<>();
             this.subscriptionsByPacketId = new Int2ObjectHashMap<>();
             this.topicAliases = new Int2ObjectHashMap<>();
@@ -1338,93 +1333,93 @@ public final class MqttServerFactory implements StreamFactory
             MqttConnectFW packet)
         {
             byte reasonCode = SUCCESS;
-            if (connected)
-            {
-                reasonCode = PROTOCOL_ERROR;
-            }
-
-            final MqttPropertiesFW properties = packet.properties();
-
-            final OctetsFW propertiesValue = properties.value();
-            final DirectBuffer decodeBuffer = propertiesValue.buffer();
-            final int decodeOffset = propertiesValue.offset();
-            final int decodeLimit = propertiesValue.limit();
-
             decode:
-            for (int decodeProgress = decodeOffset; decodeProgress < decodeLimit; )
             {
-                final MqttPropertyFW mqttProperty = mqttPropertyRO.wrap(decodeBuffer, decodeProgress, decodeLimit);
-                switch (mqttProperty.kind())
+                if (connected)
                 {
-                case KIND_TOPIC_ALIAS_MAXIMUM:
-                    if (topicAliasMaximum != -1)
-                    {
-                        topicAliasMaximum = 0;
-                        reasonCode = PROTOCOL_ERROR;
-                        break decode;
-                    }
-                    final short topicAliasMaximum = (short) (mqttProperty.topicAliasMaximum() & 0xFFFF);
-                    this.topicAliasMaximum = (short) Math.min(topicAliasMaximum, topicAliasMaximumLimit);
-                    break;
-                case KIND_SESSION_EXPIRY:
-                    if (sessionExpiryInterval != -1)
-                    {
-                        sessionExpiryInterval = 0;
-                        reasonCode = PROTOCOL_ERROR;
-                        break decode;
-                    }
-                    final int sessionExpiryInterval = mqttProperty.expiryInterval();
-                    this.sessionExpiryInterval = Math.min(sessionExpiryInterval, sessionExpiryIntervalLimit);
-                    this.sessionExpiresAt = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(sessionExpiryInterval);
-                    break;
-                case KIND_RECEIVE_MAXIMUM:
-                case KIND_MAXIMUM_PACKET_SIZE:
-                case KIND_REQUEST_RESPONSE_INFORMATION:
-                case KIND_REQUEST_PROBLEM_INFORMATION:
-                case KIND_USER_PROPERTY:
-                    // TODO
-                    break;
-                case KIND_AUTHENTICATION_METHOD:
-                    reasonCode = BAD_AUTHENTICATION_METHOD;
-                    break decode;
-                case KIND_AUTHENTICATION_DATA:
-                    // TODO
-                    break;
-                default:
-                    reasonCode = MALFORMED_PACKET;
+                    reasonCode = PROTOCOL_ERROR;
                     break decode;
                 }
 
-                decodeProgress = mqttProperty.limit();
-            }
+                final MqttPropertiesFW properties = packet.properties();
 
-            final String16FW clientIdentifier = packet.clientId();
+                final OctetsFW propertiesValue = properties.value();
+                final DirectBuffer decodeBuffer = propertiesValue.buffer();
+                final int decodeOffset = propertiesValue.offset();
+                final int decodeLimit = propertiesValue.limit();
 
-            if (reasonCode == 0)
-            {
-                final MqttConnectPayload payload = mqttConnectPayloadRO.decode(packet);
+                for (int decodeProgress = decodeOffset; decodeProgress < decodeLimit; )
+                {
+                    final MqttPropertyFW mqttProperty = mqttPropertyRO.wrap(decodeBuffer, decodeProgress, decodeLimit);
+                    switch (mqttProperty.kind())
+                    {
+                    case KIND_TOPIC_ALIAS_MAXIMUM:
+                        if (topicAliasMaximum != -1)
+                        {
+                            topicAliasMaximum = 0;
+                            reasonCode = PROTOCOL_ERROR;
+                            break decode;
+                        }
+                        final short topicAliasMaximum = (short) (mqttProperty.topicAliasMaximum() & 0xFFFF);
+                        this.topicAliasMaximum = (short) Math.min(topicAliasMaximum, topicAliasMaximumLimit);
+                        break;
+                    case KIND_SESSION_EXPIRY:
+                        if (sessionExpiryInterval != -1)
+                        {
+                            sessionExpiryInterval = 0;
+                            reasonCode = PROTOCOL_ERROR;
+                            break decode;
+                        }
+                        final int sessionExpiryInterval = mqttProperty.expiryInterval();
+                        this.sessionExpiryInterval = Math.min(sessionExpiryInterval, sessionExpiryIntervalLimit);
+                        this.sessionExpiresAt = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(sessionExpiryInterval);
+                        break;
+                    case KIND_RECEIVE_MAXIMUM:
+                    case KIND_MAXIMUM_PACKET_SIZE:
+                    case KIND_REQUEST_RESPONSE_INFORMATION:
+                    case KIND_REQUEST_PROBLEM_INFORMATION:
+                    case KIND_USER_PROPERTY:
+                        // TODO
+                        break;
+                    case KIND_AUTHENTICATION_METHOD:
+                        reasonCode = BAD_AUTHENTICATION_METHOD;
+                        break decode;
+                    case KIND_AUTHENTICATION_DATA:
+                        // TODO
+                        break;
+                    default:
+                        reasonCode = MALFORMED_PACKET;
+                        break decode;
+                    }
+
+                    decodeProgress = mqttProperty.limit();
+                }
+
+                final String16FW clientIdentifier = packet.clientId();
+
+                final MqttConnectPayload payload = new MqttConnectPayload();
+                payload.decode(packet);
                 reasonCode = payload.reasonCode;
-            }
 
-            doCancelConnectTimeoutIfNecessary();
-            doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
+                doCancelConnectTimeoutIfNecessary();
+                doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
 
-            if (reasonCode == 0)
-            {
-                connected = true;
-                keepAlive = packet.keepAlive();
-                keepAliveTimeout = Math.round(keepAlive * 1.5 * 1000);
-                doSignalKeepAliveTimeoutIfNecessary();
-                if (sessionsAvailable)
+                if (reasonCode == SUCCESS)
                 {
-                    resolveSession(traceId, authorization, packet.flags(),
-                        mqttConnectPayloadRO.willDelay, mqttConnectPayloadRO.willQos, mqttConnectPayloadRO.willRetain,
-                        mqttConnectPayloadRO.expiryInterval, mqttConnectPayloadRO.contentType, mqttConnectPayloadRO.payloadFormat,
-                        mqttConnectPayloadRO.responseTopic, mqttConnectPayloadRO.correlationData,
-                        mqttConnectPayloadRO.willPayload);
+                    connected = true;
+                    keepAlive = packet.keepAlive();
+                    keepAliveTimeout = Math.round(TimeUnit.SECONDS.toMillis(keepAlive) * 1.5);
+                    doSignalKeepAliveTimeoutIfNecessary();
+                    if (sessionExpiryInterval > 0)
+                    {
+                        resolveSession(traceId, authorization, packet.flags(),
+                            payload.willDelay, payload.willQos, payload.willRetain, payload.expiryInterval, payload.contentType,
+                            payload.payloadFormat, payload.responseTopic, payload.correlationData, payload.willPayload);
+                    }
                 }
             }
-            else
+
+            if (reasonCode != SUCCESS)
             {
                 doNetworkEnd(traceId, authorization);
             }
@@ -1474,7 +1469,7 @@ public final class MqttServerFactory implements StreamFactory
 
             final RouteFW route = resolveTarget(routeId, authorization, topic,  PUBLISH_ONLY);
 
-            MqttSessionStateStream stream = sessionStreams.computeIfAbsent(topicKey, s -> new MqttSessionStateStream(0, topic));
+            MqttSessionStateStream stream = new MqttSessionStateStream(0, topic);
             if (route != null)
             {
                 final long resolvedId = route.correlationId();
@@ -3575,7 +3570,7 @@ public final class MqttServerFactory implements StreamFactory
             this.correlationData = null;
         }
 
-        private MqttConnectPayload decode(
+        private void decode(
             MqttConnectFW connect)
         {
             reset();
@@ -3651,7 +3646,6 @@ public final class MqttServerFactory implements StreamFactory
                     progress = passwordRO.limit();
                 }
             }
-            return this;
         }
 
         private void decode(
