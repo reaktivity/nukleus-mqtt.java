@@ -33,7 +33,7 @@ public class MqttConfiguration extends Configuration
     public static final BooleanPropertyDef SUBSCRIPTION_IDENTIFIERS_AVAILABLE;
     public static final BooleanPropertyDef SHARED_SUBSCRIPTION_AVAILABLE;
     public static final BooleanPropertyDef NO_LOCAL;
-    public static final BooleanPropertyDef SESSIONS_AVAILABLE;
+    public static final IntPropertyDef SESSION_EXPIRY_GRACE_PERIOD;
 
     static
     {
@@ -49,7 +49,7 @@ public class MqttConfiguration extends Configuration
         SUBSCRIPTION_IDENTIFIERS_AVAILABLE = config.property("subscription.identifiers.available", true);
         SHARED_SUBSCRIPTION_AVAILABLE = config.property("shared.subscription.available", false);
         NO_LOCAL = config.property("no.local", false);
-        SESSIONS_AVAILABLE = config.property("sessions.available", true);
+        SESSION_EXPIRY_GRACE_PERIOD = config.property("session.expiry.grace.period", 0);
         MQTT_CONFIG = config;
     }
 
@@ -114,8 +114,8 @@ public class MqttConfiguration extends Configuration
         return NO_LOCAL.get(this);
     }
 
-    public boolean sessionsAvailable()
+    public int sessionExpiryUpdateInterval()
     {
-        return SESSIONS_AVAILABLE.get(this);
+        return SESSION_EXPIRY_GRACE_PERIOD.get(this);
     }
 }
