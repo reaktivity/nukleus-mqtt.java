@@ -33,6 +33,7 @@ import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
 import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
+import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.reaktor.ReaktorConfiguration;
@@ -41,6 +42,8 @@ import org.reaktivity.reaktor.test.annotation.Configure;
 
 public class ConnectionIT
 {
+    private static final long currentTime = System.currentTimeMillis();
+
     private final K3poRule k3po = new K3poRule()
         .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
         .addScriptRoot("routeExt", "org/reaktivity/specification/nukleus/mqtt/control/route.ext")
