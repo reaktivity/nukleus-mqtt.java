@@ -973,19 +973,6 @@ public class ConnectionIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${client}/connect/reject.will.flag/client"})
-    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
-    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
-    @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
-    public void shouldRejectWillFlag() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
-        "${route}/server/controller",
         "${client}/connect/reject.invalid.will.qos/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
