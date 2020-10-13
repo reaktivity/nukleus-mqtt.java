@@ -1328,6 +1328,7 @@ public final class MqttServerFactory implements StreamFactory
             int progress,
             MqttConnectFW connect)
         {
+            final String16FW clientIdentifier = connect.clientId();
             byte reasonCode = SUCCESS;
             decode:
             {
@@ -1389,8 +1390,6 @@ public final class MqttServerFactory implements StreamFactory
 
                     decodeProgress = mqttProperty.limit();
                 }
-
-                final String16FW clientIdentifier = connect.clientId();
 
                 final MqttConnectPayload payload = new MqttConnectPayload();
                 payload.decode(connect);
@@ -1491,11 +1490,11 @@ public final class MqttServerFactory implements StreamFactory
                 }
                 else
                 {
-                    doCancelConnectTimeoutIfNecessary();
-                    doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
-
                     if (reasonCode == SUCCESS)
                     {
+                        doCancelConnectTimeoutIfNecessary();
+                        doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
+
                         connected = true;
                         keepAlive = connect.keepAlive();
                         keepAliveTimeout = Math.round(TimeUnit.SECONDS.toMillis(keepAlive) * 1.5);
@@ -1508,7 +1507,10 @@ public final class MqttServerFactory implements StreamFactory
 
             if (reasonCode != SUCCESS)
             {
+                doCancelConnectTimeoutIfNecessary();
+                doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
                 doNetworkEnd(traceId, authorization);
+                progress = connect.limit();
             }
             return progress;
         }
