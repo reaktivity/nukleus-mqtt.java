@@ -49,7 +49,7 @@ public class MqttConfiguration extends Configuration
         SUBSCRIPTION_IDENTIFIERS_AVAILABLE = config.property("subscription.identifiers.available", true);
         SHARED_SUBSCRIPTION_AVAILABLE = config.property("shared.subscription.available", false);
         NO_LOCAL = config.property("no.local", false);
-        SESSION_EXPIRY_GRACE_PERIOD = config.property("session.expiry.grace.period", 0);
+        SESSION_EXPIRY_GRACE_PERIOD = config.property("session.expiry.grace.period", 30);
         MQTT_CONFIG = config;
     }
 
