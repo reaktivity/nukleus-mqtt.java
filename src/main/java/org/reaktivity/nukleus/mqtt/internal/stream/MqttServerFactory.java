@@ -1418,15 +1418,12 @@ public final class MqttServerFactory implements StreamFactory
                     break decode;
                 }
 
-                if (sessionExpiryInterval > 0)
+                if (sessionExpiryInterval >= 0)
                 {
-                    progress = doEncodeSession(traceId, authorization, reasonCode, progress, clientIdentifier, connect, payload);
+                    progress = onResolveSession(traceId, authorization, reasonCode, progress, clientIdentifier, connect, payload);
                 }
                 else
                 {
-                    doCancelConnectTimeoutIfNecessary();
-                    doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
-
                     connected = true;
                     keepAlive = connect.keepAlive();
                     keepAliveTimeout = Math.round(TimeUnit.SECONDS.toMillis(keepAlive) * 1.5);
@@ -1436,7 +1433,7 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
-            if (reasonCode != SUCCESS && sessionExpiryInterval <= 0)
+            if (reasonCode != SUCCESS || sessionExpiryInterval <= 0)
             {
                 doCancelConnectTimeoutIfNecessary();
                 doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
@@ -1451,7 +1448,7 @@ public final class MqttServerFactory implements StreamFactory
             return progress;
         }
 
-        private int doEncodeSession(
+        private int onResolveSession(
             long traceId,
             long authorization,
             int reasonCode,
@@ -1511,7 +1508,7 @@ public final class MqttServerFactory implements StreamFactory
                     final int willFlags = decodeWillFlags(willFlagSet, flags);
                     connected = true;
 
-                    resolveSession(sessionStream, traceId, authorization, reserved, connect.flags(), willFlags,
+                    onEncodeSession(sessionStream, traceId, authorization, reserved, connect.flags(), willFlags,
                         payload.expiryInterval, payload.contentType, payload.payloadFormat, payload.responseTopic,
                         payload.correlationData, sessionPayload, payload.willPayload);
 
@@ -1564,7 +1561,7 @@ public final class MqttServerFactory implements StreamFactory
             return stream;
         }
 
-        private void resolveSession(
+        private void onEncodeSession(
             MqttSessionStream stream,
             long traceId,
             long authorization,
@@ -2083,67 +2080,69 @@ public final class MqttServerFactory implements StreamFactory
         {
             int propertiesSize = 0;
 
+            MqttPropertyFW mqttProperty;
             if (sessionExpiryIntervalLimit > 0)
             {
-                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                              .sessionExpiry(sessionExpiryIntervalLimit)
-                              .build();
-                propertiesSize = mqttPropertyRW.limit();
+                mqttProperty = mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                                         .sessionExpiry(sessionExpiryIntervalLimit)
+                                         .build();
+                propertiesSize = mqttProperty.limit();
             }
 
             if (0 <= maximumQos && maximumQos < 2)
             {
-                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                              .maximumQoS(maximumQos)
-                              .build();
-                propertiesSize = mqttPropertyRW.limit();
+                mqttProperty = mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                                         .maximumQoS(maximumQos)
+                                         .build();
+                propertiesSize = mqttProperty.limit();
             }
 
             if (retainedMessages == 0)
             {
-                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                              .retainAvailable(retainedMessages)
-                              .build();
-                propertiesSize = mqttPropertyRW.limit();
+                mqttProperty = mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                                         .retainAvailable(retainedMessages)
+                                         .build();
+                propertiesSize = mqttProperty.limit();
             }
 
             if (topicAliasMaximum > 0)
             {
-                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                              .topicAliasMaximum(topicAliasMaximum)
-                              .build();
-                propertiesSize = mqttPropertyRW.limit();
+                mqttProperty = mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                                         .topicAliasMaximum(topicAliasMaximum)
+                                         .build();
+                propertiesSize = mqttProperty.limit();
             }
 
             if (wildcardSubscriptions == 0)
             {
-                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                              .wildcardSubscriptionAvailable(wildcardSubscriptions)
-                              .build();
-                propertiesSize = mqttPropertyRW.limit();
+                mqttProperty =  mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                                          .wildcardSubscriptionAvailable(wildcardSubscriptions)
+                                          .build();
+                propertiesSize = mqttProperty.limit();
             }
 
             if (subscriptionIdentifiers == 0)
             {
-                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                              .subscriptionIdsAvailable(subscriptionIdentifiers)
-                              .build();
-                propertiesSize = mqttPropertyRW.limit();
+                mqttProperty = mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                                         .subscriptionIdsAvailable(subscriptionIdentifiers)
+                                         .build();
+                propertiesSize = mqttProperty.limit();
             }
 
             if (sharedSubscriptions == 0)
             {
-                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                              .sharedSubscriptionAvailable(sharedSubscriptions)
-                              .build();
-                propertiesSize = mqttPropertyRW.limit();
+                mqttProperty = mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                                         .sharedSubscriptionAvailable(sharedSubscriptions)
+                                         .build();
+                propertiesSize = mqttProperty.limit();
             }
 
             if (clientId != null && clientId.capacity() == 0)
             {
-                mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
-                              .assignedClientId(MqttServerFactory.this.clientId);
-                propertiesSize = mqttPropertyRW.limit();
+                mqttProperty = mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
+                                         .assignedClientId(MqttServerFactory.this.clientId)
+                                         .build();
+                propertiesSize = mqttProperty.limit();
             }
 
             final int propertiesSize0 = propertiesSize;
