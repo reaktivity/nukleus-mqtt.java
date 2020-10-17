@@ -17,15 +17,15 @@ package org.reaktivity.nukleus.mqtt.internal;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
-import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.CLIENT_ID_NAME;
-import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.MAXIMUM_QOS_NAME;
-import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.RETAIN_AVAILABLE_NAME;
-import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.SESSION_EXPIRY_INTERVAL_NAME;
-import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.SHARED_SUBSCRIPTION_AVAILABLE_NAME;
-import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME;
-import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.TOPIC_ALIAS_MAXIMUM_NAME;
-import static org.reaktivity.nukleus.mqtt.internal.ConfigurationTest.WILDCARD_SUBSCRIPTION_AVAILABLE_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.CLIENT_ID_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.MAXIMUM_QOS_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.RETAIN_AVAILABLE_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.SESSION_EXPIRY_INTERVAL_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.SHARED_SUBSCRIPTION_AVAILABLE_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.TOPIC_ALIAS_MAXIMUM_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.WILDCARD_SUBSCRIPTION_AVAILABLE_NAME;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
 import org.junit.Rule;
@@ -1047,5 +1047,11 @@ public class ConnectionIT
     public void shouldConnectWithSessionAndWillMessage() throws Exception
     {
         k3po.finish();
+    }
+
+    @Test
+    public void shouldRefreshSessionExpiry()
+    {
+
     }
 }

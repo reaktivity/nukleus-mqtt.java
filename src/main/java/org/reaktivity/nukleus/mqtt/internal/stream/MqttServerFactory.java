@@ -35,8 +35,6 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.TOPIC_ALIAS_I
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.TOPIC_FILTER_INVALID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.TOPIC_NAME_INVALID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttReasonCodes.UNSUPPORTED_PROTOCOL_VERSION;
-import static org.reaktivity.nukleus.mqtt.internal.stream.MqttServerFactory.SessionMessageType.SESSION;
-import static org.reaktivity.nukleus.mqtt.internal.stream.MqttServerFactory.SessionMessageType.WILL;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_AND_SUBSCRIBE;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.PUBLISH_ONLY;
 import static org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities.SUBSCRIBE_ONLY;
@@ -149,6 +147,9 @@ public final class MqttServerFactory implements StreamFactory
 
     private static final OctetsFW EMPTY_OCTETS = new OctetsFW().wrap(new UnsafeBuffer(new byte[0]), 0, 0);
 
+    private static final String16FW MQTT_PROTOCOL_NAME = new String16FW("MQTT", BIG_ENDIAN);
+    private static final int MQTT_PROTOCOL_VERSION = 5;
+
     private static final String SESSION_TOPIC_FORMAT = "$SYS/clients/%s";
     private static final String SESSION_WILDCARD_TOPIC_FORMAT = "$SYS/clients/%s/#";
     private static final String WILL_TOPIC_FORMAT = "$SYS/clients/%s/will";
@@ -189,6 +190,7 @@ public final class MqttServerFactory implements StreamFactory
     private static final int PUBLISH_EXPIRED_SIGNAL = 1;
     private static final int KEEP_ALIVE_TIMEOUT_SIGNAL = 2;
     private static final int CONNECT_TIMEOUT_SIGNAL = 3;
+    private static final int SESSION_EXPIRY_SIGNAL = 4;
 
     private static final int PUBLISH_FRAMING = 255;
 
@@ -250,6 +252,7 @@ public final class MqttServerFactory implements StreamFactory
     private final OctetsFW passwordRO = new OctetsFW();
 
     private final MqttPublishHeader mqttPublishHeaderRO = new MqttPublishHeader();
+    private final MqttConnectPayload mqttConnectPayloadRO = new MqttConnectPayload();
 
     private final MqttConnackFW.Builder mqttConnackRW = new MqttConnackFW.Builder();
     private final MqttPublishFW.Builder mqttPublishRW = new MqttPublishFW.Builder();
@@ -289,6 +292,7 @@ public final class MqttServerFactory implements StreamFactory
     private final byte subscriptionIdentifiers;
     private final byte sharedSubscriptions;
     private final boolean noLocal;
+    private final int sessionExpiryGracePeriod;
 
     private final MqttValidator validator;
 
@@ -370,6 +374,7 @@ public final class MqttServerFactory implements StreamFactory
         this.sharedSubscriptions = config.sharedSubscriptionAvailable() ? (byte) 1 : 0;
         this.topicAliasMaximumLimit = (short) Math.max(config.topicAliasMaximum(), 0);
         this.noLocal = config.noLocal();
+        this.sessionExpiryGracePeriod = config.sessionExpiryGracePeriod();
         this.encodeBudgetMax = bufferPool.slotCapacity();
         this.validator = new MqttValidator();
     }
@@ -680,18 +685,20 @@ public final class MqttServerFactory implements StreamFactory
                 }
 
                 int flags = mqttConnect.flags();
-                if ((mqttConnect.typeAndFlags() & 0b1111_1111) != CONNECT_FIXED_HEADER || (flags & CONNECT_RESERVED_MASK) != 0)
-                {
-                    reasonCode = MALFORMED_PACKET;
-                    break decode;
-                }
-                else if (!"MQTT".equals(mqttConnect.protocolName().asString()) || mqttConnect.protocolVersion() != 5)
-                {
-                    reasonCode = UNSUPPORTED_PROTOCOL_VERSION;
-                    break decode;
-                }
-                reasonCode = decodeConnectFlags(flags);
 
+                reasonCode = decodeConnectType(mqttConnect, flags);
+                if (reasonCode != SUCCESS)
+                {
+                    break decode;
+                }
+
+                reasonCode = decodeConnectProtocol(mqttConnect);
+                if (reasonCode != SUCCESS)
+                {
+                    break decode;
+                }
+
+                reasonCode = decodeConnectFlags(flags);
                 if (reasonCode != SUCCESS)
                 {
                     break decode;
@@ -729,7 +736,7 @@ public final class MqttServerFactory implements StreamFactory
             int reasonCode = SUCCESS;
             final MqttPublishFW publish = mqttPublishRO.tryWrap(buffer, offset, offset + server.decodeablePacketBytes);
 
-            mqttPublishHeaderRO.reset();
+            final MqttPublishHeader mqttPublishHeader = mqttPublishHeaderRO.reset();
 
             if (publish == null)
             {
@@ -737,13 +744,13 @@ public final class MqttServerFactory implements StreamFactory
             }
             else
             {
-                reasonCode = mqttPublishHeaderRO.decode(server, publish.topicName(), publish.properties());
+                reasonCode = mqttPublishHeader.decode(server, publish.topicName(), publish.properties());
             }
 
             if (reasonCode == SUCCESS)
             {
                 final int flags = publish.typeAndFlags() & PUBLISH_FLAGS_MASK;
-                final String topic = mqttPublishHeaderRO.topic;
+                final String topic = mqttPublishHeader.topic;
                 final int topicKey = topicKey(topic);
                 MqttServer.MqttServerStream publisher = server.streams.get(topicKey);
 
@@ -1025,7 +1032,7 @@ public final class MqttServerFactory implements StreamFactory
         private final Int2ObjectHashMap<Subscription> subscriptionsByPacketId;
         private final Int2ObjectHashMap<String> topicAliases;
 
-        private MqttSessionStateStream sessionStream;
+        private MqttSessionStream sessionStream;
 
         private int decodeBudget;
         private int encodeBudget;
@@ -1402,42 +1409,49 @@ public final class MqttServerFactory implements StreamFactory
                     break decode;
                 }
 
-                final MqttConnectPayload payload = new MqttConnectPayload();
+                final MqttConnectPayload payload = mqttConnectPayloadRO.reset();
                 payload.decode(connect);
                 reasonCode = payload.reasonCode;
 
+                if (reasonCode != SUCCESS)
+                {
+                    break decode;
+                }
+
                 if (sessionExpiryInterval > 0)
                 {
-                    progress = onResolveSession(traceId, authorization, reasonCode, progress, clientIdentifier, connect, payload);
+                    progress = doEncodeSession(traceId, authorization, reasonCode, progress, clientIdentifier, connect, payload);
                 }
                 else
                 {
-                    if (reasonCode == SUCCESS)
-                    {
-                        doCancelConnectTimeoutIfNecessary();
-                        doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
+                    doCancelConnectTimeoutIfNecessary();
+                    doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
 
-                        connected = true;
-                        keepAlive = connect.keepAlive();
-                        keepAliveTimeout = Math.round(TimeUnit.SECONDS.toMillis(keepAlive) * 1.5);
-                        doSignalKeepAliveTimeoutIfNecessary();
-                        decoder = decodePacketType;
-                        progress = connect.limit();
-                    }
+                    connected = true;
+                    keepAlive = connect.keepAlive();
+                    keepAliveTimeout = Math.round(TimeUnit.SECONDS.toMillis(keepAlive) * 1.5);
+                    doSignalKeepAliveTimeoutIfNecessary();
+                    decoder = decodePacketType;
+                    progress = connect.limit();
                 }
+            }
+
+            if (reasonCode != SUCCESS && sessionExpiryInterval <= 0)
+            {
+                doCancelConnectTimeoutIfNecessary();
+                doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
             }
 
             if (reasonCode != SUCCESS)
             {
-                doCancelConnectTimeoutIfNecessary();
-                doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
                 doNetworkEnd(traceId, authorization);
+                decoder = decodeIgnoreAll;
                 progress = connect.limit();
             }
             return progress;
         }
 
-        private int onResolveSession(
+        private int doEncodeSession(
             long traceId,
             long authorization,
             int reasonCode,
@@ -1473,9 +1487,9 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (sessionStream == null)
                 {
-                    sessionStream = new MqttSessionStateStream(resolvedId, 0, topic);
+                    sessionStream = new MqttSessionStream(resolvedId, 0, topic);
                 }
-                sessionStream.doApplicationBeginOrFlush(traceId, authorization, affinity, topic, NO_FLAGS,
+                sessionStream.doApplicationBeginOrFlush(traceId, authorization, clientIdentifier, affinity, topic, NO_FLAGS,
                     0, PUBLISH_AND_SUBSCRIBE);
 
                 final int payloadSize = sessionPayload.sizeof() + payload.willPayload.sizeof();
@@ -1494,30 +1508,15 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (canPublish && (reserved != 0 || payloadSize == 0))
                 {
-                    int willFlags = 0;
-                    if (willFlagSet)
-                    {
-                        if (isSetWillQos(flags))
-                        {
-                            willFlags = (willFlags | WILL_QOS_MASK) >>> 2;
-                        }
-
-                        if (isSetWillRetain(flags))
-                        {
-                            willFlags |= RETAIN_FLAG;
-                        }
-                    }
+                    final int willFlags = decodeWillFlags(willFlagSet, flags);
+                    connected = true;
 
                     resolveSession(sessionStream, traceId, authorization, reserved, connect.flags(), willFlags,
                         payload.expiryInterval, payload.contentType, payload.payloadFormat, payload.responseTopic,
                         payload.correlationData, sessionPayload, payload.willPayload);
 
-                    doCancelConnectTimeoutIfNecessary();
-                    doEncodeConnack(traceId, authorization, reasonCode, clientIdentifier.value());
-
                     if (reasonCode == SUCCESS)
                     {
-                        connected = true;
                         keepAlive = connect.keepAlive();
                         keepAliveTimeout = Math.round(TimeUnit.SECONDS.toMillis(keepAlive) * 1.5);
                         doSignalKeepAliveTimeoutIfNecessary();
@@ -1534,7 +1533,7 @@ public final class MqttServerFactory implements StreamFactory
             }
             else
             {
-                sessionStream = new MqttSessionStateStream(0, topic);
+                sessionStream = new MqttSessionStream(0, topic);
             }
 
             return progress;
@@ -1566,7 +1565,7 @@ public final class MqttServerFactory implements StreamFactory
         }
 
         private void resolveSession(
-            MqttSessionStateStream stream,
+            MqttSessionStream stream,
             long traceId,
             long authorization,
             int reserved,
@@ -1586,7 +1585,8 @@ public final class MqttServerFactory implements StreamFactory
                                                     .typeId(mqttTypeId)
                                                     .topic(String.format(SESSION_TOPIC_FORMAT, clientId))
                                                     .build();
-            stream.doApplicationData(traceId, authorization, reserved, SESSION, sessionPayload, dataEx);
+
+            stream.doApplicationData(traceId, authorization, reserved, sessionPayload, dataEx);
 
             if (willFlagSet)
             {
@@ -1604,8 +1604,10 @@ public final class MqttServerFactory implements StreamFactory
                 userProperties.forEach(c -> builder.propertiesItem(p -> p.key(c.key()).value(c.value())));
 
                 final MqttDataExFW willDataEx = builder.build();
-                stream.doApplicationData(traceId, authorization, reserved, WILL, willPayload, willDataEx);
+                stream.doApplicationData(traceId, authorization, reserved, willPayload, willDataEx);
             }
+
+            stream.doSignalSessionExpirationIfNecessary();
         }
 
         private void onDecodePublish(
@@ -3085,7 +3087,7 @@ public final class MqttServerFactory implements StreamFactory
             }
         }
 
-        private class MqttSessionStateStream
+        private class MqttSessionStream
         {
             private final MessageConsumer application;
             private final int topicKey;
@@ -3103,6 +3105,7 @@ public final class MqttServerFactory implements StreamFactory
             private int replyBudget;
 
             private String topicFilter;
+            private String16FW clientIdentifier;
 
             private Subscription subscription;
             private int subackIndex;
@@ -3111,7 +3114,10 @@ public final class MqttServerFactory implements StreamFactory
             private int state;
             private int capabilities;
 
-            MqttSessionStateStream(
+            private long sessionExpiresId = NO_CANCEL_ID;
+            private long sessionExpiresAt;
+
+            MqttSessionStream(
                 int packetId,
                 String topicFilter)
             {
@@ -3121,7 +3127,7 @@ public final class MqttServerFactory implements StreamFactory
                 this.topicKey = topicKey(topicFilter);
             }
 
-            MqttSessionStateStream(
+            MqttSessionStream(
                 long routeId,
                 int packetId,
                 String topicFilter)
@@ -3151,6 +3157,10 @@ public final class MqttServerFactory implements StreamFactory
                     final ResetFW reset = resetRO.wrap(buffer, index, index + length);
                     onApplicationReset(reset);
                     break;
+                case SignalFW.TYPE_ID:
+                    final SignalFW signal = signalRO.wrap(buffer, index, index + length);
+                    onApplicationSignal(signal);
+                    break;
                 }
             }
 
@@ -3162,6 +3172,12 @@ public final class MqttServerFactory implements StreamFactory
                 final long budgetId = window.budgetId();
                 final int credit = window.credit();
                 final int padding = window.padding();
+
+                if (!MqttState.initialOpened(state))
+                {
+                    doCancelConnectTimeoutIfNecessary();
+                    doEncodeConnack(traceId, authorization, SUCCESS, clientIdentifier.value());
+                }
 
                 this.state = MqttState.openInitial(state);
                 this.budgetId = budgetId;
@@ -3198,6 +3214,39 @@ public final class MqttServerFactory implements StreamFactory
 
                 decodeNetworkIfNecessary(traceId);
                 cleanup(traceId, authorization);
+            }
+
+            private void onApplicationSignal(
+                SignalFW signal)
+            {
+                final int signalId = signal.signalId();
+
+                switch (signalId)
+                {
+                case SESSION_EXPIRY_SIGNAL:
+                    onSessionExpiredSignal(signal);
+                    break;
+                default:
+                    break;
+                }
+            }
+
+            private void onSessionExpiredSignal(
+                SignalFW signal)
+            {
+                final long traceId = signal.traceId();
+                final long authorization = signal.authorization();
+                final long now = System.currentTimeMillis();
+
+                if (MqttState.initialClosing(state) && now >= sessionExpiresAt)
+                {
+                    doApplicationFlushOrEnd(traceId, authorization, NO_FLAGS, PUBLISH_ONLY);
+                }
+                else
+                {
+                    sessionExpiresId = NO_CANCEL_ID;
+                    doSignalSessionExpirationIfNecessary();
+                }
             }
 
             private void onApplicationReply(
@@ -3287,12 +3336,14 @@ public final class MqttServerFactory implements StreamFactory
             private void doApplicationBeginOrFlush(
                 long traceId,
                 long authorization,
+                String16FW clientIdentifier,
                 long affinity,
                 String topicFilter,
                 int flags,
                 int subscriptionId,
                 MqttCapabilities capability)
             {
+                this.clientIdentifier = clientIdentifier;
                 final int newCapabilities = capabilities | capability.value();
                 if (!MqttState.initialOpening(state))
                 {
@@ -3339,7 +3390,6 @@ public final class MqttServerFactory implements StreamFactory
                 long traceId,
                 long authorization,
                 int reserved,
-                SessionMessageType messageType,
                 OctetsFW payload,
                 Flyweight extension)
             {
@@ -3356,7 +3406,6 @@ public final class MqttServerFactory implements StreamFactory
                 initialBudget -= reserved;
 
                 assert initialBudget >= 0;
-
 
                 if (MqttState.closed(state))
                 {
@@ -3376,6 +3425,16 @@ public final class MqttServerFactory implements StreamFactory
 
             }
 
+            private void doSignalSessionExpirationIfNecessary()
+            {
+                sessionExpiresAt = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(sessionExpiryInterval);
+
+                if (sessionExpiresId == NO_CANCEL_ID)
+                {
+                    sessionExpiresId = signaler.signalAt(sessionExpiresAt, routeId, initialId, SESSION_EXPIRY_SIGNAL);
+                }
+            }
+
             private void cleanup(
                 long traceId,
                 long authorization)
@@ -3393,6 +3452,32 @@ public final class MqttServerFactory implements StreamFactory
                 }
 
                 return correlated != null;
+            }
+
+            private void doApplicationFlushOrEnd(
+                long traceId,
+                long authorization,
+                int flags,
+                MqttCapabilities capability)
+            {
+                final int newCapabilities = capabilities & ~capability.value();
+                if (newCapabilities == 0)
+                {
+                    this.capabilities = newCapabilities;
+                    if (!MqttState.initialOpened(state))
+                    {
+                        state = MqttState.closingInitial(state);
+                    }
+                    else
+                    {
+                        doApplicationEnd(traceId, authorization, EMPTY_OCTETS);
+                    }
+                }
+                else if (newCapabilities != capabilities)
+                {
+                    this.capabilities = newCapabilities;
+                    doApplicationFlush(traceId, authorization, 0, flags);
+                }
             }
 
             private void doApplicationAbort(
@@ -3564,6 +3649,28 @@ public final class MqttServerFactory implements StreamFactory
         return (flags & WILL_QOS_MASK) != 0b0000_0000;
     }
 
+    private static int decodeWillFlags(
+        boolean willFlagSet,
+        int flags)
+    {
+        int willFlags = 0;
+
+        if (willFlagSet)
+        {
+            if (isSetWillQos(flags))
+            {
+                willFlags = (willFlags | WILL_QOS_MASK) >>> 2;
+            }
+
+            if (isSetWillRetain(flags))
+            {
+                willFlags |= RETAIN_FLAG;
+            }
+        }
+
+        return willFlags;
+    }
+
     private static boolean isSetWillRetain(
         int flags)
     {
@@ -3592,6 +3699,33 @@ public final class MqttServerFactory implements StreamFactory
         int flags)
     {
         return (flags & BASIC_AUTHENTICATION_MASK) != 0;
+    }
+
+    private static int decodeConnectType(
+        MqttConnectFW connect,
+        int flags)
+    {
+        int reasonCode = SUCCESS;
+
+        if ((connect.typeAndFlags() & 0b1111_1111) != CONNECT_FIXED_HEADER || (flags & CONNECT_RESERVED_MASK) != 0)
+        {
+            reasonCode = MALFORMED_PACKET;
+        }
+
+        return reasonCode;
+    }
+
+    private static int decodeConnectProtocol(
+        MqttConnectFW connect)
+    {
+        int reasonCode = SUCCESS;
+
+        if (!MQTT_PROTOCOL_NAME.equals(connect.protocolName()) || connect.protocolVersion() != MQTT_PROTOCOL_VERSION)
+        {
+            reasonCode = UNSUPPORTED_PROTOCOL_VERSION;
+        }
+
+        return reasonCode;
     }
 
     private static int decodeConnectFlags(
@@ -3629,7 +3763,7 @@ public final class MqttServerFactory implements StreamFactory
         private String16FW responseTopic = NULL_STRING;
         private OctetsFW correlationData = null;
 
-        private void reset()
+        private MqttConnectPayload reset()
         {
             this.reasonCode = SUCCESS;
             this.willProperties = null;
@@ -3645,12 +3779,13 @@ public final class MqttServerFactory implements StreamFactory
             this.contentType = NULL_STRING;
             this.responseTopic = NULL_STRING;
             this.correlationData = null;
+
+            return this;
         }
 
         private void decode(
             MqttConnectFW connect)
         {
-            reset();
             final int flags = connect.flags();
             final OctetsFW payload = connect.payload();
 
@@ -3727,7 +3862,6 @@ public final class MqttServerFactory implements StreamFactory
         private void decode(
             MqttPropertiesFW properties)
         {
-            reset();
             userPropertiesRW.wrap(userPropertiesBuffer, 0, userPropertiesBuffer.capacity());
 
             final OctetsFW propertiesValue = properties.value();
@@ -3798,7 +3932,7 @@ public final class MqttServerFactory implements StreamFactory
         private String16FW responseTopic = NULL_STRING;
         private OctetsFW correlationData = null;
 
-        private void reset()
+        private MqttPublishHeader reset()
         {
             this.topic = null;
             this.expiryInterval = DEFAULT_EXPIRY_INTERVAL;
@@ -3806,6 +3940,8 @@ public final class MqttServerFactory implements StreamFactory
             this.payloadFormat = DEFAULT_FORMAT;
             this.responseTopic = NULL_STRING;
             this.correlationData = null;
+
+            return this;
         }
 
         private int decode(

@@ -114,7 +114,7 @@ public class MqttConfiguration extends Configuration
         return NO_LOCAL.get(this);
     }
 
-    public int sessionExpiryUpdateInterval()
+    public int sessionExpiryGracePeriod()
     {
         return SESSION_EXPIRY_GRACE_PERIOD.get(this);
     }

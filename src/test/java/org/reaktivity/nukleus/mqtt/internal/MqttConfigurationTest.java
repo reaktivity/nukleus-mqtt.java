@@ -31,7 +31,7 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.WILDCARD_SU
 
 import org.junit.Test;
 
-public class ConfigurationTest
+public class MqttConfigurationTest
 {
     static final String PUBLISH_TIMEOUT_NAME = "nukleus.mqtt.publish.timeout";
     static final String CONNECT_TIMEOUT_NAME = "nukleus.mqtt.connect.timeout";
