@@ -1045,7 +1045,7 @@ public class ConnectionIT
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
-    public void shouldReceiveWillMessageAfterClientDisconnect() throws Exception
+    public void shouldPublishWillMessageAfterClientDisconnect() throws Exception
     {
         k3po.finish();
     }
