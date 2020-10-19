@@ -3811,6 +3811,8 @@ public final class MqttServerFactory implements StreamFactory
                     debitorIndex = debitor.acquire(budgetId, initialId, MqttWillStream.this::publishWillMessage);
                 }
 
+                publishWillMessage(traceId);
+
                 if (MqttState.initialClosing(state) && !MqttState.initialClosed(state))
                 {
                     doApplicationEnd(traceId, authorization, EMPTY_OCTETS);
