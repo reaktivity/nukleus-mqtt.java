@@ -1837,6 +1837,7 @@ public final class MqttServerFactory implements StreamFactory
             MqttDisconnectFW disconnect)
         {
             doNetworkEnd(traceId, authorization);
+            sessionStream = null;
         }
 
         private void onDecodeError(

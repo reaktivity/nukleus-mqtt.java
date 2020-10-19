@@ -1038,14 +1038,29 @@ public class ConnectionIT
     @Test
     @Specification({
         "${routeExt}/session/server/controller",
-        "${client}/connect/session.with.will.message/client",
+        "${client}/connect/will.message.with.abrupt.disconnect/client",
         "${server}/publish.session.data/server"})
     @Configure(name = CLIENT_ID_NAME, value = "one")
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
-    public void shouldPublishWillMessageAfterClientDisconnect() throws Exception
+    public void shouldPublishWillMessageAfterAbruptClientDisconnect() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${routeExt}/session/server/controller",
+        "${client}/connect/will.message.with.normal.disconnect/client",
+        "${server}/unpublished.will.message/server"})
+    @Configure(name = CLIENT_ID_NAME, value = "one")
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
+    public void shouldIgnoreWillMessageAfterNormalClientDisconnect() throws Exception
     {
         k3po.finish();
     }
