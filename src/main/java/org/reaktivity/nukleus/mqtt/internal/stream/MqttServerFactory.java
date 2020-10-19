@@ -1498,7 +1498,7 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     sessionStream = new MqttSessionStream(resolvedId, 0, willFlagSet, topic);
                     sessionStream.doApplicationBeginOrFlush(traceId, authorization, clientIdentifier, affinity, topic, NO_FLAGS,
-                        0, PUBLISH_AND_SUBSCRIBE);
+                        0, PUBLISH_ONLY);
                 }
 
                 final int payloadSize = sessionPayload.sizeof() + payload.willPayload.sizeof();
@@ -3701,7 +3701,7 @@ public final class MqttServerFactory implements StreamFactory
 
         private class MqttWillStream
         {
-            private final int publishOnlyCapabilities = MqttCapabilities.PUBLISH_ONLY.value();
+            private final int publishOnlyCapabilities = PUBLISH_ONLY.value();
 
             private final MessageConsumer application;
             private final int topicKey;
