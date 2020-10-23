@@ -1734,7 +1734,7 @@ public final class MqttServerFactory implements StreamFactory
                         final int flags = calculateSubscribeFlags(traceId, authorization, options);
                         subscription.flags = flags;
 
-                        if (!noLocal && (flags & NO_LOCAL_FLAG) != 0)
+                        if (!noLocal && isSetNoLocal(flags))
                         {
                             onDecodeError(traceId, authorization, PROTOCOL_ERROR);
                             decoder = decodeIgnoreAll;
@@ -2727,6 +2727,7 @@ public final class MqttServerFactory implements StreamFactory
                                                            .typeId(mqttTypeId)
                                                            .flags(flags)
                                                            .capabilities(c -> c.set(valueOf(capabilities)))
+                                                           .clientId(clientId)
                                                            .build()
                                                            .sizeof()));
             }
@@ -2795,8 +2796,8 @@ public final class MqttServerFactory implements StreamFactory
                 final int credit = window.credit();
                 final int padding = window.padding();
 
-                if (!MqttState.initialOpened(state) &&
-                    hasSubscribeCapability(capabilities))
+                final boolean b = !MqttState.initialOpened(state);
+                if (b && hasSubscribeCapability(capabilities))
                 {
                     subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
                 }
@@ -4129,6 +4130,12 @@ public final class MqttServerFactory implements StreamFactory
         int flags)
     {
         return (flags & PASSWORD_MASK) != 0;
+    }
+
+    private static boolean isSetNoLocal(
+        int flags)
+    {
+        return (flags & NO_LOCAL_FLAG) != 0;
     }
 
     private static boolean isSetBasicAuthentication(
