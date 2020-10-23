@@ -1562,7 +1562,7 @@ public final class MqttServerFactory implements StreamFactory
                 final long resolvedId = route.correlationId();
                 final int topicKey = topicKey(topic);
 
-                stream = streams.computeIfAbsent(topicKey, s -> new MqttServerStream(resolvedId, 0, topic));
+                stream = streams.computeIfAbsent(topicKey, s -> new MqttServerStream(resolvedId, topic));
                 stream.doApplicationBeginOrFlush(traceId, authorization, affinity, topic, NO_FLAGS, 0, PUBLISH_ONLY);
             }
             else
@@ -1735,7 +1735,7 @@ public final class MqttServerFactory implements StreamFactory
                         final int flags = calculateSubscribeFlags(traceId, authorization, options);
                         subscription.flags = flags;
 
-                        if (!noLocal && (flags & NO_LOCAL_FLAG) != 0)
+                        if (!noLocal && isSetNoLocal(flags))
                         {
                             onDecodeError(traceId, authorization, PROTOCOL_ERROR);
                             decoder = decodeIgnoreAll;
@@ -1743,7 +1743,8 @@ public final class MqttServerFactory implements StreamFactory
                         }
 
                         MqttServerStream stream = streams.computeIfAbsent(topicKey, s ->
-                                                    new MqttServerStream(resolvedId, packetId, filter));
+                                                    new MqttServerStream(resolvedId, filter));
+                        stream.packetId = packetId;
                         stream.onApplicationSubscribe(subscription);
                         stream.doApplicationBeginOrFlush(traceId, authorization, affinity,
                                 filter, flags, subscriptionId, SUBSCRIBE_ONLY);
@@ -2528,6 +2529,12 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
+            private boolean hasSubscribeCompleted(
+                int ackIndex)
+            {
+                return (ackMask & 1 << ackIndex) != 0;
+            }
+
             private boolean retainAsPublished()
             {
                 return (flags & RETAIN_AS_PUBLISHED_FLAG) == RETAIN_AS_PUBLISHED_FLAG;
@@ -2565,14 +2572,12 @@ public final class MqttServerFactory implements StreamFactory
 
             MqttServerStream(
                 long routeId,
-                int packetId,
                 String topicFilter)
             {
                 this.routeId = routeId;
                 this.initialId = supplyInitialId.applyAsLong(routeId);
                 this.replyId = supplyReplyId.applyAsLong(initialId);
                 this.application = router.supplyReceiver(initialId);
-                this.packetId = packetId;
                 this.topicFilter = topicFilter;
                 this.topicKey = topicKey(topicFilter);
             }
@@ -2728,6 +2733,7 @@ public final class MqttServerFactory implements StreamFactory
                                                            .typeId(mqttTypeId)
                                                            .flags(flags)
                                                            .capabilities(c -> c.set(valueOf(capabilities)))
+                                                           .clientId(clientId)
                                                            .build()
                                                            .sizeof()));
             }
@@ -2796,8 +2802,8 @@ public final class MqttServerFactory implements StreamFactory
                 final int credit = window.credit();
                 final int padding = window.padding();
 
-                if (!MqttState.initialOpened(state) &&
-                    hasSubscribeCapability(capabilities))
+                if (subscription != null &&
+                        !subscription.hasSubscribeCompleted(subackIndex) && hasSubscribeCapability(capabilities))
                 {
                     subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
                 }
@@ -4130,6 +4136,12 @@ public final class MqttServerFactory implements StreamFactory
         int flags)
     {
         return (flags & PASSWORD_MASK) != 0;
+    }
+
+    private static boolean isSetNoLocal(
+        int flags)
+    {
+        return (flags & NO_LOCAL_FLAG) != 0;
     }
 
     private static boolean isSetBasicAuthentication(

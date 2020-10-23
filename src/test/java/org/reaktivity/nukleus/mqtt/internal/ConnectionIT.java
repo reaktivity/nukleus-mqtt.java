@@ -20,6 +20,7 @@ import static org.junit.rules.RuleChain.outerRule;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.CLIENT_ID_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.MAXIMUM_QOS_NAME;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.NO_LOCAL_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.RETAIN_AVAILABLE_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.SESSION_EXPIRY_INTERVAL_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.SHARED_SUBSCRIPTION_AVAILABLE_NAME;
@@ -1055,12 +1056,56 @@ public class ConnectionIT
         "${routeExt}/session/server/controller",
         "${client}/connect/will.message.with.normal.disconnect/client",
         "${server}/unpublished.will.message/server"})
-    @Configure(name = CLIENT_ID_NAME, value = "one")
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
+    @Configure(name = CLIENT_ID_NAME, value = "one")
     public void shouldIgnoreWillMessageAfterNormalClientDisconnect() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.then.subscribe.one.message/client",
+        "${server}/publish.then.subscribe.one.message/server"})
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
+    public void shouldPublishThenSubscribeOneMessage() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe.then.publish.no.local/client",
+        "${server}/subscribe.then.publish.no.local/server"})
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
+    @Configure(name = NO_LOCAL_NAME, value = "true")
+    public void shouldSubscribeThenPublishNoLocal() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/publish.then.subscribe.no.local/client",
+        "${server}/publish.then.subscribe.no.local/server"})
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
+    @Configure(name = NO_LOCAL_NAME, value = "true")
+    public void shouldPublishThenSubscribeNoLocal() throws Exception
     {
         k3po.finish();
     }
