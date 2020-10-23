@@ -2488,6 +2488,7 @@ public final class MqttServerFactory implements StreamFactory
             private int ackCount;
             private int successMask;
             private int ackMask;
+            private boolean acknowledged;
 
             private Subscription()
             {
@@ -2524,6 +2525,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 if (Integer.bitCount(ackMask) == ackCount)
                 {
+                    acknowledged = true;
                     doEncodeSuback(traceId, authorization, packetId, ackMask, successMask);
                 }
             }
@@ -2559,7 +2561,6 @@ public final class MqttServerFactory implements StreamFactory
 
             private int state;
             private int capabilities;
-            private boolean didSendSuback;
 
             private long publishExpiresId = NO_CANCEL_ID;
             private long publishExpiresAt;
@@ -2796,9 +2797,8 @@ public final class MqttServerFactory implements StreamFactory
                 final int credit = window.credit();
                 final int padding = window.padding();
 
-                if (!didSendSuback && hasSubscribeCapability(capabilities))
+                if (subscription != null && !subscription.acknowledged && hasSubscribeCapability(capabilities))
                 {
-                    didSendSuback = true;
                     subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
                 }
 
