@@ -104,6 +104,7 @@ import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormat;
 import org.reaktivity.nukleus.mqtt.internal.types.MqttPayloadFormatFW;
 import org.reaktivity.nukleus.mqtt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.mqtt.internal.types.String16FW;
+import org.reaktivity.nukleus.mqtt.internal.types.codec.BinaryFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnackFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttConnectFW;
 import org.reaktivity.nukleus.mqtt.internal.types.codec.MqttDisconnectFW;
@@ -246,7 +247,7 @@ public final class MqttServerFactory implements StreamFactory
 
     private final OctetsFW.Builder sessionPayloadRW = new OctetsFW.Builder();
 
-    private final OctetsFW willPayloadRO = new OctetsFW();
+    private final BinaryFW willPayloadRO = new BinaryFW();
     private final OctetsFW passwordRO = new OctetsFW();
 
     private final MqttPublishHeader mqttPublishHeaderRO = new MqttPublishHeader();
@@ -1501,7 +1502,7 @@ public final class MqttServerFactory implements StreamFactory
                         0, PUBLISH_ONLY);
                 }
 
-                final int payloadSize = sessionPayload.sizeof() + payload.willPayload.sizeof();
+                final int payloadSize = sessionPayload.sizeof() + payload.willPayload.bytes().sizeof();
 
                 boolean canPublish = MqttState.initialOpened(sessionStream.state);
 
@@ -1522,7 +1523,7 @@ public final class MqttServerFactory implements StreamFactory
 
                     onEncodeSession(sessionStream, traceId, authorization, reserved, connect.flags(), willFlags,
                         payload.willTopic, payload.expiryInterval, payload.contentType, payload.payloadFormat,
-                        payload.responseTopic, payload.correlationData, sessionPayload, payload.willPayload);
+                        payload.responseTopic, payload.correlationData, sessionPayload, payload.willPayload.bytes());
 
                     if (reasonCode == SUCCESS)
                     {
@@ -4200,7 +4201,7 @@ public final class MqttServerFactory implements StreamFactory
         private byte willQos = 0;
         private byte willRetain = 0;
         private String16FW willTopic = null;
-        private OctetsFW willPayload = null;
+        private BinaryFW willPayload = null;
         private String16FW username = null;
         private OctetsFW password = null;
 
