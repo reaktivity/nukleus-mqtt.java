@@ -1561,7 +1561,7 @@ public final class MqttServerFactory implements StreamFactory
                 final long resolvedId = route.correlationId();
                 final int topicKey = topicKey(topic);
 
-                stream = streams.computeIfAbsent(topicKey, s -> new MqttServerStream(resolvedId, 0, topic));
+                stream = streams.computeIfAbsent(topicKey, s -> new MqttServerStream(resolvedId, topic));
                 stream.doApplicationBeginOrFlush(traceId, authorization, affinity, topic, NO_FLAGS, 0, PUBLISH_ONLY);
             }
             else
@@ -1742,7 +1742,8 @@ public final class MqttServerFactory implements StreamFactory
                         }
 
                         MqttServerStream stream = streams.computeIfAbsent(topicKey, s ->
-                                                    new MqttServerStream(resolvedId, packetId, filter));
+                                                    new MqttServerStream(resolvedId, filter));
+                        stream.packetId = packetId;
                         stream.onApplicationSubscribe(subscription);
                         stream.doApplicationBeginOrFlush(traceId, authorization, affinity,
                                 filter, flags, subscriptionId, SUBSCRIBE_ONLY);
@@ -2558,20 +2559,19 @@ public final class MqttServerFactory implements StreamFactory
 
             private int state;
             private int capabilities;
+            private boolean didSendSuback;
 
             private long publishExpiresId = NO_CANCEL_ID;
             private long publishExpiresAt;
 
             MqttServerStream(
                 long routeId,
-                int packetId,
                 String topicFilter)
             {
                 this.routeId = routeId;
                 this.initialId = supplyInitialId.applyAsLong(routeId);
                 this.replyId = supplyReplyId.applyAsLong(initialId);
                 this.application = router.supplyReceiver(initialId);
-                this.packetId = packetId;
                 this.topicFilter = topicFilter;
                 this.topicKey = topicKey(topicFilter);
             }
@@ -2796,9 +2796,9 @@ public final class MqttServerFactory implements StreamFactory
                 final int credit = window.credit();
                 final int padding = window.padding();
 
-                final boolean b = !MqttState.initialOpened(state);
-                if (b && hasSubscribeCapability(capabilities))
+                if (!didSendSuback && hasSubscribeCapability(capabilities))
                 {
+                    didSendSuback = true;
                     subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
                 }
 
