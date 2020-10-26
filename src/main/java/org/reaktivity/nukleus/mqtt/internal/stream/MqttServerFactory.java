@@ -1699,7 +1699,7 @@ public final class MqttServerFactory implements StreamFactory
                     subscription.id = subscriptionId;
                 }
 
-                for (int decodeProgress = decodeOffset; decodeProgress < decodeLimit; subscription.ackCount++)
+                for (int decodeProgress = decodeOffset; decodeProgress < decodeLimit;)
                 {
                     final MqttSubscribePayloadFW mqttSubscribePayload =
                             mqttSubscribePayloadRO.tryWrap(decodeBuffer, decodeProgress, decodeLimit);
@@ -2586,7 +2586,7 @@ public final class MqttServerFactory implements StreamFactory
                 Subscription subscription)
             {
                 this.subscription = subscription;
-                this.subackIndex = subscription != null ? subscription.ackCount : -1;
+                this.subackIndex = subscription != null ? subscription.ackCount++ : -1;
             }
 
             private void doApplicationBeginOrFlush(
@@ -2607,6 +2607,13 @@ public final class MqttServerFactory implements StreamFactory
                 else if (newCapabilities != capabilities)
                 {
                     this.capabilities = newCapabilities;
+
+                    if (subscription != null &&
+                            !subscription.hasSubscribeCompleted(subackIndex) && hasSubscribeCapability(capabilities))
+                    {
+                        subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
+                    }
+
                     doApplicationFlush(traceId, authorization, 0, flags);
                 }
             }
