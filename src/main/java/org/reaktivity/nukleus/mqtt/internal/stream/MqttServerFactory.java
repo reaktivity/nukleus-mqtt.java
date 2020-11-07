@@ -173,6 +173,9 @@ public final class MqttServerFactory implements StreamFactory
     private static final int USERNAME_MASK = 0b1000_0000;
     private static final int PASSWORD_MASK = 0b0100_0000;
 
+    private static final int CONNECT_TOPIC_ALIAS_MAXIMUM_MASK = 0b0000_0001;
+    private static final int CONNECT_SESSION_EXPIRY_INTERVAL_MASK = 0b0000_0010;
+
     private static final int RETAIN_HANDLING_SEND = 0;
 
     private static final int RETAIN_FLAG = 1 << RETAIN.ordinal();
@@ -1067,8 +1070,10 @@ public final class MqttServerFactory implements StreamFactory
         private long keepAliveTimeout;
         private boolean connected;
 
-        private short topicAliasMaximum = -1;
-        private int sessionExpiryInterval = -1;
+        private short topicAliasMaximum = 0;
+        private int sessionExpiryInterval = 0;
+
+        private int propertyMask = 0;
 
         private int state;
 
@@ -1355,22 +1360,24 @@ public final class MqttServerFactory implements StreamFactory
                 switch (mqttProperty.kind())
                 {
                 case KIND_TOPIC_ALIAS_MAXIMUM:
-                    if (topicAliasMaximum != -1)
+                    if (isSetTopicAliasMaximum(propertyMask))
                     {
                         topicAliasMaximum = 0;
                         reasonCode = PROTOCOL_ERROR;
                         break decode;
                     }
+                    this.propertyMask |= CONNECT_TOPIC_ALIAS_MAXIMUM_MASK;
                     final short topicAliasMaximum = (short) (mqttProperty.topicAliasMaximum() & 0xFFFF);
                     this.topicAliasMaximum = (short) Math.min(topicAliasMaximum, topicAliasMaximumLimit);
                     break;
                 case KIND_SESSION_EXPIRY:
-                    if (sessionExpiryInterval != -1)
+                    if (isSetSessionExpiryInterval(propertyMask))
                     {
                         sessionExpiryInterval = 0;
                         reasonCode = PROTOCOL_ERROR;
                         break decode;
                     }
+                    this.propertyMask |= CONNECT_SESSION_EXPIRY_INTERVAL_MASK;
                     final int sessionExpiryInterval = mqttProperty.expiryInterval();
                     this.sessionExpiryInterval = Math.min(sessionExpiryInterval, sessionExpiryIntervalLimit);
                     break;
@@ -1432,7 +1439,10 @@ public final class MqttServerFactory implements StreamFactory
                     break decode;
                 }
 
-                if (sessionExpiryInterval >= 0)
+                final int flags = connect.flags();
+                final boolean willFlagSet = isSetWillFlag(flags);
+
+                if (sessionExpiryInterval > 0 || willFlagSet && sessionExpiryInterval >= 0)
                 {
                     progress = onResolveSession(traceId, authorization, reasonCode, progress, clientIdentifier, connect, payload);
                 }
@@ -1483,8 +1493,10 @@ public final class MqttServerFactory implements StreamFactory
                 objectBuilder.add(SESSION_EXPIRES_AT_NAME, System.currentTimeMillis() +
                                                                TimeUnit.SECONDS.toMillis(sessionExpiryInterval));
 
+                int willPayloadSize = 0;
                 if (willFlagSet && payload.willDelay > 0)
                 {
+                    willPayloadSize = payload.willPayload.bytes().sizeof();
                     objectBuilder.add(WILL_DELAY_NAME, payload.willDelay);
                     objectBuilder.add(WILL_TOPIC_NAME, payload.willTopic.asString());
                 }
@@ -1502,7 +1514,7 @@ public final class MqttServerFactory implements StreamFactory
                         0, PUBLISH_ONLY);
                 }
 
-                final int payloadSize = sessionPayload.sizeof() + payload.willPayload.bytes().sizeof();
+                final int payloadSize = sessionPayload.sizeof() + willPayloadSize;
 
                 boolean canPublish = MqttState.initialOpened(sessionStream.state);
 
@@ -1536,8 +1548,9 @@ public final class MqttServerFactory implements StreamFactory
                 }
                 else
                 {
-                    this.topicAliasMaximum = -1;
-                    this.sessionExpiryInterval = -1;
+                    this.propertyMask = 0;
+                    this.topicAliasMaximum = 0;
+                    this.sessionExpiryInterval = 0;
                     decodePublisherKey = topicKey;
                 }
             }
@@ -1590,7 +1603,7 @@ public final class MqttServerFactory implements StreamFactory
             OctetsFW sessionPayload,
             OctetsFW willPayload)
         {
-            final boolean willFlagSet = (flags & WILL_FLAG_MASK) != 0;
+            final boolean willFlagSet = isSetWillFlag(flags);
 
             final MqttDataExFW dataEx = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                                     .typeId(mqttTypeId)
@@ -4155,6 +4168,18 @@ public final class MqttServerFactory implements StreamFactory
         int flags)
     {
         return (flags & BASIC_AUTHENTICATION_MASK) != 0;
+    }
+
+    private static boolean isSetTopicAliasMaximum(
+        int flags)
+    {
+        return (flags & CONNECT_TOPIC_ALIAS_MAXIMUM_MASK) != 0;
+    }
+
+    private static boolean isSetSessionExpiryInterval(
+        int flags)
+    {
+        return (flags & CONNECT_SESSION_EXPIRY_INTERVAL_MASK) != 0;
     }
 
     private static int decodeConnectType(
