@@ -911,6 +911,7 @@ public class ConnectionIT
     @Specification({
         "${route}/server/controller",
         "${client}/connect/wildcard.subscriptions.unavailable/client"})
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "false")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
@@ -1027,7 +1028,6 @@ public class ConnectionIT
     @Specification({
         "${route}/server/controller",
         "${client}/subscribe/reject.no.local/client"})
-    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
