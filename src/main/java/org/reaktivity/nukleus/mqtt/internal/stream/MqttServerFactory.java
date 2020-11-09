@@ -3271,10 +3271,16 @@ public final class MqttServerFactory implements StreamFactory
             private void onApplicationReset(
                 ResetFW reset)
             {
-                setInitialClosed();
-
                 final long traceId = reset.traceId();
                 final long authorization = reset.authorization();
+
+                if (!MqttState.initialOpened(state))
+                {
+                    doCancelConnectTimeoutIfNecessary();
+                    doEncodeConnack(traceId, authorization, SUCCESS, clientIdentifier.value());
+                }
+
+                setInitialClosed();
 
                 decodeNetworkIfNecessary(traceId);
                 cleanup(traceId, authorization);
