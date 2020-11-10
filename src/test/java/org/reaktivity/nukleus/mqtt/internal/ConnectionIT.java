@@ -1109,4 +1109,19 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe.to.will.topic/client",
+        "${server}/subscribe.to.will.topic/server"})
+    @Configure(name = CLIENT_ID_NAME, value = "one")
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
+    public void shouldSubscribeToWillTopic() throws Exception
+    {
+        k3po.finish();
+    }
 }
