@@ -1570,7 +1570,12 @@ public final class MqttServerFactory implements StreamFactory
                     userProperties.forEach(c -> builder.propertiesItem(p -> p.key(c.key()).value(c.value())));
 
                     willDataEx = builder.build();
-                    sessionStream.encodeWillMessage(willDataEx, payload.willTopic, payload.willPayload.bytes());
+
+                    if (willStream == null)
+                    {
+                        this.willStream = new MqttWillStream(sessionStream.routeId, authorization, 0,
+                            payload.willTopic.asString(), payload.willPayload.bytes(), willDataEx);
+                    }
                 }
 
                 final int payloadSize = sessionPayload.sizeof() + willPayloadSize;
@@ -3181,15 +3186,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             if (sessionStream != null && sessionStream.willFlagSet && sessionExpiryInterval == 0)
             {
-                final MqttDataExFW dataEx = sessionStream.willMessage;
-                final String topic = dataEx.topic().asString();
-
-                if (willStream == null)
-                {
-                    this.willStream = new MqttWillStream(sessionStream.routeId, authorization, 0, topic);
-                    willStream.doApplicationBegin(traceId, authorization, affinity, topic, NO_FLAGS, 0);
-                }
-
+                willStream.doApplicationBegin(traceId, authorization, affinity, willStream.topicFilter, NO_FLAGS, 0);
                 willStream.publishWillMessage(traceId);
             }
         }
@@ -3222,9 +3219,6 @@ public final class MqttServerFactory implements StreamFactory
 
             private long sessionExpiresId = NO_CANCEL_ID;
             private long sessionExpiresAt;
-
-            private MqttDataExFW willMessage;
-            private OctetsFW willPayload;
 
             MqttSessionStream(
                 int packetId,
@@ -3533,34 +3527,6 @@ public final class MqttServerFactory implements StreamFactory
                 }
             }
 
-            private void encodeWillMessage(
-                MqttDataExFW dataEx,
-                String16FW topic,
-                OctetsFW payload)
-            {
-                final int publishFlags = dataEx.flags() & ~RETAIN_FLAG;
-                final int expiryInterval = dataEx.expiryInterval();
-                final MqttPayloadFormatFW format = dataEx.format();
-                final String16FW contentType = dataEx.contentType();
-                final String16FW responseTopic = dataEx.responseTopic();
-                final MqttBinaryFW correlation = dataEx.correlation();
-                final Array32FW<org.reaktivity.nukleus.mqtt.internal.types.MqttUserPropertyFW> properties =
-                    dataEx.properties();
-
-                this.willPayload = payload;
-                this.willMessage = mqttWillMessageFW.wrap(willMessageBuffer, 0, willMessageBuffer.capacity())
-                                                    .typeId(mqttTypeId)
-                                                    .topic(topic)
-                                                    .flags(publishFlags)
-                                                    .expiryInterval(expiryInterval)
-                                                    .contentType(contentType)
-                                                    .format(format)
-                                                    .responseTopic(responseTopic)
-                                                    .correlation(correlation)
-                                                    .properties(properties)
-                                                    .build();
-            }
-
             private void onSessionStateUpdated(
                 OctetsFW payload,
                 Flyweight extension)
@@ -3801,6 +3767,9 @@ public final class MqttServerFactory implements StreamFactory
             private String topicFilter;
             private String16FW clientIdentifier;
 
+            private MqttDataExFW willMessage;
+            private OctetsFW willPayload;
+
             private int packetId;
 
             private int state;
@@ -3809,7 +3778,9 @@ public final class MqttServerFactory implements StreamFactory
                 long routeId,
                 long authorization,
                 int packetId,
-                String topicFilter)
+                String topicFilter,
+                OctetsFW willPayload,
+                MqttDataExFW willMessage)
             {
                 this.routeId = routeId;
                 this.authorization = authorization;
@@ -3819,6 +3790,8 @@ public final class MqttServerFactory implements StreamFactory
                 this.packetId = packetId;
                 this.topicFilter = topicFilter;
                 this.topicKey = topicKey(topicFilter);
+                this.willPayload = willPayload;
+                this.willMessage = encodeWillMessage(topicFilter, willMessage);
             }
 
             private void onApplicationInitial(
@@ -3934,6 +3907,32 @@ public final class MqttServerFactory implements StreamFactory
 
                 cleanupCorrelationIfNecessary();
                 cleanup(traceId, authorization);
+            }
+
+            private MqttDataExFW encodeWillMessage(
+                String topic,
+                MqttDataExFW dataEx)
+            {
+                final int publishFlags = dataEx.flags() & ~RETAIN_FLAG;
+                final int expiryInterval = dataEx.expiryInterval();
+                final MqttPayloadFormatFW format = dataEx.format();
+                final String16FW contentType = dataEx.contentType();
+                final String16FW responseTopic = dataEx.responseTopic();
+                final MqttBinaryFW correlation = dataEx.correlation();
+                final Array32FW<org.reaktivity.nukleus.mqtt.internal.types.MqttUserPropertyFW> properties =
+                    dataEx.properties();
+
+                return mqttWillMessageFW.wrap(willMessageBuffer, 0, willMessageBuffer.capacity())
+                                        .typeId(mqttTypeId)
+                                        .topic(topic)
+                                        .flags(publishFlags)
+                                        .expiryInterval(expiryInterval)
+                                        .contentType(contentType)
+                                        .format(format)
+                                        .responseTopic(responseTopic)
+                                        .correlation(correlation)
+                                        .properties(properties)
+                                        .build();
             }
 
             private void doApplicationBegin(
@@ -4132,7 +4131,7 @@ public final class MqttServerFactory implements StreamFactory
             private void publishWillMessage(
                 long traceId)
             {
-                final OctetsFW payload = sessionStream.willPayload;
+                final OctetsFW payload = willPayload;
                 final int payloadSize = payload.sizeof();
 
                 int reserved = payloadSize + initialPadding;
@@ -4142,8 +4141,7 @@ public final class MqttServerFactory implements StreamFactory
                 if (canPublish && debitorIndex != NO_DEBITOR_INDEX && reserved != 0)
                 {
                     final int minimum = reserved; // TODO: fragmentation
-                    reserved = debitor.claim(debitorIndex, initialId,
-                        minimum, reserved);
+                    reserved = debitor.claim(debitorIndex, initialId, minimum, reserved);
 
                     if (reserved != minimum)
                     {
@@ -4153,7 +4151,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (canPublish && (reserved != 0 || payloadSize == 0))
                 {
-                    doApplicationData(traceId, authorization, reserved, dataFlags, payload, sessionStream.willMessage);
+                    doApplicationData(traceId, authorization, reserved, dataFlags, payload, willMessage);
 
                     if (dataFlags == 0x03)
                     {
