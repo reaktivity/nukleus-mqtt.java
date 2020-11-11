@@ -223,6 +223,7 @@ public final class MqttServerFactory implements StreamFactory
     private final MqttBeginExFW.Builder mqttBeginExRW = new MqttBeginExFW.Builder();
     private final MqttDataExFW.Builder mqttDataExRW = new MqttDataExFW.Builder();
     private final MqttFlushExFW.Builder mqttFlushExRW = new MqttFlushExFW.Builder();
+    private final MqttBeginExFW.Builder mqttWillBeginExRW = new MqttBeginExFW.Builder();
     private final MqttDataExFW.Builder mqttWillDataExRW = new MqttDataExFW.Builder();
 
     private final MqttDataExFW.Builder mqttWillMessageFW = new MqttDataExFW.Builder();
@@ -3215,7 +3216,7 @@ public final class MqttServerFactory implements StreamFactory
             private int packetId;
 
             private int state;
-            private int capabilities;
+            private int publishOnlyCapabilities;
 
             private long sessionExpiresId = NO_CANCEL_ID;
             private long sessionExpiresAt;
@@ -3453,15 +3454,15 @@ public final class MqttServerFactory implements StreamFactory
                 MqttCapabilities capability)
             {
                 this.clientIdentifier = clientIdentifier;
-                final int newCapabilities = capabilities | capability.value();
+                final int newCapabilities = publishOnlyCapabilities | capability.value();
                 if (!MqttState.initialOpening(state))
                 {
-                    this.capabilities = newCapabilities;
+                    this.publishOnlyCapabilities = newCapabilities;
                     doApplicationBegin(traceId, authorization, affinity, topicFilter, flags, subscriptionId);
                 }
-                else if (newCapabilities != capabilities)
+                else if (newCapabilities != publishOnlyCapabilities)
                 {
-                    this.capabilities = newCapabilities;
+                    this.publishOnlyCapabilities = newCapabilities;
                     doApplicationFlush(traceId, authorization, 0, flags);
                 }
             }
@@ -3479,7 +3480,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 final MqttBeginExFW beginEx = mqttBeginExRW.wrap(extBuffer, 0, extBuffer.capacity())
                                                            .typeId(mqttTypeId)
-                                                           .capabilities(r -> r.set(valueOf(capabilities)))
+                                                           .capabilities(r -> r.set(valueOf(publishOnlyCapabilities)))
                                                            .clientId(clientId)
                                                            .topic(topicFilter)
                                                            .flags(flags)
@@ -3504,7 +3505,7 @@ public final class MqttServerFactory implements StreamFactory
             {
                 assert MqttState.initialOpening(state);
 
-                assert hasPublishCapability(this.capabilities);
+                assert hasPublishCapability(this.publishOnlyCapabilities);
 
                 final DirectBuffer buffer = payload.buffer();
                 final int offset = payload.offset();
@@ -3568,10 +3569,10 @@ public final class MqttServerFactory implements StreamFactory
                 int flags,
                 MqttCapabilities capability)
             {
-                final int newCapabilities = capabilities & ~capability.value();
+                final int newCapabilities = publishOnlyCapabilities & ~capability.value();
                 if (newCapabilities == 0)
                 {
-                    this.capabilities = newCapabilities;
+                    this.publishOnlyCapabilities = newCapabilities;
                     if (!MqttState.initialOpened(state))
                     {
                         state = MqttState.closingInitial(state);
@@ -3581,9 +3582,9 @@ public final class MqttServerFactory implements StreamFactory
                         doApplicationEnd(traceId, authorization, EMPTY_OCTETS);
                     }
                 }
-                else if (newCapabilities != capabilities)
+                else if (newCapabilities != publishOnlyCapabilities)
                 {
-                    this.capabilities = newCapabilities;
+                    this.publishOnlyCapabilities = newCapabilities;
                     doApplicationFlush(traceId, authorization, 0, flags);
                 }
             }
@@ -3614,7 +3615,7 @@ public final class MqttServerFactory implements StreamFactory
                 Flyweight extension)
             {
                 setInitialClosed();
-                capabilities = 0;
+                publishOnlyCapabilities = 0;
                 streams.remove(topicKey);
 
                 doEnd(application, routeId, initialId, traceId, authorization, extension);
@@ -3674,7 +3675,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (MqttState.closed(state))
                 {
-                    capabilities = 0;
+                    publishOnlyCapabilities = 0;
                     streams.remove(topicKey);
                     final MutableInteger count = activeStreamsByTopic.get(topicKey);
 
@@ -3705,7 +3706,7 @@ public final class MqttServerFactory implements StreamFactory
                     ex -> ex.set((b, o, l) -> mqttFlushExRW.wrap(b, o, l)
                                                            .typeId(mqttTypeId)
                                                            .flags(flags)
-                                                           .capabilities(c -> c.set(valueOf(capabilities)))
+                                                           .capabilities(c -> c.set(valueOf(publishOnlyCapabilities)))
                                                            .build()
                                                            .sizeof()));
             }
@@ -3724,7 +3725,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (MqttState.closed(state))
                 {
-                    capabilities = 0;
+                    publishOnlyCapabilities = 0;
                     streams.remove(topicKey);
 
                     final MutableInteger activeStreams = activeStreamsByTopic.get(topicKey);
@@ -3946,7 +3947,7 @@ public final class MqttServerFactory implements StreamFactory
                 assert state == 0;
                 state = MqttState.openingInitial(state);
 
-                final MqttBeginExFW beginEx = mqttBeginExRW.wrap(extBuffer, 0, extBuffer.capacity())
+                final MqttBeginExFW beginEx = mqttWillBeginExRW.wrap(extBuffer, 0, extBuffer.capacity())
                                                            .typeId(mqttTypeId)
                                                            .capabilities(r -> r.set(valueOf(publishOnlyCapabilities)))
                                                            .clientId(clientId)
