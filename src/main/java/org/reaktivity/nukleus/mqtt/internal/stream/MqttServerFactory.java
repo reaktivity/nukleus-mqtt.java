@@ -1648,7 +1648,7 @@ public final class MqttServerFactory implements StreamFactory
                 final int topicKey = topicKey(topic);
 
                 stream = streams.computeIfAbsent(topicKey, s -> new MqttServerStream(resolvedId, topic));
-                stream.doApplicationBeginOrFlush(traceId, authorization, affinity, topic, NO_FLAGS, 0, PUBLISH_ONLY);
+                stream.doApplicationBeginOrFlush(traceId, authorization, affinity, topic, 0, PUBLISH_ONLY);
             }
             else
             {
@@ -1796,7 +1796,6 @@ public final class MqttServerFactory implements StreamFactory
                         final int topicKey = topicKey(filter);
                         final int options = mqttSubscribePayload.options();
                         final int flags = calculateSubscribeFlags(traceId, authorization, options);
-                        subscription.flags = flags;
 
                         if (!noLocal && isSetNoLocal(flags))
                         {
@@ -1808,9 +1807,10 @@ public final class MqttServerFactory implements StreamFactory
                         MqttServerStream stream = streams.computeIfAbsent(topicKey, s ->
                                                     new MqttServerStream(resolvedId, filter));
                         stream.packetId = packetId;
+                        stream.subscribeFlags = flags;
                         stream.onApplicationSubscribe(subscription);
                         stream.doApplicationBeginOrFlush(traceId, authorization, affinity,
-                                filter, flags, subscriptionId, SUBSCRIBE_ONLY);
+                                filter, subscriptionId, SUBSCRIBE_ONLY);
                     }
                     else
                     {
@@ -2052,8 +2052,9 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization,
             int flags,
+            int subscriptionFlags,
             int subscriptionId,
-            boolean retainAsPublished,
+            Subscription subscription,
             String topic,
             OctetsFW payload,
             OctetsFW extension)
@@ -2063,7 +2064,6 @@ public final class MqttServerFactory implements StreamFactory
                 final MqttDataExFW dataEx = extension.get(mqttDataExRO::tryWrap);
                 final int payloadSize = payload.sizeof();
                 final int deferred = dataEx.deferred();
-                final int publishFlags = retainAsPublished ? dataEx.flags() : dataEx.flags() & ~RETAIN_FLAG;
                 final int expiryInterval = dataEx.expiryInterval();
                 final String16FW contentType = dataEx.contentType();
                 final String16FW responseTopic = dataEx.responseTopic();
@@ -2076,6 +2076,9 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     topicName = topic;
                 }
+
+                final boolean retainAsPublished = subscription.retainAsPublished(subscriptionFlags);
+                final int publishFlags = retainAsPublished ? dataEx.flags() : dataEx.flags() & ~RETAIN_FLAG;
 
                 final int topicNameLength = topicName != null ? topicName.length() : 0;
 
@@ -2548,7 +2551,6 @@ public final class MqttServerFactory implements StreamFactory
         private final class Subscription
         {
             private int id = 0;
-            private int flags;
             private int ackCount;
             private int successMask;
             private int ackMask;
@@ -2598,7 +2600,8 @@ public final class MqttServerFactory implements StreamFactory
                 return (ackMask & 1 << ackIndex) != 0;
             }
 
-            private boolean retainAsPublished()
+            private boolean retainAsPublished(
+                int flags)
             {
                 return (flags & RETAIN_AS_PUBLISHED_FLAG) == RETAIN_AS_PUBLISHED_FLAG;
             }
@@ -2633,6 +2636,8 @@ public final class MqttServerFactory implements StreamFactory
             private long publishExpiresId = NO_CANCEL_ID;
             private long publishExpiresAt;
 
+            private int subscribeFlags;
+
             MqttServerStream(
                 long routeId,
                 String topicFilter)
@@ -2657,7 +2662,6 @@ public final class MqttServerFactory implements StreamFactory
                 long authorization,
                 long affinity,
                 String topicFilter,
-                int flags,
                 int subscriptionId,
                 MqttCapabilities capability)
             {
@@ -2665,7 +2669,7 @@ public final class MqttServerFactory implements StreamFactory
                 if (!MqttState.initialOpening(state))
                 {
                     this.capabilities = newCapabilities;
-                    doApplicationBegin(traceId, authorization, affinity, topicFilter, flags, subscriptionId);
+                    doApplicationBegin(traceId, authorization, affinity, topicFilter, subscribeFlags, subscriptionId);
                 }
                 else if (newCapabilities != capabilities)
                 {
@@ -2677,7 +2681,7 @@ public final class MqttServerFactory implements StreamFactory
                         subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
                     }
 
-                    doApplicationFlush(traceId, authorization, 0, flags);
+                    doApplicationFlush(traceId, authorization, 0, subscribeFlags);
                 }
             }
 
@@ -2823,6 +2827,7 @@ public final class MqttServerFactory implements StreamFactory
                 if (MqttState.closed(state))
                 {
                     capabilities = 0;
+                    subscribeFlags = 0;
                     streams.remove(topicKey);
 
                     final MutableInteger activeStreams = activeStreamsByTopic.get(topicKey);
@@ -2950,7 +2955,7 @@ public final class MqttServerFactory implements StreamFactory
                 final long now = System.currentTimeMillis();
                 if (now >= publishExpiresAt)
                 {
-                    doApplicationFlushOrEnd(traceId, authorization, NO_FLAGS, PUBLISH_ONLY);
+                    doApplicationFlushOrEnd(traceId, authorization, subscribeFlags, PUBLISH_ONLY);
                 }
                 else
                 {
@@ -3019,8 +3024,7 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     if (payload != null)
                     {
-                        final boolean retainAsPublished = subscription.retainAsPublished();
-                        doEncodePublish(traceId, authorization, flags, subscription.id, retainAsPublished,
+                        doEncodePublish(traceId, authorization, flags, subscribeFlags, subscription.id, subscription,
                             topicFilter, payload, extension);
                     }
                     doApplicationWindowIfNecessary(traceId, authorization);
@@ -3175,7 +3179,7 @@ public final class MqttServerFactory implements StreamFactory
                 if (!hasPublishCapability(capabilities))
                 {
                     this.capabilities |= PUBLISH_ONLY.value();
-                    doApplicationFlush(traceId, authorization, 0, subscription.flags);
+                    doApplicationFlush(traceId, authorization, 0, subscribeFlags);
                 }
             }
         }

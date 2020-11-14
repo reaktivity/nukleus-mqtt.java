@@ -1031,6 +1031,7 @@ public class ConnectionIT
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
+    @Configure(name = NO_LOCAL_NAME, value = "false")
     public void shouldRejectSubscribeWithNoLocal() throws Exception
     {
         k3po.finish();
@@ -1089,7 +1090,6 @@ public class ConnectionIT
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
-    @Configure(name = NO_LOCAL_NAME, value = "true")
     public void shouldSubscribeThenPublishNoLocal() throws Exception
     {
         k3po.finish();
@@ -1104,7 +1104,6 @@ public class ConnectionIT
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
-    @Configure(name = NO_LOCAL_NAME, value = "true")
     public void shouldPublishThenSubscribeNoLocal() throws Exception
     {
         k3po.finish();
