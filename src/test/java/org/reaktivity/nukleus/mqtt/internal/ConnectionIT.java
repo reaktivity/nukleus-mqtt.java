@@ -18,7 +18,6 @@ package org.reaktivity.nukleus.mqtt.internal;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.CLIENT_ID_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.MAXIMUM_QOS_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.NO_LOCAL_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.RETAIN_AVAILABLE_NAME;
@@ -746,7 +745,6 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/publish.with.user.property/client",
         "${server}/publish.with.user.property/server"})
-    @Configure(name = CLIENT_ID_NAME, value = "755452d5-e2ef-4113-b9c6-2f53de96fd76")
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -761,7 +759,6 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/publish.with.user.properties.distinct/client",
         "${server}/publish.with.user.properties.distinct/server"})
-    @Configure(name = CLIENT_ID_NAME, value = "755452d5-e2ef-4113-b9c6-2f53de96fd76")
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -776,7 +773,6 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/publish.with.user.properties.repeated/client",
         "${server}/publish.with.user.properties.repeated/server"})
-    @Configure(name = CLIENT_ID_NAME, value = "755452d5-e2ef-4113-b9c6-2f53de96fd76")
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1042,7 +1038,6 @@ public class ConnectionIT
         "${routeExt}/session/server/controller",
         "${client}/connect/will.message.with.abrupt.disconnect/client",
         "${server}/publish.session.data/server"})
-    @Configure(name = CLIENT_ID_NAME, value = "one")
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1061,7 +1056,6 @@ public class ConnectionIT
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
-    @Configure(name = CLIENT_ID_NAME, value = "one")
     public void shouldIgnoreWillMessageAfterNormalClientDisconnect() throws Exception
     {
         k3po.finish();
@@ -1114,7 +1108,6 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/subscribe.to.will.topic/client",
         "${server}/subscribe.to.will.topic/server"})
-    @Configure(name = CLIENT_ID_NAME, value = "one")
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1129,7 +1122,6 @@ public class ConnectionIT
         "${route}/server/controller",
         "${client}/connect.with.will.message.then.publish.one.message/client",
         "${server}/connect.with.will.message.then.publish.one.message/server"})
-    @Configure(name = CLIENT_ID_NAME, value = "one")
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
