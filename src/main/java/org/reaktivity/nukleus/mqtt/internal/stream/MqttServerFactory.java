@@ -1469,25 +1469,21 @@ public final class MqttServerFactory implements StreamFactory
                     break decode;
                 }
 
-                final int lenth = clientIdentifier.length();
+                final int length = clientIdentifier.length();
 
-                if (lenth == 0)
+                if (length == 0)
                 {
-                    this.clientId = clientIdRW.wrap(clientIdBuffer, 0, clientIdBuffer.capacity())
-                                              .set(UUID.randomUUID().toString(), UTF_8)
-                                              .build();
-                    assignedClientId = true;
+                    this.clientId = new String16FW(UUID.randomUUID().toString());
+                    this.assignedClientId = true;
                 }
-                else if (lenth > MAXIMUM_CLIENT_ID_LENGTH)
+                else if (length > MAXIMUM_CLIENT_ID_LENGTH)
                 {
                     reasonCode = CLIENT_IDENTIFIER_NOT_VALID;
                     break decode;
                 }
                 else
                 {
-                    this.clientId = clientIdRW.wrap(clientIdBuffer, 0, clientIdBuffer.capacity())
-                                              .set(clientIdentifier)
-                                              .build();
+                    this.clientId = new String16FW(clientIdentifier.asString());
                 }
 
                 final MqttPropertiesFW properties = connect.properties();
@@ -2838,7 +2834,6 @@ public final class MqttServerFactory implements StreamFactory
                                                            .typeId(mqttTypeId)
                                                            .flags(flags)
                                                            .capabilities(c -> c.set(valueOf(capabilities)))
-                                                           .clientId(clientId)
                                                            .build()
                                                            .sizeof()));
             }
