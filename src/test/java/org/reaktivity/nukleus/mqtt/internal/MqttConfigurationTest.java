@@ -16,7 +16,6 @@
 package org.reaktivity.nukleus.mqtt.internal;
 
 import static org.junit.Assert.assertEquals;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CLIENT_ID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CONNECT_TIMEOUT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.MAXIMUM_QOS;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.NO_LOCAL;
@@ -35,7 +34,6 @@ public class MqttConfigurationTest
 {
     static final String PUBLISH_TIMEOUT_NAME = "nukleus.mqtt.publish.timeout";
     static final String CONNECT_TIMEOUT_NAME = "nukleus.mqtt.connect.timeout";
-    static final String CLIENT_ID_NAME = "nukleus.mqtt.client.id";
     static final String SESSION_EXPIRY_INTERVAL_NAME = "nukleus.mqtt.session.expiry.interval";
     static final String MAXIMUM_QOS_NAME = "nukleus.mqtt.maximum.qos";
     static final String RETAIN_AVAILABLE_NAME = "nukleus.mqtt.retain.available";
@@ -49,7 +47,6 @@ public class MqttConfigurationTest
     @Test
     public void shouldVerifyConstants() throws Exception
     {
-        assertEquals(CLIENT_ID.name(), CLIENT_ID_NAME);
         assertEquals(PUBLISH_TIMEOUT.name(), PUBLISH_TIMEOUT_NAME);
         assertEquals(CONNECT_TIMEOUT.name(), CONNECT_TIMEOUT_NAME);
         assertEquals(SESSION_EXPIRY_INTERVAL.name(), SESSION_EXPIRY_INTERVAL_NAME);
