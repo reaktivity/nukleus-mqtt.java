@@ -24,7 +24,6 @@ public class MqttConfiguration extends Configuration
     private static final ConfigurationDef MQTT_CONFIG;
     public static final LongPropertyDef CONNECT_TIMEOUT;
     public static final LongPropertyDef PUBLISH_TIMEOUT;
-    public static final PropertyDef<String> CLIENT_ID;
     public static final IntPropertyDef SESSION_EXPIRY_INTERVAL;
     public static final BytePropertyDef MAXIMUM_QOS;
     public static final BooleanPropertyDef RETAIN_AVAILABLE;
@@ -40,7 +39,6 @@ public class MqttConfiguration extends Configuration
         final ConfigurationDef config = new ConfigurationDef("nukleus.mqtt");
         PUBLISH_TIMEOUT = config.property("publish.timeout", TimeUnit.SECONDS.toSeconds(30));
         CONNECT_TIMEOUT = config.property("connect.timeout", TimeUnit.SECONDS.toSeconds(3));
-        CLIENT_ID = config.property("client.id", "client");
         SESSION_EXPIRY_INTERVAL = config.property("session.expiry.interval", 0);
         MAXIMUM_QOS = config.property("maximum.qos", (byte) 0);
         RETAIN_AVAILABLE = config.property("retain.available", true);
@@ -67,11 +65,6 @@ public class MqttConfiguration extends Configuration
     public long connectTimeout()
     {
         return CONNECT_TIMEOUT.get(this);
-    }
-
-    public String clientId()
-    {
-        return CLIENT_ID.get(this);
     }
 
     public boolean retainAvailable()
