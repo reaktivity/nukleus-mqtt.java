@@ -1250,8 +1250,6 @@ public final class MqttServerFactory implements StreamFactory
             final long authorization = end.authorization();
             final long traceId = end.traceId();
 
-            state = MqttState.closingInitial(state);
-
             if (decodeSlot == NO_SLOT)
             {
                 state = MqttState.closeInitial(state);
@@ -1267,10 +1265,6 @@ public final class MqttServerFactory implements StreamFactory
 
                 decoder = decodeIgnoreAll;
             }
-            else
-            {
-                decodeNetworkIfNecessary(traceId);
-            }
         }
 
         private void onNetworkAbort(
@@ -1279,10 +1273,14 @@ public final class MqttServerFactory implements StreamFactory
             final long traceId = abort.traceId();
             final long authorization = abort.authorization();
 
+            state = MqttState.closeInitial(state);
+
             if (sessionStream != null)
             {
                 doEncodeWillMessageIfNecessary(sessionStream, traceId, authorization);
             }
+
+            cleanupDecodeSlotIfNecessary();
 
             cleanupNetwork(traceId, authorization);
         }
@@ -1933,6 +1931,7 @@ public final class MqttServerFactory implements StreamFactory
             long authorization,
             MqttDisconnectFW disconnect)
         {
+            state = MqttState.closingInitial(state);
             streams.values().forEach(s -> s.doApplicationEndIfNecessary(traceId, authorization, EMPTY_OCTETS));
             doNetworkEnd(traceId, authorization);
             sessionStream = null;
@@ -2470,8 +2469,9 @@ public final class MqttServerFactory implements StreamFactory
             {
                 cleanupDecodeSlotIfNecessary();
 
-                if (MqttState.initialClosed(state))
+                if (MqttState.initialClosing(state))
                 {
+                    state = MqttState.closeInitial(state);
                     cleanupStreams(traceId, authorization);
                     doNetworkEndIfNecessary(traceId, authorization);
                 }
@@ -2512,11 +2512,6 @@ public final class MqttServerFactory implements StreamFactory
                 decodeSlot = NO_SLOT;
                 decodeSlotOffset = 0;
                 decodeSlotReserved = 0;
-            }
-
-            if (MqttState.initialClosing(state))
-            {
-                state = MqttState.closeInitial(state);
             }
         }
 
@@ -3091,7 +3086,7 @@ public final class MqttServerFactory implements StreamFactory
                 long authorization,
                 Flyweight extension)
             {
-                if (MqttState.initialOpened(state))
+                if (MqttState.initialOpening(state) && !MqttState.initialClosed(state))
                 {
                     doApplicationEnd(traceId, authorization, extension);
                 }
