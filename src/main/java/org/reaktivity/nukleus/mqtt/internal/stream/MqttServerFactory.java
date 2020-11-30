@@ -1251,10 +1251,10 @@ public final class MqttServerFactory implements StreamFactory
 
             state = MqttState.closeInitial(state);
 
+            final long traceId = end.traceId();
+
             if (decodeSlot == NO_SLOT)
             {
-                final long traceId = end.traceId();
-
                 if (sessionStream != null)
                 {
                     doEncodeWillMessageIfNecessary(sessionStream, traceId, authorization);
@@ -1263,9 +1263,13 @@ public final class MqttServerFactory implements StreamFactory
                 cleanupStreams(traceId, authorization);
 
                 doNetworkEndIfNecessary(traceId, authorization);
-            }
 
-            decoder = decodeIgnoreAll;
+                decoder = decodeIgnoreAll;
+            }
+            else
+            {
+                decodeNetworkIfNecessary(traceId);
+            }
         }
 
         private void onNetworkAbort(
