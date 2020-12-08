@@ -2598,7 +2598,7 @@ public final class MqttServerFactory implements StreamFactory
                 onSubscribeCompleted(traceId, authorization, packetId);
             }
 
-            private void onSubscribeSucceeded(
+            private boolean onSubscribeSucceeded(
                 long traceId,
                 long authorization,
                 int packetId,
@@ -2607,18 +2607,22 @@ public final class MqttServerFactory implements StreamFactory
                 final int bit = 1 << ackIndex;
                 successMask |= bit;
                 ackMask |= bit;
-                onSubscribeCompleted(traceId, authorization, packetId);
+                return onSubscribeCompleted(traceId, authorization, packetId);
+
             }
 
-            private void onSubscribeCompleted(
+            private boolean onSubscribeCompleted(
                 long traceId,
                 long authorization,
                 int packetId)
             {
+                boolean completed = false;
                 if (Integer.bitCount(ackMask) == ackCount)
                 {
                     doEncodeSuback(traceId, authorization, packetId, ackMask, successMask);
+                    completed = true;
                 }
+                return completed;
             }
 
             private boolean hasSubscribeCompleted(
@@ -2906,7 +2910,11 @@ public final class MqttServerFactory implements StreamFactory
                 if (subscription != null &&
                         !subscription.hasSubscribeCompleted(subackIndex) && hasSubscribeCapability(capabilities))
                 {
-                    subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
+                    final boolean completed = subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
+                    if (completed)
+                    {
+                        doApplicationWindow(traceId, authorization);
+                    }
                 }
 
                 this.state = MqttState.openInitial(state);
@@ -3025,7 +3033,11 @@ public final class MqttServerFactory implements StreamFactory
                 final long traceId = begin.traceId();
                 final long authorization = begin.authorization();
 
-                doApplicationWindowIfNecessary(traceId, authorization);
+                if (hasPublishCapability(capabilities))
+                {
+                    doApplicationWindowIfNecessary(traceId, authorization);
+                }
+                // doApplicationWindowIfNecessary(traceId, authorization);
             }
 
             private void onApplicationData(
