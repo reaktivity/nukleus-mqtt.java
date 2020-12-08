@@ -150,9 +150,9 @@ public final class MqttServerFactory implements StreamFactory
 
     private static final int MAXIMUM_CLIENT_ID_LENGTH = 36;
 
-    private static final String SESSION_TOPIC_FORMAT = "$SYS/clients/%s";
-    private static final String SESSION_WILDCARD_TOPIC_FORMAT = "$SYS/clients/%s/#";
-    private static final String WILL_TOPIC_FORMAT = "$SYS/clients/%s/will";
+    private static final String SESSION_TOPIC_FORMAT = "$SYS/sessions/%s";
+    private static final String SESSION_WILDCARD_TOPIC_FORMAT = "$SYS/sessions/%s/#";
+    private static final String WILL_TOPIC_FORMAT = "$SYS/sessions/%s/will";
 
     private static final String SESSION_EXPIRES_AT_NAME = "expiresAt";
     private static final String WILL_DELAY_NAME = "willDelay";

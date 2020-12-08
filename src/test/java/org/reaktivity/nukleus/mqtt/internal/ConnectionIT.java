@@ -1130,4 +1130,18 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    // @Test
+    // @Specification({
+    //     "${route}/server/controller",
+    //     "${client}/subscribe.one.message.suback.order/client",
+    //     "${server}/subscribe.one.message.suback.order/server"})
+    // @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    // @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    // @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    // @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
+    // public void shouldSubscribeOneMessageSubackOrder() throws Exception
+    // {
+    //     k3po.finish();
+    // }
 }
