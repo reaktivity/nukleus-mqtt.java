@@ -1557,6 +1557,12 @@ public final class MqttServerFactory implements StreamFactory
                 objectBuilder.add(SESSION_EXPIRES_AT_NAME, System.currentTimeMillis() +
                                                                TimeUnit.SECONDS.toMillis(sessionExpiryInterval));
 
+                if (willFlagSet && payload.willDelay > 0)
+                {
+                    objectBuilder.add(WILL_DELAY_NAME, payload.willDelay);
+                    objectBuilder.add(WILL_TOPIC_NAME, payload.willTopic.asString());
+                }
+
                 final JsonObject sessionObj = objectBuilder.build();
                 final OctetsFW sessionPayload =
                     sessionPayloadRW.wrap(sessionPayloadBuffer, 0, sessionPayloadBuffer.capacity())
@@ -1575,12 +1581,6 @@ public final class MqttServerFactory implements StreamFactory
                 MqttDataExFW willDataEx = null;
                 if (willFlagSet)
                 {
-                    if (payload.willDelay > 0)
-                    {
-                        objectBuilder.add(WILL_DELAY_NAME, payload.willDelay);
-                        objectBuilder.add(WILL_TOPIC_NAME, payload.willTopic.asString());
-                    }
-
                     willPayloadSize = payload.willPayload.bytes().sizeof();
 
                     final MqttDataExFW.Builder builder = mqttWillDataExRW.wrap(willDataExtBuffer, 0, willDataExtBuffer.capacity())
@@ -3217,7 +3217,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             if (sessionStream != null && sessionStream.willFlagSet && sessionExpiryInterval == 0)
             {
-                willStream.doApplicationBegin(traceId, authorization, affinity, willStream.topicFilter, NO_FLAGS, 0);
+                willStream.doApplicationBegin(traceId, authorization, affinity, NO_FLAGS, 0);
                 willStream.publishWillMessage(traceId);
             }
         }
@@ -3966,7 +3966,6 @@ public final class MqttServerFactory implements StreamFactory
                 long traceId,
                 long authorization,
                 long affinity,
-                String topicFilter,
                 int flags,
                 int subscriptionId)
             {
