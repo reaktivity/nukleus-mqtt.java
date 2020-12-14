@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-mqtt</artifactId>
-  <version>0.37</version>
+  <version>0.38</version>
   <name>MQTT Nukleus Implementation</name>
   <description>MQTT Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-mqtt.java</url>
@@ -51,10 +51,10 @@
 
     <k3po.version>3.1.0</k3po.version>
 
-    <nukleus.plugin.version>0.71</nukleus.plugin.version>
+    <nukleus.plugin.version>0.78</nukleus.plugin.version>
 
     <nukleus.mqtt.spec.version>0.55</nukleus.mqtt.spec.version>
-    <reaktor.version>0.146</reaktor.version>
+    <reaktor.version>0.152</reaktor.version>
   </properties>
 
   <dependencies>
@@ -183,10 +183,7 @@
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>3.1.0</version>
         <configuration>
-          <sourceDirectories>
-            <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
-            <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
-          </sourceDirectories>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
         </configuration>
         <executions>
           <execution>
@@ -212,7 +209,7 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.8.5</version>
+        <version>0.8.6</version>
         <configuration>
           <excludes>
             <exclude>org/reaktivity/nukleus/mqtt/internal/types/**/*.class</exclude>
