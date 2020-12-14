@@ -54,7 +54,7 @@
     <nukleus.plugin.version>0.71</nukleus.plugin.version>
 
     <nukleus.mqtt.spec.version>0.55</nukleus.mqtt.spec.version>
-    <reaktor.version>0.146</reaktor.version>
+    <reaktor.version>0.152</reaktor.version>
   </properties>
 
   <dependencies>
