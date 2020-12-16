@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-mqtt</artifactId>
-  <version>0.38</version>
+  <version>0.39</version>
   <name>MQTT Nukleus Implementation</name>
   <description>MQTT Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-mqtt.java</url>
@@ -53,7 +53,7 @@
 
     <nukleus.plugin.version>0.78</nukleus.plugin.version>
 
-    <nukleus.mqtt.spec.version>0.55</nukleus.mqtt.spec.version>
+    <nukleus.mqtt.spec.version>0.56</nukleus.mqtt.spec.version>
     <reaktor.version>0.152</reaktor.version>
   </properties>
 
@@ -389,6 +389,9 @@
                     <requireReleaseDeps>
                       <message>No Snapshots Allowed!</message>
                     </requireReleaseDeps>
+                    <requireJavaVersion>
+                      <version>[9,10)</version>
+                    </requireJavaVersion>
                   </rules>
                 </configuration>
               </execution>
