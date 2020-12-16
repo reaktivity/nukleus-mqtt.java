@@ -85,6 +85,7 @@ import javax.json.JsonObjectBuilder;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Int2ObjectHashMap;
+import org.agrona.collections.IntArrayList;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.collections.MutableInteger;
 import org.agrona.concurrent.UnsafeBuffer;
@@ -150,9 +151,9 @@ public final class MqttServerFactory implements StreamFactory
 
     private static final int MAXIMUM_CLIENT_ID_LENGTH = 36;
 
-    private static final String SESSION_TOPIC_FORMAT = "$SYS/clients/%s";
-    private static final String SESSION_WILDCARD_TOPIC_FORMAT = "$SYS/clients/%s/#";
-    private static final String WILL_TOPIC_FORMAT = "$SYS/clients/%s/will";
+    private static final String SESSION_TOPIC_FORMAT = "$SYS/sessions/%s";
+    private static final String SESSION_WILDCARD_TOPIC_FORMAT = "$SYS/sessions/%s/#";
+    private static final String WILL_TOPIC_FORMAT = "$SYS/sessions/%s/will";
 
     private static final String SESSION_EXPIRES_AT_NAME = "expiresAt";
     private static final String WILL_DELAY_NAME = "willDelay";
@@ -1560,6 +1561,12 @@ public final class MqttServerFactory implements StreamFactory
                 objectBuilder.add(SESSION_EXPIRES_AT_NAME, System.currentTimeMillis() +
                                                                TimeUnit.SECONDS.toMillis(sessionExpiryInterval));
 
+                if (willFlagSet && payload.willDelay > 0)
+                {
+                    objectBuilder.add(WILL_DELAY_NAME, payload.willDelay);
+                    objectBuilder.add(WILL_TOPIC_NAME, payload.willTopic.asString());
+                }
+
                 final JsonObject sessionObj = objectBuilder.build();
                 final OctetsFW sessionPayload =
                     sessionPayloadRW.wrap(sessionPayloadBuffer, 0, sessionPayloadBuffer.capacity())
@@ -1578,12 +1585,6 @@ public final class MqttServerFactory implements StreamFactory
                 MqttDataExFW willDataEx = null;
                 if (willFlagSet)
                 {
-                    if (payload.willDelay > 0)
-                    {
-                        objectBuilder.add(WILL_DELAY_NAME, payload.willDelay);
-                        objectBuilder.add(WILL_TOPIC_NAME, payload.willTopic.asString());
-                    }
-
                     willPayloadSize = payload.willPayload.bytes().sizeof();
 
                     final MqttDataExFW.Builder builder = mqttWillDataExRW.wrap(willDataExtBuffer, 0, willDataExtBuffer.capacity())
@@ -1838,7 +1839,7 @@ public final class MqttServerFactory implements StreamFactory
                                                     new MqttServerStream(resolvedId, filter));
                         stream.packetId = packetId;
                         stream.subscribeFlags = flags;
-                        stream.onApplicationSubscribe(subscription);
+                        stream.onApplicationSubscribe(topicKey, subscription);
                         stream.doApplicationBeginOrFlush(traceId, authorization, affinity,
                                 filter, subscriptionId, SUBSCRIBE_ONLY);
                     }
@@ -1879,14 +1880,14 @@ public final class MqttServerFactory implements StreamFactory
                     decodeReasonCode = PROTOCOL_ERROR;
                     break;
                 }
-                final String topic = mqttUnsubscribePayload.filter().asString();
-                if (topic == null)
+                final String topicFilter = mqttUnsubscribePayload.filter().asString();
+                if (topicFilter == null)
                 {
                     decodeReasonCode = PROTOCOL_ERROR;
                     break;
                 }
 
-                final int topicKey = topicKey(topic);
+                final int topicKey = topicKey(topicFilter);
                 final MqttServerStream stream = streams.get(topicKey);
 
                 int encodeReasonCode = NO_SUBSCRIPTION_EXISTED;
@@ -1894,6 +1895,7 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     encodeReasonCode = SUCCESS;
                     stream.doApplicationFlushOrEnd(traceId, authorization, NO_FLAGS, SUBSCRIBE_ONLY);
+                    stream.subscription.removeTopicFilter(topicKey);
                 }
 
                 final MqttUnsubackPayloadFW mqttUnsubackPayload =
@@ -2583,6 +2585,8 @@ public final class MqttServerFactory implements StreamFactory
 
         private final class Subscription
         {
+            private final IntArrayList topicKeys = new IntArrayList();
+
             private int id = 0;
             private int ackCount;
             private int successMask;
@@ -2621,10 +2625,27 @@ public final class MqttServerFactory implements StreamFactory
                 long authorization,
                 int packetId)
             {
-                if (Integer.bitCount(ackMask) == ackCount)
+                if (acknowledged())
                 {
                     doEncodeSuback(traceId, authorization, packetId, ackMask, successMask);
                 }
+            }
+
+            private void addTopicKey(
+                int topicKey)
+            {
+                topicKeys.add(topicKey);
+            }
+
+            private void removeTopicFilter(
+                int topicKey)
+            {
+                topicKeys.removeInt(topicKey);
+            }
+
+            private boolean acknowledged()
+            {
+                return Integer.bitCount(ackMask) == ackCount;
             }
 
             private boolean hasSubscribeCompleted(
@@ -2662,6 +2683,7 @@ public final class MqttServerFactory implements StreamFactory
             private Subscription subscription;
             private int subackIndex;
             private int packetId;
+            private boolean acknowledged;
 
             private int state;
             private int capabilities;
@@ -2684,10 +2706,15 @@ public final class MqttServerFactory implements StreamFactory
             }
 
             private void onApplicationSubscribe(
+                int topicKey,
                 Subscription subscription)
             {
                 this.subscription = subscription;
                 this.subackIndex = subscription != null ? subscription.ackCount++ : -1;
+                if (subscription != null)
+                {
+                    subscription.addTopicKey(topicKey);
+                }
             }
 
             private void doApplicationBeginOrFlush(
@@ -2913,6 +2940,22 @@ public final class MqttServerFactory implements StreamFactory
                         !subscription.hasSubscribeCompleted(subackIndex) && hasSubscribeCapability(capabilities))
                 {
                     subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
+
+                    if (subscription.acknowledged())
+                    {
+                        for (int topicKey : subscription.topicKeys)
+                        {
+                            if (topicKey != this.topicKey)
+                            {
+                                final MqttServerStream stream = streams.get(topicKey);
+                                if (!stream.acknowledged)
+                                {
+                                    stream.doApplicationWindowIfNecessary(traceId, authorization);
+                                    stream.acknowledged = true;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 this.state = MqttState.openInitial(state);
@@ -3031,7 +3074,21 @@ public final class MqttServerFactory implements StreamFactory
                 final long traceId = begin.traceId();
                 final long authorization = begin.authorization();
 
-                doApplicationWindowIfNecessary(traceId, authorization);
+                if (hasPublishCapability(capabilities))
+                {
+                    doApplicationWindowIfNecessary(traceId, authorization);
+                }
+                else
+                {
+                    if (subscription.acknowledged())
+                    {
+                        if (!acknowledged)
+                        {
+                            doApplicationWindowIfNecessary(traceId, authorization);
+                            acknowledged = true;
+                        }
+                    }
+                }
             }
 
             private void onApplicationData(
@@ -3234,7 +3291,7 @@ public final class MqttServerFactory implements StreamFactory
         {
             if (sessionStream != null && sessionStream.willFlagSet && sessionExpiryInterval == 0)
             {
-                willStream.doApplicationBegin(traceId, authorization, affinity, willStream.topicFilter, NO_FLAGS, 0);
+                willStream.doApplicationBegin(traceId, authorization, affinity, NO_FLAGS, 0);
                 willStream.publishWillMessage(traceId);
             }
         }
@@ -3983,7 +4040,6 @@ public final class MqttServerFactory implements StreamFactory
                 long traceId,
                 long authorization,
                 long affinity,
-                String topicFilter,
                 int flags,
                 int subscriptionId)
             {

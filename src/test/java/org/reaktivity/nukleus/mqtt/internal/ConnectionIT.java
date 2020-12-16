@@ -1130,4 +1130,18 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${client}/subscribe/messages.aggregated.topic.filters.both.exact/client",
+        "${server}/subscribe.messages.with.aggregated.topic.filters.both.exact/server"})
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
+    public void shouldSubscribeMessagesWithTwoTopicsBothExactOneSubscribePacket() throws Exception
+    {
+        k3po.finish();
+    }
 }
