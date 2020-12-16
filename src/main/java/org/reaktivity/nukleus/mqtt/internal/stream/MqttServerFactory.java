@@ -68,6 +68,7 @@ import static org.reaktivity.nukleus.mqtt.internal.types.stream.MqttDataExFW.Bui
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -402,9 +403,8 @@ public final class MqttServerFactory implements StreamFactory
         this.encodeBudgetMax = bufferPool.slotCapacity();
         this.validator = new MqttValidator();
 
-        final String clientId = config.clientId();
-        this.supplyClientId = clientId != null ? () -> new String16FW(clientId) :
-            () -> new String16FW(UUID.randomUUID().toString());
+        final Optional<String16FW> clientId = Optional.ofNullable(config.clientId()).map(String16FW::new);
+        this.supplyClientId = clientId.isPresent() ? clientId::get : () -> new String16FW(UUID.randomUUID().toString());
     }
 
     @Override
