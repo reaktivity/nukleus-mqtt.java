@@ -16,6 +16,7 @@
 package org.reaktivity.nukleus.mqtt.internal;
 
 import static org.junit.Assert.assertEquals;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CLIENT_ID;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.CONNECT_TIMEOUT;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.MAXIMUM_QOS;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.NO_LOCAL;
@@ -43,6 +44,7 @@ public class MqttConfigurationTest
     static final String SHARED_SUBSCRIPTION_AVAILABLE_NAME = "nukleus.mqtt.shared.subscription.available";
     static final String NO_LOCAL_NAME = "nukleus.mqtt.no.local";
     static final String SESSION_EXPIRY_GRACE_PERIOD_NAME = "nukleus.mqtt.session.expiry.grace.period";
+    static final String CLIENT_ID_NAME = "nukleus.mqtt.client.id";
 
     @Test
     public void shouldVerifyConstants() throws Exception
@@ -58,5 +60,6 @@ public class MqttConfigurationTest
         assertEquals(SHARED_SUBSCRIPTION_AVAILABLE.name(), SHARED_SUBSCRIPTION_AVAILABLE_NAME);
         assertEquals(NO_LOCAL.name(), NO_LOCAL_NAME);
         assertEquals(SESSION_EXPIRY_GRACE_PERIOD.name(), SESSION_EXPIRY_GRACE_PERIOD_NAME);
+        assertEquals(CLIENT_ID.name(), CLIENT_ID_NAME);
     }
 }

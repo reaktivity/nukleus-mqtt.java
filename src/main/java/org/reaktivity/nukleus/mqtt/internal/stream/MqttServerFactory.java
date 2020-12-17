@@ -68,6 +68,7 @@ import static org.reaktivity.nukleus.mqtt.internal.types.stream.MqttDataExFW.Bui
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -75,6 +76,7 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
+import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 
 import javax.json.Json;
@@ -311,6 +313,7 @@ public final class MqttServerFactory implements StreamFactory
     private final byte sharedSubscriptions;
     private final boolean noLocal;
     private final int sessionExpiryGracePeriod;
+    private final Supplier<String16FW> supplyClientId;
 
     private final MqttValidator validator;
 
@@ -399,6 +402,9 @@ public final class MqttServerFactory implements StreamFactory
         this.sessionExpiryGracePeriod = config.sessionExpiryGracePeriod();
         this.encodeBudgetMax = bufferPool.slotCapacity();
         this.validator = new MqttValidator();
+
+        final Optional<String16FW> clientId = Optional.ofNullable(config.clientId()).map(String16FW::new);
+        this.supplyClientId = clientId.isPresent() ? clientId::get : () -> new String16FW(UUID.randomUUID().toString());
     }
 
     @Override
@@ -1477,7 +1483,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 if (length == 0)
                 {
-                    this.clientId = new String16FW(UUID.randomUUID().toString());
+                    this.clientId = supplyClientId.get();
                     this.assignedClientId = true;
                 }
                 else if (length > MAXIMUM_CLIENT_ID_LENGTH)
