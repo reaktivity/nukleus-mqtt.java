@@ -1634,8 +1634,9 @@ public final class MqttServerFactory implements StreamFactory
                 {
                     connected = true;
 
-                    onEncodeSession(sessionStream, traceId, authorization, reserved, willFlagSet,
-                        sessionPayload, payload.willPayload.bytes(), willDataEx);
+                    onEncodeSession(sessionStream, traceId, authorization, reserved, sessionPayload);
+                    onEncodeWillMessageIfNecessary(sessionStream, traceId, authorization, reserved, willFlagSet,
+                        payload.willPayload, willDataEx);
 
                     if (reasonCode == SUCCESS)
                     {
@@ -1701,10 +1702,7 @@ public final class MqttServerFactory implements StreamFactory
             long traceId,
             long authorization,
             int reserved,
-            boolean willFlagSet,
-            OctetsFW sessionPayload,
-            OctetsFW willPayload,
-            MqttDataExFW willDataEx)
+            OctetsFW sessionPayload)
         {
             final MqttDataExFW dataEx = mqttDataExRW.wrap(dataExtBuffer, 0, dataExtBuffer.capacity())
                                                     .typeId(mqttTypeId)
@@ -1712,14 +1710,22 @@ public final class MqttServerFactory implements StreamFactory
                                                     .build();
 
             stream.doApplicationData(traceId, authorization, reserved, sessionPayload, dataEx);
+            stream.doSignalSessionExpirationIfNecessary();
+        }
 
-
+        private void onEncodeWillMessageIfNecessary(
+            MqttSessionStream stream,
+            long traceId,
+            long authorization,
+            int reserved,
+            boolean willFlagSet,
+            BinaryFW willPayload,
+            MqttDataExFW willDataEx)
+        {
             if (willFlagSet)
             {
-                stream.doApplicationData(traceId, authorization, reserved, willPayload, willDataEx);
+                stream.doApplicationData(traceId, authorization, reserved, willPayload.bytes(), willDataEx);
             }
-
-            stream.doSignalSessionExpirationIfNecessary();
         }
 
         private void onDecodePublish(
@@ -2269,12 +2275,14 @@ public final class MqttServerFactory implements StreamFactory
                 propertiesSize = mqttProperty.limit();
             }
 
+            int flags = 0x01;
+
             final int propertiesSize0 = propertiesSize;
             final MqttConnackFW connack =
                     mqttConnackRW.wrap(writeBuffer, FIELD_OFFSET_PAYLOAD, writeBuffer.capacity())
                                        .typeAndFlags(0x20)
                                        .remainingLength(3 + propertiesSize0)
-                                       .flags(0x00)
+                                       .flags(flags)
                                        .reasonCode(reasonCode & 0xff)
                                        .properties(p -> p.length(propertiesSize0)
                                                          .value(propertyBuffer, 0, propertiesSize0))
