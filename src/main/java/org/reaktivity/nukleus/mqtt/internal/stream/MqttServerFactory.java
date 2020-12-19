@@ -2211,7 +2211,7 @@ public final class MqttServerFactory implements StreamFactory
             int propertiesSize = 0;
 
             MqttPropertyFW mqttProperty;
-            if (sessionExpiryIntervalLimit > 0)
+            if (sessionExpiryInterval > sessionExpiryIntervalLimit && sessionExpiryIntervalLimit > 0)
             {
                 mqttProperty = mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
                                          .sessionExpiry(sessionExpiryIntervalLimit)
