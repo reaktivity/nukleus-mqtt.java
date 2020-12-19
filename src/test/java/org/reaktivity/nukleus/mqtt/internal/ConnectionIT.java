@@ -1145,19 +1145,4 @@ public class ConnectionIT
     {
         k3po.finish();
     }
-
-    @Test
-    @Specification({
-        "${routeExt}/session.present/server/controller",
-        "${client}/connect.when.session.present/client",
-        "${server}/connect.when.session.present/server"})
-    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
-    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
-    @Configure(name = MAXIMUM_QOS_NAME, value = "2")
-    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "10")
-    @Configure(name = CLIENT_ID_NAME, value = "123e4567-e89b-42d3-a456-556642440000")
-    public void shouldConnectWhenSessionPresent() throws Exception
-    {
-        k3po.finish();
-    }
 }
