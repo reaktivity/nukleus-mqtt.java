@@ -40,7 +40,7 @@ public class MqttConfiguration extends Configuration
         final ConfigurationDef config = new ConfigurationDef("nukleus.mqtt");
         PUBLISH_TIMEOUT = config.property("publish.timeout", TimeUnit.SECONDS.toSeconds(30));
         CONNECT_TIMEOUT = config.property("connect.timeout", TimeUnit.SECONDS.toSeconds(3));
-        SESSION_EXPIRY_INTERVAL = config.property("session.expiry.interval", 0);
+        SESSION_EXPIRY_INTERVAL = config.property("session.expiry.interval", Integer.MAX_VALUE);
         MAXIMUM_QOS = config.property("maximum.qos", (byte) 0);
         RETAIN_AVAILABLE = config.property("retain.available", true);
         TOPIC_ALIAS_MAXIMUM = config.property("topic.alias.maximum", (short) 0);

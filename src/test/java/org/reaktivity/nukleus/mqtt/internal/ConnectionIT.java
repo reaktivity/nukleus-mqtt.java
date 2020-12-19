@@ -18,7 +18,6 @@ package org.reaktivity.nukleus.mqtt.internal;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
-import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.CLIENT_ID_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.MAXIMUM_QOS_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.NO_LOCAL_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.RETAIN_AVAILABLE_NAME;

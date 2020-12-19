@@ -183,6 +183,8 @@ public final class MqttServerFactory implements StreamFactory
     private static final int CONNECT_TOPIC_ALIAS_MAXIMUM_MASK = 0b0000_0001;
     private static final int CONNECT_SESSION_EXPIRY_INTERVAL_MASK = 0b0000_0010;
 
+    private static final int CONNACK_SESSION_PRESENT = 0b0000_0001;
+
     private static final int RETAIN_HANDLING_SEND = 0;
 
     private static final int RETAIN_FLAG = 1 << RETAIN.ordinal();
@@ -2211,7 +2213,7 @@ public final class MqttServerFactory implements StreamFactory
             int propertiesSize = 0;
 
             MqttPropertyFW mqttProperty;
-            if (sessionExpiryInterval > sessionExpiryIntervalLimit && sessionExpiryIntervalLimit > 0)
+            if (sessionExpiryInterval > sessionExpiryIntervalLimit)
             {
                 mqttProperty = mqttPropertyRW.wrap(propertyBuffer, propertiesSize, propertyBuffer.capacity())
                                          .sessionExpiry(sessionExpiryIntervalLimit)
@@ -2275,7 +2277,7 @@ public final class MqttServerFactory implements StreamFactory
                 propertiesSize = mqttProperty.limit();
             }
 
-            int flags = 0x01;
+            int flags = 0x00;
 
             final int propertiesSize0 = propertiesSize;
             final MqttConnackFW connack =
