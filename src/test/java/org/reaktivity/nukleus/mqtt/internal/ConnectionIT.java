@@ -1144,4 +1144,18 @@ public class ConnectionIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${routeExt}/session/server/controller",
+        "${client}/connect.with.session.expiry/client",
+        "${server}/connect.with.session.expiry/server"})
+    @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
+    @Configure(name = MAXIMUM_QOS_NAME, value = "2")
+    @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "10")
+    public void shouldConnectWithSessionExpiry() throws Exception
+    {
+        k3po.finish();
+    }
 }
