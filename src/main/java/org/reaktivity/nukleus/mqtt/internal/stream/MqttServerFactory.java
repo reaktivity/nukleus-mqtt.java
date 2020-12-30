@@ -4307,11 +4307,7 @@ public final class MqttServerFactory implements StreamFactory
 
         MqttSessionExpiryRefresh(
             long routeId,
-            long authorization,
-            int packetId,
-            String topicFilter,
-            OctetsFW willPayload,
-            MqttDataExFW willMessage)
+            long authorization)
         {
             this.routeId = routeId;
             this.authorization = authorization;
@@ -4368,6 +4364,8 @@ public final class MqttServerFactory implements StreamFactory
             final long sessionExpiresAt = session.sessionExpiresAt;
             final long sessionExpiryInterval = server.sessionExpiryInterval;
 
+            currentExpiryIndex = (currentExpiryIndex + 1) % sessions.size();
+
             if (MqttState.initialClosing(server.state) && now >= sessionExpiresAt)
             {
                 session.doApplicationFlushOrEnd(traceId, authorization, NO_FLAGS, PUBLISH_ONLY);
@@ -4377,8 +4375,6 @@ public final class MqttServerFactory implements StreamFactory
                 sessionExpiresId = NO_CANCEL_ID;
                 doSignalSessionExpirationIfNecessary(session, sessionExpiryInterval);
             }
-
-            currentExpiryIndex++;
         }
 
         private void doSignalSessionExpirationIfNecessary(
@@ -4387,9 +4383,12 @@ public final class MqttServerFactory implements StreamFactory
         {
             session.sessionExpiresAt = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(sessionExpiryInterval);
 
+            final MqttServer nextSession = sessions.get(currentExpiryIndex);
+
             if (sessionExpiresId == NO_CANCEL_ID)
             {
-                sessionExpiresId = signaler.signalAt(session.sessionExpiresAt, routeId, initialId, SESSION_EXPIRY_SIGNAL);
+                sessionExpiresId = signaler.signalAt(nextSession.sessionStream.sessionExpiresAt,
+                    routeId, initialId, SESSION_EXPIRY_SIGNAL);
             }
         }
     }
