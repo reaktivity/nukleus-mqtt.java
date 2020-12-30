@@ -65,8 +65,11 @@ import static org.reaktivity.nukleus.mqtt.internal.types.stream.DataFW.FIELD_OFF
 import static org.reaktivity.nukleus.mqtt.internal.types.stream.MqttDataExFW.Builder.DEFAULT_EXPIRY_INTERVAL;
 import static org.reaktivity.nukleus.mqtt.internal.types.stream.MqttDataExFW.Builder.DEFAULT_FORMAT;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -3506,6 +3509,7 @@ public final class MqttServerFactory implements StreamFactory
                 doApplicationWindowIfNecessary(traceId, authorization);
             }
 
+            // TODO: parse returned data. could be session data (expiry & delivery), will topic, will message, subscription
             private void onApplicationData(
                 DataFW data)
             {
@@ -4264,6 +4268,128 @@ public final class MqttServerFactory implements StreamFactory
                         this.state = MqttState.closingInitial(state);
                     }
                 }
+            }
+        }
+    }
+
+    public class ExpiryComparator implements Comparator<MqttServer> {
+
+        @Override
+        public int compare(MqttServer server1, MqttServer server2) {
+            final long expiry1 = server1.sessionStream.sessionExpiresAt;
+            final long expiry2 = server2.sessionStream.sessionExpiresAt;
+
+            if (expiry1 < expiry2)
+            {
+                return -1;
+            }
+
+            return expiry1 == expiry2 ? 0 : 1;
+        }
+    }
+
+    private class MqttSessionExpiryRefresh
+    {
+        private final MessageConsumer application;
+
+        private final List<MqttServer> sessions = new ArrayList<>();
+
+        private int currentExpiryIndex;
+
+        private long routeId;
+        private long initialId;
+        private long replyId;
+        private long budgetId;
+
+        private long authorization;
+
+        private long sessionExpiresId = NO_CANCEL_ID;
+
+        MqttSessionExpiryRefresh(
+            long routeId,
+            long authorization,
+            int packetId,
+            String topicFilter,
+            OctetsFW willPayload,
+            MqttDataExFW willMessage)
+        {
+            this.routeId = routeId;
+            this.authorization = authorization;
+            this.initialId = supplyInitialId.applyAsLong(routeId);
+            this.replyId = supplyReplyId.applyAsLong(initialId);
+            this.application = router.supplyReceiver(initialId);
+        }
+
+        private void addSession(MqttServer server)
+        {
+            sessions.add(server);
+            sessions.sort(new ExpiryComparator());
+        }
+
+        private void onApplicationInitial(
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length)
+        {
+            switch (msgTypeId)
+            {
+            case SignalFW.TYPE_ID:
+                final SignalFW signal = signalRO.wrap(buffer, index, index + length);
+                onApplicationSignal(signal);
+                break;
+            }
+        }
+
+        private void onApplicationSignal(
+            SignalFW signal)
+        {
+            final int signalId = signal.signalId();
+
+            switch (signalId)
+            {
+            case SESSION_EXPIRY_SIGNAL:
+                onSessionExpiredSignal(signal);
+                break;
+            default:
+                break;
+            }
+        }
+
+        private void onSessionExpiredSignal(
+            SignalFW signal)
+        {
+            final long traceId = signal.traceId();
+            final long authorization = signal.authorization();
+            final long now = System.currentTimeMillis();
+
+            final MqttServer server = sessions.get(currentExpiryIndex);
+            final MqttServer.MqttSessionStream session = server.sessionStream;
+            final long sessionExpiresAt = session.sessionExpiresAt;
+            final long sessionExpiryInterval = server.sessionExpiryInterval;
+
+            if (MqttState.initialClosing(server.state) && now >= sessionExpiresAt)
+            {
+                session.doApplicationFlushOrEnd(traceId, authorization, NO_FLAGS, PUBLISH_ONLY);
+            }
+            else
+            {
+                sessionExpiresId = NO_CANCEL_ID;
+                doSignalSessionExpirationIfNecessary(session, sessionExpiryInterval);
+            }
+
+            currentExpiryIndex++;
+        }
+
+        private void doSignalSessionExpirationIfNecessary(
+            MqttServer.MqttSessionStream session,
+            long sessionExpiryInterval)
+        {
+            session.sessionExpiresAt = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(sessionExpiryInterval);
+
+            if (sessionExpiresId == NO_CANCEL_ID)
+            {
+                sessionExpiresId = signaler.signalAt(session.sessionExpiresAt, routeId, initialId, SESSION_EXPIRY_SIGNAL);
             }
         }
     }
