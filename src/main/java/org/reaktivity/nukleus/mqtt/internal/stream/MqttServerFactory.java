@@ -4369,6 +4369,7 @@ public final class MqttServerFactory implements StreamFactory
             if (MqttState.initialClosing(server.state) && now >= sessionExpiresAt)
             {
                 session.doApplicationFlushOrEnd(traceId, authorization, NO_FLAGS, PUBLISH_ONLY);
+                // publishWillMessage(traceId);
             }
             else
             {
