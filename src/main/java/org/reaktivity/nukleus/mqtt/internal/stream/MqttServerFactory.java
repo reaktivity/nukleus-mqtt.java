@@ -514,7 +514,10 @@ public final class MqttServerFactory implements StreamFactory
     private void doBegin(
         MessageConsumer receiver,
         long routeId,
-        long replyId,
+        long streamId,
+        long sequence,
+        long acknowledge,
+        int maximum,
         long traceId,
         long authorization,
         long affinity,
@@ -522,7 +525,10 @@ public final class MqttServerFactory implements StreamFactory
     {
         final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                   .routeId(routeId)
-                                  .streamId(replyId)
+                                  .streamId(streamId)
+                                  .sequence(sequence)
+                                  .acknowledge(acknowledge)
+                                  .maximum(maximum)
                                   .traceId(traceId)
                                   .authorization(authorization)
                                   .affinity(affinity)
@@ -535,7 +541,10 @@ public final class MqttServerFactory implements StreamFactory
     private void doData(
         MessageConsumer receiver,
         long routeId,
-        long replyId,
+        long streamId,
+        long sequence,
+        long acknowledge,
+        int maximum,
         long traceId,
         long authorization,
         long budgetId,
@@ -547,7 +556,10 @@ public final class MqttServerFactory implements StreamFactory
     {
         final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                 .routeId(routeId)
-                                .streamId(replyId)
+                                .streamId(streamId)
+                                .sequence(sequence)
+                                .acknowledge(acknowledge)
+                                .maximum(maximum)
                                 .traceId(traceId)
                                 .authorization(authorization)
                                 .budgetId(budgetId)
@@ -562,7 +574,10 @@ public final class MqttServerFactory implements StreamFactory
     private void doData(
         MessageConsumer receiver,
         long routeId,
-        long replyId,
+        long streamId,
+        long sequence,
+        long acknowledge,
+        int maximum,
         long traceId,
         long authorization,
         long budgetId,
@@ -575,7 +590,10 @@ public final class MqttServerFactory implements StreamFactory
     {
         final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                 .routeId(routeId)
-                                .streamId(replyId)
+                                .streamId(streamId)
+                                .sequence(sequence)
+                                .acknowledge(acknowledge)
+                                .maximum(maximum)
                                 .traceId(traceId)
                                 .authorization(authorization)
                                 .flags(flags)
@@ -591,14 +609,20 @@ public final class MqttServerFactory implements StreamFactory
     private void doEnd(
         MessageConsumer receiver,
         long routeId,
-        long replyId,
+        long streamId,
+        long sequence,
+        long acknowledge,
+        int maximum,
         long traceId,
         long authorization,
         Flyweight extension)
     {
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                               .routeId(routeId)
-                              .streamId(replyId)
+                              .streamId(streamId)
+                              .sequence(sequence)
+                              .acknowledge(acknowledge)
+                              .maximum(maximum)
                               .traceId(traceId)
                               .authorization(authorization)
                               .extension(extension.buffer(), extension.offset(), extension.sizeof())
@@ -610,14 +634,20 @@ public final class MqttServerFactory implements StreamFactory
     private void doAbort(
         MessageConsumer receiver,
         long routeId,
-        long replyId,
+        long streamId,
+        long sequence,
+        long acknowledge,
+        int maximum,
         long traceId,
         long authorization,
         Flyweight extension)
     {
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                   .routeId(routeId)
-                                  .streamId(replyId)
+                                  .streamId(streamId)
+                                  .sequence(sequence)
+                                  .acknowledge(acknowledge)
+                                  .maximum(maximum)
                                   .traceId(traceId)
                                   .authorization(authorization)
                                   .extension(extension.buffer(), extension.offset(), extension.sizeof())
@@ -630,19 +660,23 @@ public final class MqttServerFactory implements StreamFactory
         MessageConsumer receiver,
         long routeId,
         long streamId,
+        long sequence,
+        long acknowledge,
+        int maximum,
         long traceId,
         long authorization,
         long budgetId,
-        int credit,
         int padding)
     {
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                     .routeId(routeId)
                                     .streamId(streamId)
+                                    .sequence(sequence)
+                                    .acknowledge(acknowledge)
+                                    .maximum(maximum)
                                     .traceId(traceId)
                                     .authorization(authorization)
                                     .budgetId(budgetId)
-                                    .credit(credit)
                                     .padding(padding)
                                     .build();
 
@@ -653,12 +687,18 @@ public final class MqttServerFactory implements StreamFactory
         MessageConsumer receiver,
         long routeId,
         long streamId,
+        long sequence,
+        long acknowledge,
+        int maximum,
         long traceId,
         long authorization,
         Flyweight extension)
     {
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity()).routeId(routeId)
                                      .streamId(streamId)
+                                     .sequence(sequence)
+                                     .acknowledge(acknowledge)
+                                     .maximum(maximum)
                                      .traceId(traceId)
                                      .authorization(authorization)
                                      .extension(extension.buffer(), extension.offset(), extension.sizeof())
@@ -671,6 +711,9 @@ public final class MqttServerFactory implements StreamFactory
         MessageConsumer receiver,
         long routeId,
         long streamId,
+        long sequence,
+        long acknowledge,
+        int maximum,
         long traceId,
         long authorization,
         long budgetId,
@@ -680,6 +723,9 @@ public final class MqttServerFactory implements StreamFactory
         final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                      .routeId(routeId)
                                      .streamId(streamId)
+                                     .sequence(sequence)
+                                     .acknowledge(acknowledge)
+                                     .maximum(maximum)
                                      .traceId(traceId)
                                      .authorization(authorization)
                                      .budgetId(budgetId)
@@ -833,8 +879,8 @@ public final class MqttServerFactory implements StreamFactory
 
                 boolean canPublish = MqttState.initialOpened(publisher.state);
 
-                int reserved = payloadSize + publisher.initialPadding;
-                canPublish &= reserved <= publisher.initialBudget;
+                int reserved = payloadSize + publisher.initialPad;
+                canPublish &= publisher.initialSeq + reserved <= publisher.initialAck + publisher.initialMax;
 
                 if (canPublish && publisher.debitorIndex != NO_DEBITOR_INDEX && reserved != 0)
                 {
@@ -1096,9 +1142,14 @@ public final class MqttServerFactory implements StreamFactory
 
         private String16FW clientId;
 
-        private int decodeBudget;
-        private int encodeBudget;
-        private int encodePadding;
+        private long decodeSeq;
+        private long decodeAck;
+        private int decodeMax;
+
+        private long encodeSeq;
+        private long encodeAck;
+        private int encodeMax;
+        private int encodePad;
 
         private long encodeBudgetIndex = NO_CREDITOR_INDEX;
         private int encodeSharedBudget;
@@ -1204,19 +1255,27 @@ public final class MqttServerFactory implements StreamFactory
             state = MqttState.openingInitial(state);
 
             doNetworkBegin(traceId, authorization);
-            doNetworkWindow(traceId, authorization, bufferPool.slotCapacity(), 0, 0L);
+            doNetworkWindow(traceId, authorization, 0, 0L, 0, bufferPool.slotCapacity());
             doSignalConnectTimeoutIfNecessary();
         }
 
         private void onNetworkData(
             DataFW data)
         {
+            final long sequence = data.sequence();
+            final long acknowledge = data.acknowledge();
             final long traceId = data.traceId();
             final long authorization = data.authorization();
 
-            decodeBudget -= data.reserved();
+            assert acknowledge <= sequence;
+            assert sequence >= decodeSeq;
+            assert acknowledge <= decodeAck;
 
-            if (decodeBudget < 0)
+            decodeSeq = sequence + data.reserved();
+
+            assert decodeAck <= decodeSeq;
+
+            if (decodeSeq > decodeAck + decodeMax)
             {
                 doNetworkReset(supplyTraceId.getAsLong(), authorization);
             }
@@ -1244,12 +1303,6 @@ public final class MqttServerFactory implements StreamFactory
                 }
 
                 decodeNetwork(traceId, authorization, budgetId, reserved, buffer, offset, limit);
-
-                final int initialCredit = reserved - decodeSlotReserved;
-                if (initialCredit > 0)
-                {
-                    doNetworkWindow(traceId, authorization, initialCredit, 0, 0);
-                }
             }
         }
 
@@ -1297,16 +1350,26 @@ public final class MqttServerFactory implements StreamFactory
         private void onNetworkWindow(
             WindowFW window)
         {
+            final long sequence = window.sequence();
+            final long acknowledge = window.acknowledge();
+            final int maximum = window.maximum();
             final long traceId = window.traceId();
             final long authorization = window.authorization();
             final long budgetId = window.budgetId();
-            final int credit = window.credit();
             final int padding = window.padding();
 
             state = MqttState.openReply(state);
 
-            encodeBudget += credit;
-            encodePadding = padding;
+            assert acknowledge <= sequence;
+            assert sequence <= encodeSeq;
+            assert acknowledge >= encodeAck;
+            assert maximum >= encodeMax;
+
+            encodeAck = acknowledge;
+            encodeMax = maximum;
+            encodePad = padding;
+
+            assert encodeAck <= encodeSeq;
 
             if (encodeSlot != NO_SLOT)
             {
@@ -1317,7 +1380,8 @@ public final class MqttServerFactory implements StreamFactory
                 encodeNetwork(encodeSlotTraceId, authorization, budgetId, buffer, offset, limit);
             }
 
-            final int encodeSharedCredit = Math.min(encodeBudgetMax, encodeBudget - encodeSlotOffset - encodeSharedBudget);
+            final int encodeWin = encodeMax - (int)(encodeSeq - encodeAck);
+            final int encodeSharedCredit = Math.min(encodeBudgetMax, encodeWin - encodeSlotOffset - encodeSharedBudget);
 
             if (encodeSharedCredit > 0)
             {
@@ -1326,7 +1390,7 @@ public final class MqttServerFactory implements StreamFactory
 
                 assert encodeSharedBudgetPrevious + encodeSharedCredit <= encodeBudgetMax
                     : String.format("%d + %d <= %d, encodeBudget = %d",
-                    encodeSharedBudgetPrevious, encodeSharedCredit, encodeBudgetMax, encodeBudget);
+                    encodeSharedBudgetPrevious, encodeSharedCredit, encodeBudgetMax, encodeWin);
 
                 assert encodeSharedCredit <= encodeBudgetMax
                     : String.format("%d <= %d", encodeSharedCredit, encodeBudgetMax);
@@ -1622,8 +1686,8 @@ public final class MqttServerFactory implements StreamFactory
 
                 boolean canPublish = MqttState.initialOpened(sessionStream.state);
 
-                int reserved = payloadSize + sessionStream.initialPadding;
-                canPublish &= reserved <= sessionStream.initialBudget;
+                int reserved = payloadSize + sessionStream.initialPad;
+                canPublish &= sessionStream.initialSeq + reserved <= sessionStream.initialAck + sessionStream.initialMax;
 
                 if (canPublish && sessionStream.debitorIndex != NO_DEBITOR_INDEX && reserved != 0)
                 {
@@ -1977,7 +2041,8 @@ public final class MqttServerFactory implements StreamFactory
         {
             state = MqttState.openingReply(state);
 
-            doBegin(network, routeId, replyId, traceId, authorization, affinity, EMPTY_OCTETS);
+            doBegin(network, routeId, replyId, encodeSeq, encodeAck, encodeMax,
+                    traceId, authorization, affinity, EMPTY_OCTETS);
             router.setThrottle(replyId, this::onNetwork);
 
             assert encodeBudgetIndex == NO_CREDITOR_INDEX;
@@ -2035,7 +2100,8 @@ public final class MqttServerFactory implements StreamFactory
             cleanupBudgetCreditorIfNecessary();
             cleanupEncodeSlotIfNecessary();
 
-            doEnd(network, routeId, replyId, traceId, authorization, EMPTY_OCTETS);
+            doEnd(network, routeId, replyId, encodeSeq, encodeAck, encodeMax,
+                    traceId, authorization, EMPTY_OCTETS);
         }
 
         private void doNetworkAbortIfNecessary(
@@ -2057,7 +2123,8 @@ public final class MqttServerFactory implements StreamFactory
             cleanupBudgetCreditorIfNecessary();
             cleanupEncodeSlotIfNecessary();
 
-            doAbort(network, routeId, replyId, traceId, authorization, EMPTY_OCTETS);
+            doAbort(network, routeId, replyId, encodeSeq, encodeAck, encodeMax,
+                    traceId, authorization, EMPTY_OCTETS);
         }
 
         private void doNetworkResetIfNecessary(
@@ -2078,22 +2145,32 @@ public final class MqttServerFactory implements StreamFactory
 
             cleanupDecodeSlotIfNecessary();
 
-            doReset(network, routeId, initialId, traceId, authorization, EMPTY_OCTETS);
+            doReset(network, routeId, initialId, decodeSeq, decodeAck, decodeMax,
+                    traceId, authorization, EMPTY_OCTETS);
         }
 
         private void doNetworkWindow(
             long traceId,
             long authorization,
-            int credit,
             int padding,
-            long budgetId)
+            long budgetId,
+            int minInitialNoAck,
+            int minInitialMax)
         {
-            assert credit > 0;
+            final long newInitialAck = Math.max(decodeSeq - minInitialNoAck, decodeAck);
 
-            state = MqttState.openInitial(state);
+            if (newInitialAck > decodeAck || minInitialMax > decodeMax || !MqttState.initialOpened(state))
+            {
+                decodeAck = newInitialAck;
+                assert decodeAck <= decodeSeq;
 
-            decodeBudget += credit;
-            doWindow(network, routeId, initialId, traceId, authorization, budgetId, credit, padding);
+                decodeMax = minInitialMax;
+
+                state = MqttState.openInitial(state);
+
+                doWindow(network, routeId, initialId, decodeSeq, decodeAck, decodeMax,
+                        traceId, authorization, budgetId, 0);
+            }
         }
 
         private void doEncodePublish(
@@ -2379,18 +2456,20 @@ public final class MqttServerFactory implements StreamFactory
             int limit)
         {
             final int maxLength = limit - offset;
-            final int length = Math.min(maxLength, Math.max(encodeBudget - encodePadding, 0));
+            final int encodeWin = encodeMax - (int)(encodeSeq - encodeAck + encodeSlotOffset);
+            final int length = Math.min(maxLength, Math.max(encodeWin - encodePad, 0));
 
             if (length > 0)
             {
-                final int reserved = length + encodePadding;
+                final int reserved = length + encodePad;
 
-                encodeBudget -= reserved;
+                doData(network, routeId, replyId, encodeSeq, encodeAck, encodeMax,
+                        traceId, authorization, budgetId, reserved, buffer, offset, length, EMPTY_OCTETS);
 
-                assert encodeBudget >= 0;
+                encodeSeq += reserved;
 
-                doData(network, routeId, replyId, traceId, authorization, budgetId,
-                       reserved, buffer, offset, length, EMPTY_OCTETS);
+                assert encodeSeq <= encodeAck + encodeMax :
+                    String.format("%d <= %d + %d", encodeSeq, encodeAck, encodeMax);
             }
 
             final int remaining = maxLength - length;
@@ -2438,12 +2517,6 @@ public final class MqttServerFactory implements StreamFactory
                 final int reserved = decodeSlotReserved;
 
                 decodeNetwork(traceId, authorization, budgetId, reserved, buffer, offset, limit);
-
-                final int initialCredit = reserved - decodeSlotReserved;
-                if (initialCredit > 0)
-                {
-                    doNetworkWindow(traceId, authorization, initialCredit, 0, 0);
-                }
             }
         }
 
@@ -2492,6 +2565,20 @@ public final class MqttServerFactory implements StreamFactory
                     state = MqttState.closeInitial(state);
                     cleanupStreams(traceId, authorization);
                     doNetworkEndIfNecessary(traceId, authorization);
+                }
+            }
+
+            if (!MqttState.initialClosed(state))
+            {
+                final int decoded = reserved - decodeSlotReserved;
+
+                final long initialAckMax = Math.min(decodeAck + decoded, decodeSeq);
+                if (initialAckMax > decodeAck)
+                {
+                    decodeAck = initialAckMax;
+                    assert decodeAck <= decodeSeq;
+
+                    doNetworkWindow(traceId, authorization, 0, budgetId, 0, decodeMax);
                 }
             }
         }
@@ -2690,9 +2777,14 @@ public final class MqttServerFactory implements StreamFactory
             private BudgetDebitor debitor;
             private long debitorIndex = NO_DEBITOR_INDEX;
 
-            private int initialBudget;
-            private int initialPadding;
-            private int replyBudget;
+            private long initialSeq;
+            private long initialAck;
+            private int initialMax;
+            private int initialPad;
+
+            private long replySeq;
+            private long replyAck;
+            private int replyMax;
 
             private String topicFilter;
 
@@ -2783,7 +2875,8 @@ public final class MqttServerFactory implements StreamFactory
 
                 router.setThrottle(initialId, this::onApplicationInitial);
                 correlations.put(replyId, this::onApplicationReply);
-                doBegin(application, routeId, initialId, traceId, authorization, affinity, beginEx);
+                doBegin(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, affinity, beginEx);
 
                 final int topicKey = topicKey(topicFilter);
                 final MutableInteger activeStreams = activeStreamsByTopic.computeIfAbsent(topicKey, key -> new MutableInteger());
@@ -2810,14 +2903,13 @@ public final class MqttServerFactory implements StreamFactory
                 final int offset = payload.offset();
                 final int limit = payload.limit();
                 final int length = limit - offset;
-                assert reserved >= length + initialPadding;
+                assert reserved >= length + initialPad;
 
-                initialBudget -= reserved;
+                doData(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, budgetId, reserved, buffer, offset, length, extension);
 
-                assert initialBudget >= 0;
-
-                doData(application, routeId, initialId, traceId, authorization, budgetId,
-                    reserved, buffer, offset, length, extension);
+                initialSeq += reserved;
+                assert initialSeq <= initialAck + initialMax;
 
                 doSignalPublishExpirationIfNecessary();
             }
@@ -2855,7 +2947,8 @@ public final class MqttServerFactory implements StreamFactory
             {
                 setInitialClosed();
 
-                doAbort(application, routeId, initialId, traceId, authorization, extension);
+                doAbort(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, extension);
             }
 
             private void doApplicationAbortIfNecessary(
@@ -2874,17 +2967,17 @@ public final class MqttServerFactory implements StreamFactory
                 int reserved,
                 int flags)
             {
-                initialBudget -= reserved;
-
-                assert initialBudget >= 0;
-
-                doFlush(application, routeId, initialId, traceId, authorization, 0L, reserved,
+                doFlush(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, 0L, reserved,
                     ex -> ex.set((b, o, l) -> mqttFlushExRW.wrap(b, o, l)
                                                            .typeId(mqttTypeId)
                                                            .flags(flags)
                                                            .capabilities(c -> c.set(valueOf(capabilities)))
                                                            .build()
                                                            .sizeof()));
+
+                initialSeq += reserved;
+                assert initialSeq <= initialAck + initialMax;
             }
 
             private void setInitialClosed()
@@ -2946,14 +3039,16 @@ public final class MqttServerFactory implements StreamFactory
             private void onApplicationWindow(
                 WindowFW window)
             {
+                final long sequence = window.sequence();
+                final long acknowledge = window.acknowledge();
+                final int maximum = window.maximum();
                 final long traceId = window.traceId();
                 final long authorization = window.authorization();
                 final long budgetId = window.budgetId();
-                final int credit = window.credit();
                 final int padding = window.padding();
 
                 if (subscription != null &&
-                        !subscription.hasSubscribeCompleted(subackIndex) && hasSubscribeCapability(capabilities))
+                    !subscription.hasSubscribeCompleted(subackIndex) && hasSubscribeCapability(capabilities))
                 {
                     subscription.onSubscribeSucceeded(traceId, authorization, packetId, subackIndex);
 
@@ -2976,8 +3071,17 @@ public final class MqttServerFactory implements StreamFactory
 
                 this.state = MqttState.openInitial(state);
                 this.budgetId = budgetId;
-                this.initialBudget += credit;
-                this.initialPadding = padding;
+
+                assert acknowledge <= sequence;
+                assert sequence <= initialSeq;
+                assert acknowledge >= initialAck;
+                assert maximum >= initialMax;
+
+                initialAck = acknowledge;
+                initialMax = maximum;
+                initialPad = padding;
+
+                assert initialAck <= initialSeq;
 
                 if (budgetId != 0L && debitorIndex == NO_DEBITOR_INDEX)
                 {
@@ -3110,6 +3214,8 @@ public final class MqttServerFactory implements StreamFactory
             private void onApplicationData(
                 DataFW data)
             {
+                final long sequence = data.sequence();
+                final long acknowledge = data.acknowledge();
                 final long traceId = data.traceId();
                 final int reserved = data.reserved();
                 final long authorization = data.authorization();
@@ -3117,10 +3223,16 @@ public final class MqttServerFactory implements StreamFactory
                 final OctetsFW payload = data.payload();
                 final OctetsFW extension = data.extension();
 
-                replyBudget -= reserved;
+                assert acknowledge <= sequence;
+                assert sequence >= replySeq;
+                assert acknowledge <= replyAck;
+
+                replySeq = sequence + reserved;
                 encodeSharedBudget -= reserved;
 
-                if (replyBudget < 0)
+                assert replyAck <= replySeq;
+
+                if (replySeq > replyAck + replyMax)
                 {
                     doApplicationReset(traceId, authorization);
                     doNetworkAbort(traceId, authorization);
@@ -3174,7 +3286,8 @@ public final class MqttServerFactory implements StreamFactory
                 capabilities = 0;
                 streams.remove(topicKey);
 
-                doEnd(application, routeId, initialId, traceId, authorization, extension);
+                doEnd(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, extension);
             }
 
             private void doApplicationWindowIfNecessary(
@@ -3183,22 +3296,29 @@ public final class MqttServerFactory implements StreamFactory
             {
                 if (MqttState.replyOpened(state))
                 {
-                    doApplicationWindow(traceId, authorization);
+                    doApplicationWindow(traceId, authorization, encodeSlotOffset, encodeBudgetMax);
                 }
             }
 
             private void doApplicationWindow(
                 long traceId,
-                long authorization)
+                long authorization,
+                int minReplyNoAck,
+                int minReplyMax)
             {
-                final int replyCredit = encodeBudgetMax - replyBudget;
+                final long newReplyAck = Math.max(replySeq - minReplyNoAck, replyAck);
 
-                if (replyCredit > 0)
+                if (newReplyAck > replyAck || minReplyMax > replyMax || !MqttState.replyOpened(state))
                 {
-                    replyBudget += replyCredit;
+                    replyAck = newReplyAck;
+                    assert replyAck <= replySeq;
 
-                    doWindow(application, routeId, replyId, traceId, authorization,
-                        encodeBudgetId, replyCredit, PUBLISH_FRAMING);
+                    replyMax = minReplyMax;
+
+                    state = MqttState.openReply(state);
+
+                    doWindow(application, routeId, replyId, replySeq, replyAck, replyMax,
+                            traceId, authorization, encodeBudgetId, PUBLISH_FRAMING);
                 }
             }
 
@@ -3208,7 +3328,8 @@ public final class MqttServerFactory implements StreamFactory
             {
                 setReplyClosed();
 
-                doReset(application, routeId, replyId, traceId, authorization, EMPTY_OCTETS);
+                doReset(application, routeId, replyId, replySeq, replyAck, replyMax,
+                        traceId, authorization, EMPTY_OCTETS);
             }
 
             private void doApplicationResetIfNecessary(
@@ -3326,9 +3447,14 @@ public final class MqttServerFactory implements StreamFactory
             private BudgetDebitor debitor;
             private long debitorIndex = NO_DEBITOR_INDEX;
 
-            private int initialBudget;
-            private int initialPadding;
-            private int replyBudget;
+            private long initialSeq;
+            private long initialAck;
+            private int initialMax;
+            private int initialPad;
+
+            private long replySeq;
+            private long replyAck;
+            private int replyMax;
 
             private String topicFilter;
 
@@ -3393,10 +3519,12 @@ public final class MqttServerFactory implements StreamFactory
             private void onApplicationWindow(
                 WindowFW window)
             {
+                final long sequence = window.sequence();
+                final long acknowledge = window.acknowledge();
+                final int maximum = window.maximum();
                 final long traceId = window.traceId();
                 final long authorization = window.authorization();
                 final long budgetId = window.budgetId();
-                final int credit = window.credit();
                 final int padding = window.padding();
 
                 if (!MqttState.initialOpened(state))
@@ -3407,8 +3535,17 @@ public final class MqttServerFactory implements StreamFactory
 
                 this.state = MqttState.openInitial(state);
                 this.budgetId = budgetId;
-                this.initialBudget += credit;
-                this.initialPadding = padding;
+
+                assert acknowledge <= sequence;
+                assert sequence <= initialSeq;
+                assert acknowledge >= initialAck;
+                assert maximum >= initialMax;
+
+                initialAck = acknowledge;
+                initialMax = maximum;
+                initialPad = padding;
+
+                assert initialAck <= initialSeq;
 
                 if (budgetId != 0L && debitorIndex == NO_DEBITOR_INDEX)
                 {
@@ -3513,12 +3650,14 @@ public final class MqttServerFactory implements StreamFactory
                 final long traceId = begin.traceId();
                 final long authorization = begin.authorization();
 
-                doApplicationWindowIfNecessary(traceId, authorization);
+                doApplicationWindowIfNecessary(traceId, authorization, encodeSlotOffset, encodeBudgetMax);
             }
 
             private void onApplicationData(
                 DataFW data)
             {
+                final long sequence = data.sequence();
+                final long acknowledge = data.acknowledge();
                 final long traceId = data.traceId();
                 final int reserved = data.reserved();
                 final long authorization = data.authorization();
@@ -3526,10 +3665,16 @@ public final class MqttServerFactory implements StreamFactory
                 final OctetsFW payload = data.payload();
                 final OctetsFW extension = data.extension();
 
-                replyBudget -= reserved;
+                assert acknowledge <= sequence;
+                assert sequence >= replySeq;
+                assert acknowledge <= replyAck;
+
+                replySeq = sequence + reserved;
                 encodeSharedBudget -= reserved;
 
-                if (replyBudget < 0)
+                assert replyAck <= replySeq;
+
+                if (replySeq > replyAck + replyMax)
                 {
                     doApplicationReset(traceId, authorization);
                     doNetworkAbort(traceId, authorization);
@@ -3540,7 +3685,7 @@ public final class MqttServerFactory implements StreamFactory
                     {
                         onSessionStateUpdated(payload, extension);
                     }
-                    doApplicationWindowIfNecessary(traceId, authorization);
+                    doApplicationWindowIfNecessary(traceId, authorization, encodeSlotOffset, encodeBudgetMax);
                 }
             }
 
@@ -3606,7 +3751,8 @@ public final class MqttServerFactory implements StreamFactory
 
                 router.setThrottle(initialId, this::onApplicationInitial);
                 correlations.put(replyId, this::onApplicationReply);
-                doBegin(application, routeId, initialId, traceId, authorization, affinity, beginEx);
+                doBegin(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, affinity, beginEx);
 
                 final int topicKey = topicKey(topicFilter);
                 final MutableInteger activeStreams = activeStreamsByTopic.computeIfAbsent(topicKey, key -> new MutableInteger());
@@ -3628,11 +3774,7 @@ public final class MqttServerFactory implements StreamFactory
                 final int offset = payload.offset();
                 final int limit = payload.limit();
                 final int length = limit - offset;
-                assert reserved >= length + initialPadding;
-
-                initialBudget -= reserved;
-
-                assert initialBudget >= 0;
+                assert reserved >= length + initialPad;
 
                 if (MqttState.closed(state))
                 {
@@ -3640,8 +3782,11 @@ public final class MqttServerFactory implements StreamFactory
                 }
                 else
                 {
-                    doData(application, routeId, initialId, traceId, authorization, budgetId,
-                        reserved, buffer, offset, length, extension);
+                    doData(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                            traceId, authorization, budgetId, reserved, buffer, offset, length, extension);
+
+                    initialSeq += reserved;
+                    assert initialSeq <= initialAck + initialMax;
                 }
             }
 
@@ -3713,7 +3858,8 @@ public final class MqttServerFactory implements StreamFactory
             {
                 setInitialClosed();
 
-                doAbort(application, routeId, initialId, traceId, authorization, extension);
+                doAbort(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, extension);
             }
 
             private void doApplicationAbortIfNecessary(
@@ -3735,31 +3881,39 @@ public final class MqttServerFactory implements StreamFactory
                 publishOnlyCapabilities = 0;
                 streams.remove(topicKey);
 
-                doEnd(application, routeId, initialId, traceId, authorization, extension);
+                doEnd(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, extension);
             }
 
             private void doApplicationWindowIfNecessary(
                 long traceId,
-                long authorization)
+                long authorization,
+                int minReplyNoAck,
+                int minReplyMax)
             {
                 if (MqttState.replyOpened(state))
                 {
-                    doApplicationWindow(traceId, authorization);
+                    doApplicationWindow(traceId, authorization, minReplyNoAck, minReplyMax);
                 }
             }
 
             private void doApplicationWindow(
                 long traceId,
-                long authorization)
+                long authorization,
+                int minReplyNoAck,
+                int minReplyMax)
             {
-                final int replyCredit = encodeBudgetMax - replyBudget;
+                final long newReplyAck = Math.max(replySeq - minReplyNoAck, replyAck);
 
-                if (replyCredit > 0)
+                if (newReplyAck > replyAck || minReplyMax > replyMax || !MqttState.replyOpened(state))
                 {
-                    replyBudget += replyCredit;
+                    replyAck = newReplyAck;
+                    assert replyAck <= replySeq;
 
-                    doWindow(application, routeId, replyId, traceId, authorization,
-                        encodeBudgetId, replyCredit, PUBLISH_FRAMING);
+                    replyMax = minReplyMax;
+
+                    doWindow(application, routeId, replyId, replySeq, replyAck, replyMax,
+                            traceId, authorization, encodeBudgetId, PUBLISH_FRAMING);
                 }
             }
 
@@ -3769,7 +3923,8 @@ public final class MqttServerFactory implements StreamFactory
             {
                 setReplyClosed();
 
-                doReset(application, routeId, replyId, traceId, authorization, EMPTY_OCTETS);
+                doReset(application, routeId, replyId, replySeq, replyAck, replyMax,
+                        traceId, authorization, EMPTY_OCTETS);
             }
 
             private void doApplicationResetIfNecessary(
@@ -3815,17 +3970,17 @@ public final class MqttServerFactory implements StreamFactory
                 int reserved,
                 int flags)
             {
-                initialBudget -= reserved;
-
-                assert initialBudget >= 0;
-
-                doFlush(application, routeId, initialId, traceId, authorization, 0L, reserved,
+                doFlush(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, 0L, reserved,
                     ex -> ex.set((b, o, l) -> mqttFlushExRW.wrap(b, o, l)
                                                            .typeId(mqttTypeId)
                                                            .flags(flags)
                                                            .capabilities(c -> c.set(valueOf(publishOnlyCapabilities)))
                                                            .build()
                                                            .sizeof()));
+
+                initialSeq += reserved;
+                assert initialSeq <= initialAck + initialMax;
             }
 
             private void setInitialClosed()
@@ -3878,9 +4033,14 @@ public final class MqttServerFactory implements StreamFactory
             private BudgetDebitor debitor;
             private long debitorIndex = NO_DEBITOR_INDEX;
 
-            private int initialBudget;
-            private int initialPadding;
-            private int replyBudget;
+            private long initialSeq;
+            private long initialAck;
+            private int initialMax;
+            private int initialPad;
+
+            private long replySeq;
+            private long replyAck;
+            private int replyMax;
 
             private String topicFilter;
 
@@ -3933,16 +4093,26 @@ public final class MqttServerFactory implements StreamFactory
             private void onApplicationWindow(
                 WindowFW window)
             {
+                final long sequence = window.sequence();
+                final long acknowledge = window.acknowledge();
+                final int maximum = window.maximum();
                 final long traceId = window.traceId();
                 final long authorization = window.authorization();
                 final long budgetId = window.budgetId();
-                final int credit = window.credit();
                 final int padding = window.padding();
+
+                assert acknowledge <= sequence;
+                assert sequence <= initialSeq;
+                assert acknowledge >= initialAck;
+                assert maximum >= initialMax;
 
                 this.state = MqttState.openInitial(state);
                 this.budgetId = budgetId;
-                this.initialBudget += credit;
-                this.initialPadding = padding;
+                this.initialAck = acknowledge;
+                this.initialMax = maximum;
+                this.initialPad = padding;
+
+                assert initialAck <= initialSeq;
 
                 if (budgetId != 0L && debitorIndex == NO_DEBITOR_INDEX)
                 {
@@ -4073,7 +4243,8 @@ public final class MqttServerFactory implements StreamFactory
 
                 router.setThrottle(initialId, this::onApplicationInitial);
                 correlations.put(replyId, this::onApplicationReply);
-                doBegin(application, routeId, initialId, traceId, authorization, affinity, beginEx);
+                doBegin(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, affinity, beginEx);
 
                 final int topicKey = topicKey(topicFilter);
                 final MutableInteger activeStreams = activeStreamsByTopic.computeIfAbsent(topicKey, key -> new MutableInteger());
@@ -4096,14 +4267,13 @@ public final class MqttServerFactory implements StreamFactory
                 final int offset = payload.offset();
                 final int limit = payload.limit();
                 final int length = limit - offset;
-                assert reserved >= length + initialPadding;
+                assert reserved >= length + initialPad;
 
-                initialBudget -= reserved;
+                doData(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, budgetId, reserved, flags, buffer, offset, length, extension);
 
-                assert initialBudget >= 0;
-
-                doData(application, routeId, initialId, traceId, authorization, budgetId,
-                    reserved, flags, buffer, offset, length, extension);
+                initialSeq += reserved;
+                assert initialSeq <= initialAck + initialMax;
             }
 
             private void cleanup(
@@ -4132,7 +4302,8 @@ public final class MqttServerFactory implements StreamFactory
             {
                 setInitialClosed();
 
-                doAbort(application, routeId, initialId, traceId, authorization, extension);
+                doAbort(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, extension);
             }
 
             private void doApplicationAbortIfNecessary(
@@ -4154,7 +4325,8 @@ public final class MqttServerFactory implements StreamFactory
                 streams.remove(topicKey);
                 willStream = null;
 
-                doEnd(application, routeId, initialId, traceId, authorization, extension);
+                doEnd(application, routeId, initialId, initialSeq, initialAck, initialMax,
+                        traceId, authorization, extension);
             }
 
             private void doApplicationWindowIfNecessary(
@@ -4163,8 +4335,8 @@ public final class MqttServerFactory implements StreamFactory
             {
                 if (MqttState.replyOpened(state))
                 {
-                    doWindow(application, routeId, replyId, traceId, authorization,
-                        encodeBudgetId, 0, PUBLISH_FRAMING);
+                    doWindow(application, routeId, replyId, replySeq, replyAck, replyMax,
+                            traceId, authorization, encodeBudgetId, PUBLISH_FRAMING);
                 }
             }
 
@@ -4174,7 +4346,8 @@ public final class MqttServerFactory implements StreamFactory
             {
                 setReplyClosed();
 
-                doReset(application, routeId, replyId, traceId, authorization, EMPTY_OCTETS);
+                doReset(application, routeId, replyId, replySeq, replyAck, replyMax,
+                        traceId, authorization, EMPTY_OCTETS);
             }
 
             private void doApplicationResetIfNecessary(
@@ -4250,8 +4423,8 @@ public final class MqttServerFactory implements StreamFactory
                 final OctetsFW payload = willPayload;
                 final int payloadSize = payload.sizeof();
 
-                int reserved = payloadSize + initialPadding;
-                boolean canPublish = reserved <= initialBudget;
+                int reserved = payloadSize + initialPad;
+                boolean canPublish = initialSeq + reserved <= initialAck + initialMax;
                 int dataFlags = 0x03;
 
                 if (canPublish && debitorIndex != NO_DEBITOR_INDEX && reserved != 0)
