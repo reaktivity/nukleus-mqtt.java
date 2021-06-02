@@ -33,18 +33,18 @@ import org.junit.Test;
 
 public class MqttConfigurationTest
 {
-    static final String PUBLISH_TIMEOUT_NAME = "nukleus.mqtt.publish.timeout";
-    static final String CONNECT_TIMEOUT_NAME = "nukleus.mqtt.connect.timeout";
-    static final String SESSION_EXPIRY_INTERVAL_NAME = "nukleus.mqtt.session.expiry.interval";
-    static final String MAXIMUM_QOS_NAME = "nukleus.mqtt.maximum.qos";
-    static final String RETAIN_AVAILABLE_NAME = "nukleus.mqtt.retain.available";
-    static final String TOPIC_ALIAS_MAXIMUM_NAME = "nukleus.mqtt.topic.alias.maximum";
-    static final String WILDCARD_SUBSCRIPTION_AVAILABLE_NAME = "nukleus.mqtt.wildcard.subscription.available";
-    static final String SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME = "nukleus.mqtt.subscription.identifiers.available";
-    static final String SHARED_SUBSCRIPTION_AVAILABLE_NAME = "nukleus.mqtt.shared.subscription.available";
-    static final String NO_LOCAL_NAME = "nukleus.mqtt.no.local";
-    static final String SESSION_EXPIRY_GRACE_PERIOD_NAME = "nukleus.mqtt.session.expiry.grace.period";
-    static final String CLIENT_ID_NAME = "nukleus.mqtt.client.id";
+    public static final String PUBLISH_TIMEOUT_NAME = "nukleus.mqtt.publish.timeout";
+    public static final String CONNECT_TIMEOUT_NAME = "nukleus.mqtt.connect.timeout";
+    public static final String SESSION_EXPIRY_INTERVAL_NAME = "nukleus.mqtt.session.expiry.interval";
+    public static final String MAXIMUM_QOS_NAME = "nukleus.mqtt.maximum.qos";
+    public static final String RETAIN_AVAILABLE_NAME = "nukleus.mqtt.retain.available";
+    public static final String TOPIC_ALIAS_MAXIMUM_NAME = "nukleus.mqtt.topic.alias.maximum";
+    public static final String WILDCARD_SUBSCRIPTION_AVAILABLE_NAME = "nukleus.mqtt.wildcard.subscription.available";
+    public static final String SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME = "nukleus.mqtt.subscription.identifiers.available";
+    public static final String SHARED_SUBSCRIPTION_AVAILABLE_NAME = "nukleus.mqtt.shared.subscription.available";
+    public static final String NO_LOCAL_NAME = "nukleus.mqtt.no.local";
+    public static final String SESSION_EXPIRY_GRACE_PERIOD_NAME = "nukleus.mqtt.session.expiry.grace.period";
+    public static final String CLIENT_ID_NAME = "nukleus.mqtt.client.id";
 
     @Test
     public void shouldVerifyConstants() throws Exception

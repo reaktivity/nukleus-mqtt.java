@@ -13,8 +13,27 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.mqtt.internal.stream;
+package org.reaktivity.nukleus.mqtt.internal.config;
 
-public class MqttClientFactoryBuilder
+import static java.util.stream.Collectors.toList;
+
+import java.util.List;
+
+import org.reaktivity.reaktor.config.Options;
+import org.reaktivity.reaktor.config.Route;
+
+public final class MqttRoute extends Options
 {
+    public final long id;
+    public final List<MqttMatcher> when;
+
+    public MqttRoute(
+        Route route)
+    {
+        this.id = route.id;
+        this.when = route.when.stream()
+            .map(MqttCondition.class::cast)
+            .map(MqttMatcher::new)
+            .collect(toList());
+    }
 }

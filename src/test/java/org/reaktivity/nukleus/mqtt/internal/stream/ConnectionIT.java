@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.mqtt.internal;
+package org.reaktivity.nukleus.mqtt.internal.stream;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
@@ -26,7 +26,6 @@ import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.SHARED_
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.TOPIC_ALIAS_MAXIMUM_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.WILDCARD_SUBSCRIPTION_AVAILABLE_NAME;
-import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -37,15 +36,14 @@ import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.test.ReaktorRule;
+import org.reaktivity.reaktor.test.annotation.Configuration;
 import org.reaktivity.reaktor.test.annotation.Configure;
 
 public class ConnectionIT
 {
     private final K3poRule k3po = new K3poRule()
-        .addScriptRoot("route", "org/reaktivity/specification/nukleus/mqtt/control/route")
-        .addScriptRoot("routeExt", "org/reaktivity/specification/nukleus/mqtt/control/route.ext")
-        .addScriptRoot("client", "org/reaktivity/specification/mqtt")
-        .addScriptRoot("server", "org/reaktivity/specification/nukleus/mqtt/streams");
+        .addScriptRoot("net", "org/reaktivity/specification/nukleus/mqtt/streams/network")
+        .addScriptRoot("app", "org/reaktivity/specification/nukleus/mqtt/streams/application");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(20, SECONDS));
 
@@ -54,19 +52,19 @@ public class ConnectionIT
         .commandBufferCapacity(1024)
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(8192)
-        .nukleus("mqtt"::equals)
         .configure(PUBLISH_TIMEOUT, 5L)
         .configure(ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE, false)
-        .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
+        .configurationRoot("org/reaktivity/specification/nukleus/mqtt/config")
+        .external("app#0")
         .clean();
 
     @Rule
     public final TestRule chain = outerRule(reaktor).around(k3po).around(timeout);
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/successful/client"})
+        "${net}/connect/successful/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -77,9 +75,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/server.assigned.client.id/client"})
+        "${net}/connect/server.assigned.client.id/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -90,9 +88,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/reject.missing.client.id/client"})
+        "${net}/connect/reject.missing.client.id/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -103,9 +101,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/ping/client"})
+        "${net}/ping/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -116,9 +114,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/disconnect/client"})
+        "${net}/disconnect/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -129,10 +127,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/unsubscribe/client",
-        "${server}/subscribe.with.exact.topic.filter/server"})
+        "${net}/unsubscribe/client",
+        "${app}/subscribe.with.exact.topic.filter/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -143,10 +141,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/unsubscribe/aggregated.topic.filters.both.exact/client",
-        "${server}/subscribe.with.aggregated.topic.filters.both.exact/server"})
+        "${net}/unsubscribe/aggregated.topic.filters.both.exact/client",
+        "${app}/subscribe.with.aggregated.topic.filters.both.exact/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -157,10 +155,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.one.message/client",
-        "${server}/publish.one.message/server"})
+        "${net}/publish.one.message/client",
+        "${app}/publish.one.message/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -171,24 +169,24 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.when.topic.publish.only.json")
     @Specification({
-        "${routeExt}/publish.only/server/controller",
-        "${client}/publish.one.message/client",
-        "${server}/publish.one.message/server"})
+        "${net}/publish.one.message/client",
+        "${app}/publish.one.message/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
-    public void shouldPublishOneMessageWithRouteExtension() throws Exception
+    public void shouldPublishOneMessageViaRoute() throws Exception
     {
         k3po.finish();
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.retained/client",
-        "${server}/publish.retained/server"})
+        "${net}/publish.retained/client",
+        "${app}/publish.retained/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -199,10 +197,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.message.with.topic.alias/client",
-        "${server}/publish.message.with.topic.alias/server"})
+        "${net}/publish.message.with.topic.alias/client",
+        "${app}/publish.message.with.topic.alias/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -214,10 +212,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.multiple.messages/client",
-        "${server}/publish.multiple.messages/server"})
+        "${net}/publish.multiple.messages/client",
+        "${app}/publish.multiple.messages/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -228,10 +226,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.multiple.messages.with.delay/client",
-        "${server}/publish.multiple.messages.with.delay/server"})
+        "${net}/publish.multiple.messages.with.delay/client",
+        "${app}/publish.multiple.messages.with.delay/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -246,10 +244,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.messages.with.topic.alias.distinct/client",
-        "${server}/publish.messages.with.topic.alias.distinct/server"})
+        "${net}/publish.messages.with.topic.alias.distinct/client",
+        "${app}/publish.messages.with.topic.alias.distinct/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -261,10 +259,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.messages.with.topic.alias.repeated/client",
-        "${server}/publish.messages.with.topic.alias.repeated/server"})
+        "${net}/publish.messages.with.topic.alias.repeated/client",
+        "${app}/publish.messages.with.topic.alias.repeated/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -276,10 +274,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.messages.with.topic.alias.replaced/client",
-        "${server}/publish.messages.with.topic.alias.replaced/server"})
+        "${net}/publish.messages.with.topic.alias.replaced/client",
+        "${app}/publish.messages.with.topic.alias.replaced/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -291,10 +289,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe.one.message/client",
-        "${server}/subscribe.one.message/server"})
+        "${net}/subscribe.one.message/client",
+        "${app}/subscribe.one.message/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -305,10 +303,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.when.topic.subscribe.only.json")
     @Specification({
-        "${routeExt}/subscribe.only/server/controller",
-        "${client}/subscribe.one.message/client",
-        "${server}/subscribe.one.message/server"})
+        "${net}/subscribe.one.message/client",
+        "${app}/subscribe.one.message/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -319,10 +317,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe.one.message.then.publish.message/client",
-        "${server}/subscribe.one.message.then.publish.message/server"})
+        "${net}/subscribe.one.message.then.publish.message/client",
+        "${app}/subscribe.one.message.then.publish.message/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -333,10 +331,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe.one.message.with.null.payload/client",
-        "${server}/subscribe.one.message.with.null.payload/server"})
+        "${net}/subscribe.one.message.with.null.payload/client",
+        "${app}/subscribe.one.message.with.null.payload/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -347,10 +345,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe.fails.then.publish.message/client",
-        "${server}/subscribe.fails.then.publish.message/server"})
+        "${net}/subscribe.fails.then.publish.message/client",
+        "${app}/subscribe.fails.then.publish.message/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -361,10 +359,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.message.and.subscribe.correlated.message/client",
-        "${server}/publish.message.and.subscribe.correlated.message/server"})
+        "${net}/publish.message.and.subscribe.correlated.message/client",
+        "${app}/publish.message.and.subscribe.correlated.message/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -375,10 +373,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe.retained/client",
-        "${server}/subscribe.retained/server"})
+        "${net}/subscribe.retained/client",
+        "${app}/subscribe.retained/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -389,9 +387,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe.one.message.with.invalid.subscription.id/client"})
+        "${net}/subscribe.one.message.with.invalid.subscription.id/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -402,9 +400,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/invalid.protocol.version/client"})
+        "${net}/connect/invalid.protocol.version/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -415,9 +413,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/invalid.flags/client"})
+        "${net}/connect/invalid.flags/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -428,9 +426,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/invalid.authentication.method/client"})
+        "${net}/connect/invalid.authentication.method/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -441,9 +439,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe/invalid.fixed.header.flags/client"})
+        "${net}/subscribe/invalid.fixed.header.flags/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -454,9 +452,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe/invalid.topic.filter/client"})
+        "${net}/subscribe/invalid.topic.filter/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -467,10 +465,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/unsubscribe/invalid.fixed.header.flags/client",
-        "${server}/subscribe.with.exact.topic.filter/server"})
+        "${net}/unsubscribe/invalid.fixed.header.flags/client",
+        "${app}/subscribe.with.exact.topic.filter/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -481,9 +479,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/disconnect/invalid.fixed.header.flags/client"})
+        "${net}/disconnect/invalid.fixed.header.flags/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -494,9 +492,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/reject.second.connect/client"})
+        "${net}/connect/reject.second.connect/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -507,9 +505,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/successful.fragmented/client"})
+        "${net}/connect/successful.fragmented/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -520,10 +518,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe/single.topic.filter.exact/client",
-        "${server}/subscribe.with.exact.topic.filter/server"})
+        "${net}/subscribe/single.topic.filter.exact/client",
+        "${app}/subscribe.with.exact.topic.filter/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -534,10 +532,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe/single.topic.filter.wildcard/client",
-        "${server}/subscribe.with.wildcard.topic.filter/server"})
+        "${net}/subscribe/single.topic.filter.wildcard/client",
+        "${app}/subscribe.with.wildcard.topic.filter/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -548,10 +546,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe/aggregated.topic.filters.both.exact/client",
-        "${server}/subscribe.with.aggregated.topic.filters.both.exact/server"})
+        "${net}/subscribe/aggregated.topic.filters.both.exact/client",
+        "${app}/subscribe.with.aggregated.topic.filters.both.exact/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -562,10 +560,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe/isolated.topic.filters.both.exact/client",
-        "${server}/subscribe.with.isolated.topic.filters.both.exact/server"})
+        "${net}/subscribe/isolated.topic.filters.both.exact/client",
+        "${app}/subscribe.with.isolated.topic.filters.both.exact/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -576,10 +574,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe/aggregated.topic.filters.both.wildcard/client",
-        "${server}/subscribe.with.aggregated.topic.filters.both.wildcard/server"})
+        "${net}/subscribe/aggregated.topic.filters.both.wildcard/client",
+        "${app}/subscribe.with.aggregated.topic.filters.both.wildcard/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -590,10 +588,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe/isolated.topic.filters.both.wildcard/client",
-        "${server}/subscribe.with.isolated.topic.filters.both.wildcard/server"})
+        "${net}/subscribe/isolated.topic.filters.both.wildcard/client",
+        "${app}/subscribe.with.isolated.topic.filters.both.wildcard/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -604,10 +602,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe/aggregated.topic.filters.exact.and.wildcard/client",
-        "${server}/subscribe.with.aggregated.topic.filters.exact.and.wildcard/server"})
+        "${net}/subscribe/aggregated.topic.filters.exact.and.wildcard/client",
+        "${app}/subscribe.with.aggregated.topic.filters.exact.and.wildcard/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -618,10 +616,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe/isolated.topic.filters.exact.and.wildcard/client",
-        "${server}/subscribe.with.isolated.topic.filters.exact.and.wildcard/server"})
+        "${net}/subscribe/isolated.topic.filters.exact.and.wildcard/client",
+        "${app}/subscribe.with.isolated.topic.filters.exact.and.wildcard/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -632,9 +630,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.when.topic.publish.only.json")
     @Specification({
-        "${routeExt}/publish.only/server/controller",
-        "${client}/topic.not.routed/client"})
+        "${net}/topic.not.routed/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -645,10 +643,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.when.topic.publish.only.json")
     @Specification({
-        "${routeExt}/publish.only/server/controller",
-        "${client}/publish.rejected/client",
-        "${server}/publish.rejected/server"})
+        "${net}/publish.rejected/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -659,9 +656,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.when.topic.publish.only.json")
     @Specification({
-        "${routeExt}/publish.only/server/controller",
-        "${client}/reject.publish.when.topic.alias.exceeds.maximum/client"})
+        "${net}/reject.publish.when.topic.alias.exceeds.maximum/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -672,9 +669,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.when.topic.publish.only.json")
     @Specification({
-        "${routeExt}/publish.only/server/controller",
-        "${client}/reject.connect.when.topic.alias.maximum.repeated/client"})
+        "${net}/reject.connect.when.topic.alias.maximum.repeated/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -685,9 +682,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.when.topic.publish.only.json")
     @Specification({
-        "${routeExt}/publish.only/server/controller",
-        "${client}/reject.publish.when.topic.alias.repeated/client"})
+        "${net}/reject.publish.when.topic.alias.repeated/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -699,10 +696,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/client.sent.close/client",
-        "${server}/client.sent.abort/server"})
+        "${net}/client.sent.close/client",
+        "${app}/client.sent.abort/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -713,10 +710,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/client.sent.abort/client",
-        "${server}/client.sent.abort/server"})
+        "${net}/client.sent.abort/client",
+        "${app}/client.sent.abort/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -727,10 +724,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/client.sent.reset/client",
-        "${server}/client.sent.abort/server"})
+        "${net}/client.sent.reset/client",
+        "${app}/client.sent.abort/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -741,10 +738,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.with.user.property/client",
-        "${server}/publish.with.user.property/server"})
+        "${net}/publish.with.user.property/client",
+        "${app}/publish.with.user.property/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -755,10 +752,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.with.user.properties.distinct/client",
-        "${server}/publish.with.user.properties.distinct/server"})
+        "${net}/publish.with.user.properties.distinct/client",
+        "${app}/publish.with.user.properties.distinct/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -769,10 +766,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.with.user.properties.repeated/client",
-        "${server}/publish.with.user.properties.repeated/server"})
+        "${net}/publish.with.user.properties.repeated/client",
+        "${app}/publish.with.user.properties.repeated/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -783,9 +780,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/disconnect.after.keep.alive.timeout/client"})
+        "${net}/disconnect.after.keep.alive.timeout/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -798,10 +795,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/keep.alive.with.pingreq/client",
-        "${server}/subscribe.with.exact.topic.filter/server"})
+        "${net}/keep.alive.with.pingreq/client",
+        "${app}/subscribe.with.exact.topic.filter/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -812,9 +809,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/timeout.before.connect/client"})
+        "${net}/timeout.before.connect/client"})
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldTimeoutBeforeConnect() throws Exception
     {
@@ -822,10 +819,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe.retain.as.published/client",
-        "${server}/subscribe.retain.as.published/server"})
+        "${net}/subscribe.retain.as.published/client",
+        "${app}/subscribe.retain.as.published/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -836,10 +833,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe.ignore.retain.as.published/client",
-        "${server}/subscribe.ignore.retain.as.published/server"})
+        "${net}/subscribe.ignore.retain.as.published/client",
+        "${app}/subscribe.ignore.retain.as.published/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -850,10 +847,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.empty.retained.message/client",
-        "${server}/publish.empty.retained.message/server"})
+        "${net}/publish.empty.retained.message/client",
+        "${app}/publish.empty.retained.message/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -864,10 +861,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.empty.message/client",
-        "${server}/publish.empty.message/server"})
+        "${net}/publish.empty.message/client",
+        "${app}/publish.empty.message/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -878,9 +875,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/maximum.qos.0/client"})
+        "${net}/connect/maximum.qos.0/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
@@ -890,9 +887,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/retain.unavailable/client"})
+        "${net}/connect/retain.unavailable/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = RETAIN_AVAILABLE_NAME, value = "false")
@@ -904,9 +901,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/wildcard.subscriptions.unavailable/client"})
+        "${net}/connect/wildcard.subscriptions.unavailable/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "false")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -917,9 +914,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/subscription.identifiers.unavailable/client"})
+        "${net}/connect/subscription.identifiers.unavailable/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SUBSCRIPTION_IDENTIFIERS_AVAILABLE_NAME, value = "false")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
@@ -931,9 +928,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/shared.subscriptions.unavailable/client"})
+        "${net}/connect/shared.subscriptions.unavailable/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
@@ -943,9 +940,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/reject.username/client"})
+        "${net}/connect/reject.username/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -956,9 +953,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/reject.password/client"})
+        "${net}/connect/reject.password/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -969,9 +966,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/reject.invalid.will.qos/client"})
+        "${net}/connect/reject.invalid.will.qos/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -982,9 +979,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/reject.will.qos.1.without.will.flag/client"})
+        "${net}/connect/reject.will.qos.1.without.will.flag/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -995,9 +992,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/reject.will.qos.2.without.will.flag/client"})
+        "${net}/connect/reject.will.qos.2.without.will.flag/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1008,9 +1005,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect/reject.will.retain.without.will.flag/client"})
+        "${net}/connect/reject.will.retain.without.will.flag/client"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1021,9 +1018,9 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe/reject.no.local/client"})
+        "${net}/subscribe/reject.no.local/client"})
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
@@ -1034,10 +1031,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.when.topic.or.sessions.json")
     @Specification({
-        "${routeExt}/session/server/controller",
-        "${client}/connect/will.message.with.abrupt.disconnect/client",
-        "${server}/publish.session.data/server"})
+        "${net}/connect/will.message.with.abrupt.disconnect/client",
+        "${app}/publish.session.data/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1048,10 +1045,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.when.topic.or.sessions.json")
     @Specification({
-        "${routeExt}/session/server/controller",
-        "${client}/connect/will.message.with.normal.disconnect/client",
-        "${server}/unpublished.will.message/server"})
+        "${net}/connect/will.message.with.normal.disconnect/client",
+        "${app}/unpublished.will.message/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1062,10 +1059,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.then.subscribe.one.message/client",
-        "${server}/publish.then.subscribe.one.message/server"})
+        "${net}/publish.then.subscribe.one.message/client",
+        "${app}/publish.then.subscribe.one.message/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1076,10 +1073,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe.then.publish.no.local/client",
-        "${server}/subscribe.then.publish.no.local/server"})
+        "${net}/subscribe.then.publish.no.local/client",
+        "${app}/subscribe.then.publish.no.local/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1090,10 +1087,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/publish.then.subscribe.no.local/client",
-        "${server}/publish.then.subscribe.no.local/server"})
+        "${net}/publish.then.subscribe.no.local/client",
+        "${app}/publish.then.subscribe.no.local/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1104,10 +1101,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe.to.will.topic/client",
-        "${server}/subscribe.to.will.topic/server"})
+        "${net}/subscribe.to.will.topic/client",
+        "${app}/subscribe.to.will.topic/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1118,10 +1115,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/connect.with.will.message.then.publish.one.message/client",
-        "${server}/connect.with.will.message.then.publish.one.message/server"})
+        "${net}/connect.with.will.message.then.publish.one.message/client",
+        "${app}/connect.with.will.message.then.publish.one.message/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1132,10 +1129,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.json")
     @Specification({
-        "${route}/server/controller",
-        "${client}/subscribe/messages.aggregated.topic.filters.both.exact/client",
-        "${server}/subscribe.messages.with.aggregated.topic.filters.both.exact/server"})
+        "${net}/subscribe/messages.aggregated.topic.filters.both.exact/client",
+        "${app}/subscribe.messages.with.aggregated.topic.filters.both.exact/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
@@ -1146,10 +1143,10 @@ public class ConnectionIT
     }
 
     @Test
+    @Configuration("server.when.topic.or.sessions.json")
     @Specification({
-        "${routeExt}/session/server/controller",
-        "${client}/connect.with.session.expiry/client",
-        "${server}/connect.with.session.expiry/server"})
+        "${net}/connect.with.session.expiry/client",
+        "${app}/connect.with.session.expiry/server"})
     @Configure(name = WILDCARD_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = SHARED_SUBSCRIPTION_AVAILABLE_NAME, value = "true")
     @Configure(name = MAXIMUM_QOS_NAME, value = "2")
