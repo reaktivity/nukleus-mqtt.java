@@ -18,6 +18,7 @@ package org.reaktivity.nukleus.mqtt.internal.stream;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfiguration.PUBLISH_TIMEOUT;
+import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.CONNECT_TIMEOUT_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.MAXIMUM_QOS_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.NO_LOCAL_NAME;
 import static org.reaktivity.nukleus.mqtt.internal.MqttConfigurationTest.RETAIN_AVAILABLE_NAME;
@@ -52,7 +53,7 @@ public class ConnectionIT
         .commandBufferCapacity(1024)
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(8192)
-        .configure(PUBLISH_TIMEOUT, 5L)
+        .configure(PUBLISH_TIMEOUT, 1L)
         .configure(ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE, false)
         .configurationRoot("org/reaktivity/specification/nukleus/mqtt/config")
         .external("app#0")
@@ -238,7 +239,7 @@ public class ConnectionIT
     {
         k3po.start();
         k3po.awaitBarrier("PUBLISHED_MESSAGE_TWO");
-        Thread.sleep(6000);
+        Thread.sleep(1500);
         k3po.notifyBarrier("PUBLISH_MESSAGE_THREE");
         k3po.finish();
     }
@@ -789,8 +790,6 @@ public class ConnectionIT
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
     public void shouldDisconnectClientAfterKeepAliveTimeout() throws Exception
     {
-        k3po.start();
-        Thread.sleep(15000);
         k3po.finish();
     }
 
@@ -813,6 +812,7 @@ public class ConnectionIT
     @Specification({
         "${net}/timeout.before.connect/client"})
     @Configure(name = SESSION_EXPIRY_INTERVAL_NAME, value = "0")
+    @Configure(name = CONNECT_TIMEOUT_NAME, value = "1")
     public void shouldTimeoutBeforeConnect() throws Exception
     {
         k3po.finish();
