@@ -92,6 +92,12 @@ public final class MqttState
         return openingReply(state) | REPLY_OPENED;
     }
 
+    static boolean replyOpening(
+        int state)
+    {
+        return (state & REPLY_OPENING) != 0;
+    }
+
     static boolean replyOpened(
         int state)
     {

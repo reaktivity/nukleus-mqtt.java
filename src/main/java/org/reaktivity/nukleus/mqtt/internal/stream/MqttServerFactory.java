@@ -2545,7 +2545,7 @@ public final class MqttServerFactory implements MqttStreamFactory
                     decodeAck = initialAckMax;
                     assert decodeAck <= decodeSeq;
 
-                    doNetworkWindow(traceId, authorization, 0, budgetId, 0, decodeMax);
+                    doNetworkWindow(traceId, authorization, 0, budgetId, decodeSlotReserved, decodeMax);
                 }
             }
         }
@@ -3034,6 +3034,8 @@ public final class MqttServerFactory implements MqttStreamFactory
 
                     if (subscription.acknowledged())
                     {
+                        doApplicationWindowIfNecessary(traceId, authorization);
+
                         for (int topicKey : subscription.topicKeys)
                         {
                             if (topicKey != this.topicKey)
@@ -3142,7 +3144,7 @@ public final class MqttServerFactory implements MqttStreamFactory
             private void onApplicationBegin(
                 BeginFW begin)
             {
-                state = MqttState.openReply(state);
+                state = MqttState.openingReply(state);
 
                 final long traceId = begin.traceId();
                 final long authorization = begin.authorization();
@@ -3160,6 +3162,10 @@ public final class MqttServerFactory implements MqttStreamFactory
                             doApplicationWindowIfNecessary(traceId, authorization);
                             acknowledged = true;
                         }
+                    }
+                    else
+                    {
+                        doApplicationWindow(traceId, authorization, 0, replyMax);
                     }
                 }
             }
@@ -3192,7 +3198,7 @@ public final class MqttServerFactory implements MqttStreamFactory
                 }
                 else
                 {
-                    if (payload != null)
+                    if (payload != null && subscription != null)
                     {
                         doEncodePublish(traceId, authorization, flags, subscribeFlags, subscription.id, subscription,
                             topicFilter, payload, extension);
@@ -3246,7 +3252,7 @@ public final class MqttServerFactory implements MqttStreamFactory
                 long traceId,
                 long authorization)
             {
-                if (MqttState.replyOpened(state))
+                if (MqttState.replyOpening(state))
                 {
                     doApplicationWindow(traceId, authorization, encodeSlotOffset, encodeBudgetMax);
                 }
