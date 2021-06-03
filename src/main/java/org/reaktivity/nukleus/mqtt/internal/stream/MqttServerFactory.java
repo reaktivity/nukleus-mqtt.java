@@ -317,6 +317,7 @@ public final class MqttServerFactory implements MqttStreamFactory
     private final BufferPool bufferPool;
     private final BudgetCreditor creditor;
     private final Signaler signaler;
+    private final MessageConsumer droppedHandler;
     private final StreamFactory streamFactory;
     private final LongUnaryOperator supplyInitialId;
     private final LongUnaryOperator supplyReplyId;
@@ -362,6 +363,7 @@ public final class MqttServerFactory implements MqttStreamFactory
         this.bufferPool = context.bufferPool();
         this.creditor = context.creditor();
         this.signaler = context.signaler();
+        this.droppedHandler = context.droppedFrameHandler();
         this.streamFactory = context.streamFactory();
         this.supplyDebitor = context::supplyDebitor;
         this.supplyInitialId = context::supplyInitialId;
@@ -837,6 +839,8 @@ public final class MqttServerFactory implements MqttStreamFactory
 
                 publisher.ensurePublishCapability(traceId, authorization);
 
+                server.decodePublisherKey = topicKey;
+
                 final OctetsFW payload = publish.payload();
                 final int payloadSize = payload.sizeof();
 
@@ -854,14 +858,9 @@ public final class MqttServerFactory implements MqttStreamFactory
                 if (canPublish && (reserved != 0 || payloadSize == 0))
                 {
                     server.onDecodePublish(traceId, authorization, reserved, flags, payload);
-                    server.decodePublisherKey = 0;
                     server.decodeablePacketBytes = 0;
                     server.decoder = decodePacketType;
                     progress = publish.limit();
-                }
-                else
-                {
-                    server.decodePublisherKey = topicKey;
                 }
             }
             else
@@ -1785,7 +1784,10 @@ public final class MqttServerFactory implements MqttStreamFactory
             userProperties.forEach(c -> builder.propertiesItem(p -> p.key(c.key()).value(c.value())));
 
             final MqttDataExFW dataEx = builder.build();
-            stream.doApplicationData(traceId, authorization, reserved, payload, dataEx);
+            if (stream != null)
+            {
+                stream.doApplicationData(traceId, authorization, reserved, payload, dataEx);
+            }
         }
 
         private void onDecodeSubscribe(
@@ -2537,16 +2539,7 @@ public final class MqttServerFactory implements MqttStreamFactory
 
             if (!MqttState.initialClosed(state))
             {
-                final int decoded = reserved - decodeSlotReserved;
-
-                final long initialAckMax = Math.min(decodeAck + decoded, decodeSeq);
-                if (initialAckMax > decodeAck)
-                {
-                    decodeAck = initialAckMax;
-                    assert decodeAck <= decodeSeq;
-
-                    doNetworkWindow(traceId, authorization, 0, budgetId, decodeSlotReserved, decodeMax);
-                }
+                doNetworkWindow(traceId, authorization, 0, budgetId, decodeSlotReserved, decodeMax);
             }
         }
 
@@ -3202,6 +3195,10 @@ public final class MqttServerFactory implements MqttStreamFactory
                     {
                         doEncodePublish(traceId, authorization, flags, subscribeFlags, subscription.id, subscription,
                             topicFilter, payload, extension);
+                    }
+                    else
+                    {
+                        droppedHandler.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
                     }
                     doApplicationWindowIfNecessary(traceId, authorization);
                 }
