@@ -15,7 +15,8 @@
  */
 package org.reaktivity.nukleus.mqtt.internal;
 
-import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.reaktor.nukleus.ElektronContext;
+import org.reaktivity.reaktor.nukleus.Nukleus;
 
 public final class MqttNukleus implements Nukleus
 {
@@ -42,8 +43,9 @@ public final class MqttNukleus implements Nukleus
     }
 
     @Override
-    public MqttElektron supplyElektron()
+    public MqttElektron supplyElektron(
+        ElektronContext context)
     {
-        return new MqttElektron(config);
+        return new MqttElektron(config, context);
     }
 }

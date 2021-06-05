@@ -17,7 +17,7 @@ package org.reaktivity.nukleus.mqtt.internal;
 
 import java.util.concurrent.TimeUnit;
 
-import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.reaktor.nukleus.Configuration;
 
 public class MqttConfiguration extends Configuration
 {

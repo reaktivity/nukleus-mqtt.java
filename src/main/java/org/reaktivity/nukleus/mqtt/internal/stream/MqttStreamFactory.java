@@ -13,13 +13,16 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.nukleus.mqtt
+package org.reaktivity.nukleus.mqtt.internal.stream;
+
+import org.reaktivity.reaktor.config.Binding;
+import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
+
+public interface MqttStreamFactory extends StreamFactory
 {
-    requires org.reaktivity.reaktor;
+    void attach(
+        Binding binding);
 
-    provides org.reaktivity.reaktor.nukleus.NukleusFactorySpi
-        with org.reaktivity.nukleus.mqtt.internal.MqttNukleusFactorySpi;
-
-    provides org.reaktivity.reaktor.config.ConditionAdapterSpi
-        with org.reaktivity.nukleus.mqtt.internal.config.MqttConditionAdapter;
+    void detach(
+        long bindingId);
 }
