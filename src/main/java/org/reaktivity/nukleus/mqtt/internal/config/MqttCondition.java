@@ -13,13 +13,21 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.nukleus.mqtt
+package org.reaktivity.nukleus.mqtt.internal.config;
+
+import org.reaktivity.nukleus.mqtt.internal.types.MqttCapabilities;
+import org.reaktivity.reaktor.config.Condition;
+
+public final class MqttCondition extends Condition
 {
-    requires org.reaktivity.reaktor;
+    public final String topic;
+    public final MqttCapabilities capabilities;
 
-    provides org.reaktivity.reaktor.nukleus.NukleusFactorySpi
-        with org.reaktivity.nukleus.mqtt.internal.MqttNukleusFactorySpi;
-
-    provides org.reaktivity.reaktor.config.ConditionAdapterSpi
-        with org.reaktivity.nukleus.mqtt.internal.config.MqttConditionAdapter;
+    public MqttCondition(
+        String topic,
+        MqttCapabilities capabilities)
+    {
+        this.topic = topic;
+        this.capabilities = capabilities;
+    }
 }

@@ -15,39 +15,62 @@
  */
 package org.reaktivity.nukleus.mqtt.internal;
 
-import static org.reaktivity.nukleus.route.RouteKind.SERVER;
+import static org.reaktivity.reaktor.config.Role.SERVER;
 
 import java.util.EnumMap;
 import java.util.Map;
 
-import org.reaktivity.nukleus.Elektron;
-import org.reaktivity.nukleus.mqtt.internal.stream.MqttServerFactoryBuilder;
-import org.reaktivity.nukleus.route.RouteKind;
-import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
+import org.reaktivity.nukleus.mqtt.internal.stream.MqttServerFactory;
+import org.reaktivity.nukleus.mqtt.internal.stream.MqttStreamFactory;
+import org.reaktivity.reaktor.config.Binding;
+import org.reaktivity.reaktor.config.Role;
+import org.reaktivity.reaktor.nukleus.Elektron;
+import org.reaktivity.reaktor.nukleus.ElektronContext;
+import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
 
 final class MqttElektron implements Elektron
 {
-    private final Map<RouteKind, StreamFactoryBuilder> buildersByKind;
+    private final Map<Role, MqttStreamFactory> factories;
 
     MqttElektron(
-        MqttConfiguration config)
+        MqttConfiguration config,
+        ElektronContext context)
     {
-        final EnumMap<RouteKind, StreamFactoryBuilder> buildersByKind = new EnumMap<>(RouteKind.class);
-        buildersByKind.put(SERVER, new MqttServerFactoryBuilder(config));
-        /*buildersByKind.put(CLIENT, new MqttClientFactoryBuilder(config));*/
-        this.buildersByKind = buildersByKind;
+        final EnumMap<Role, MqttStreamFactory> factories = new EnumMap<>(Role.class);
+        factories.put(SERVER, new MqttServerFactory(config, context));
+        //factories.put(CLIENT, new MqttClientFactory(config, context));
+        this.factories = factories;
     }
 
     @Override
-    public StreamFactoryBuilder streamFactoryBuilder(
-        RouteKind kind)
+    public StreamFactory attach(
+        Binding binding)
     {
-        return buildersByKind.get(kind);
+        MqttStreamFactory factory = factories.get(binding.kind);
+
+        if (factory != null)
+        {
+            factory.attach(binding);
+        }
+
+        return factory;
+    }
+
+    @Override
+    public void detach(
+        Binding binding)
+    {
+        MqttStreamFactory factory = factories.get(binding.kind);
+
+        if (factory != null)
+        {
+            factory.detach(binding.id);
+        }
     }
 
     @Override
     public String toString()
     {
-        return String.format("%s %s", getClass().getSimpleName(), buildersByKind);
+        return String.format("%s %s", getClass().getSimpleName(), factories);
     }
 }
