@@ -60,8 +60,8 @@
 
     <nukleus.plugin.version>0.86</nukleus.plugin.version>
 
-    <nukleus.mqtt.spec.version>develop-SNAPSHOT</nukleus.mqtt.spec.version>
-    <reaktor.version>develop-SNAPSHOT</reaktor.version>
+    <nukleus.mqtt.spec.version>0.62</nukleus.mqtt.spec.version>
+    <reaktor.version>0.166</reaktor.version>
   </properties>
 
   <dependencies>
